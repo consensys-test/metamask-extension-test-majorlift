@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { FC } from 'react';
 import { Box } from '../../component-library';
 import { NftItem } from '../nft-item';
 import {
@@ -24,12 +24,12 @@ export type NotificationDetailNftProps = {
  * @param props.networkName - The name of the network.
  * @returns The NotificationDetailNft component.
  */
-export const NotificationDetailNft = ({
+export const NotificationDetailNft: FC<NotificationDetailNftProps> = ({
   networkSrc,
   tokenName,
   tokenSrc,
   networkName,
-}: NotificationDetailNftProps) => (
+}) => (
   <Box
     paddingTop={1}
     paddingBottom={4}

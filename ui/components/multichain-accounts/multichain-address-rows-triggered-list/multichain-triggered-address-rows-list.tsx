@@ -33,7 +33,8 @@ import {
 import { MULTICHAIN_ACCOUNT_ADDRESS_LIST_PAGE_ROUTE } from '../../../helpers/constants/routes';
 import { selectBalanceForAllWallets } from '../../../selectors/assets';
 import { useFormatters } from '../../../hooks/useFormatters';
-import { normalizeSafeAddress } from '../../../../shared/lib/multichain/address';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { normalizeSafeAddress } from '../../../../app/scripts/lib/multichain/address';
 import { MultichainAggregatedAddressListRow } from './multichain-aggregated-list-row';
 import { DefaultAddress } from './default-address';
 
@@ -326,7 +327,7 @@ export const MultichainTriggeredAddressRowsList = ({
         account: InternalAccount;
       },
       index: number,
-    ): JSX.Element => {
+    ): React.JSX.Element => {
       const handleCopyClick = () => {
         handleCopy(normalizeSafeAddress(item.account.address));
       };

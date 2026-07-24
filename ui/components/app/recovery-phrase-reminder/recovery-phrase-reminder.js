@@ -1,21 +1,21 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  BoxAlignItems,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 // Helpers
 import {
-  AlignItems,
   TextAlign,
   TextVariant,
+  AlignItems,
+  Display,
+  FlexDirection,
+  BlockSize,
+  JustifyContent,
   TextColor,
 } from '../../../helpers/constants/design-system';
 import { ONBOARDING_REVEAL_SRP_ROUTE } from '../../../helpers/constants/routes';
 import {
+  Box,
   ButtonLink,
   ButtonLinkSize,
   ButtonPrimary,
@@ -44,8 +44,9 @@ export default function RecoveryPhraseReminder({ onConfirm }) {
       <ModalContent alignItems={AlignItems.center}>
         <ModalHeader onClose={onConfirm}>
           <Box
-            className="flex flex-col"
-            alignItems={BoxAlignItems.Center}
+            display={Display.Flex}
+            flexDirection={FlexDirection.Column}
+            alignItems={AlignItems.center}
             gap={4}
           >
             <Text variant={TextVariant.headingSm} textAlign={TextAlign.Center}>
@@ -55,9 +56,10 @@ export default function RecoveryPhraseReminder({ onConfirm }) {
         </ModalHeader>
         <ModalBody>
           <Box
-            className="flex w-full"
-            alignItems={BoxAlignItems.Center}
-            justifyContent={BoxJustifyContent.Center}
+            width={BlockSize.Full}
+            display={Display.Flex}
+            alignItems={AlignItems.center}
+            justifyContent={JustifyContent.center}
             marginBottom={4}
           >
             <img
@@ -72,7 +74,11 @@ export default function RecoveryPhraseReminder({ onConfirm }) {
           </Text>
         </ModalBody>
         <ModalFooter>
-          <Box className="flex flex-col" gap={2}>
+          <Box
+            display={Display.Flex}
+            flexDirection={FlexDirection.Column}
+            gap={2}
+          >
             <ButtonPrimary size={ButtonSize.Lg} block onClick={handleBackUp}>
               {t('recoveryPhraseReminderBackupStart')}
             </ButtonPrimary>

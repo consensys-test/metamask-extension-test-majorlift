@@ -15,10 +15,10 @@ import {
 describe('MetaMetricsDataDeletionController', () => {
   describe('createMetaMetricsDataDeletionTask', () => {
     it('creates a data deletion task and stores ID when user is participating in metrics tracking', async () => {
-      const mockAnalyticsId = 'mockId';
+      const mockMetaMetricsId = 'mockId';
       const mockTaskId = 'mockTaskId';
       const { controller, dataDeletionService } = setupController({
-        analyticsId: mockAnalyticsId,
+        metaMetricsId: mockMetaMetricsId,
         options: {
           dataDeletionService: {
             name: 'DataDeletionService' as const,
@@ -35,7 +35,7 @@ describe('MetaMetricsDataDeletionController', () => {
       await controller.createMetaMetricsDataDeletionTask();
       expect(
         dataDeletionService.createDataDeletionRegulationTask,
-      ).toHaveBeenCalledWith(mockAnalyticsId);
+      ).toHaveBeenCalledWith(mockMetaMetricsId);
       expect(
         dataDeletionService.createDataDeletionRegulationTask,
       ).toHaveBeenCalledTimes(1);
@@ -49,10 +49,10 @@ describe('MetaMetricsDataDeletionController', () => {
       });
     });
     it('creates a data deletion task and stores ID when user is not currently participating in metrics tracking', async () => {
-      const mockAnalyticsId = 'mockId';
+      const mockMetaMetricsId = 'mockId';
       const mockTaskId = 'mockTaskId';
       const { controller, dataDeletionService } = setupController({
-        analyticsId: mockAnalyticsId,
+        metaMetricsId: mockMetaMetricsId,
         options: {
           dataDeletionService: {
             name: 'DataDeletionService' as const,
@@ -76,7 +76,7 @@ describe('MetaMetricsDataDeletionController', () => {
       ).toHaveBeenCalledTimes(1);
       expect(
         dataDeletionService.createDataDeletionRegulationTask,
-      ).toHaveBeenCalledWith(mockAnalyticsId);
+      ).toHaveBeenCalledWith(mockMetaMetricsId);
       expect(controller.state).toStrictEqual({
         metaMetricsDataDeletionId: mockTaskId,
         metaMetricsDataDeletionTimestamp: expect.any(Number),
@@ -86,7 +86,7 @@ describe('MetaMetricsDataDeletionController', () => {
 
     it('fails to creates a data deletion task when user has never participating in metrics tracking', async () => {
       const { controller } = setupController({
-        analyticsId: null,
+        metaMetricsId: null,
       });
       await expect(
         controller.createMetaMetricsDataDeletionTask(),
@@ -99,10 +99,10 @@ describe('MetaMetricsDataDeletionController', () => {
   });
   describe('updateDataDeletionTaskStatus', () => {
     it('fetches and stores status of the delete regulation using delete regulation ID', async () => {
-      const mockAnalyticsId = 'mockId';
+      const mockMetaMetricsId = 'mockId';
       const mockTaskId = 'mockTaskId';
       const { controller, dataDeletionService } = setupController({
-        analyticsId: mockAnalyticsId,
+        metaMetricsId: mockMetaMetricsId,
         options: {
           dataDeletionService: {
             name: 'DataDeletionService' as const,
@@ -245,17 +245,17 @@ type RootMessenger = Messenger<
  *
  * @param options - Setup options.
  * @param options.options - Controller constructor options.
- * @param options.analyticsId - The analytics ID to use.
+ * @param options.metaMetricsId - The MetaMetrics ID to use.
  * @returns The test controller, a messenger instance, and related mocks.
  */
 function setupController({
   options,
-  analyticsId,
+  metaMetricsId,
 }: {
   options?: Partial<
     ConstructorParameters<typeof MetaMetricsDataDeletionController>[0]
   >;
-  analyticsId?: string | null;
+  metaMetricsId?: string | null;
 } = {}): {
   controller: MetaMetricsDataDeletionController;
   dataDeletionService: ConstructorParameters<
@@ -267,8 +267,8 @@ function setupController({
     namespace: MOCK_ANY_NAMESPACE,
   });
   messenger.registerActionHandler(
-    'AnalyticsController:getState',
-    jest.fn().mockReturnValue({ analyticsId }),
+    'MetaMetricsController:getState',
+    jest.fn().mockReturnValue({ metaMetricsId }),
   );
   const mockCreateDataDeletionRegulationTaskResponse = 'mockRegulateId';
   const mockFetchDeletionRegulationStatusResponse = 'UNKNOWN';
@@ -293,10 +293,11 @@ function setupController({
   });
   messenger.delegate({
     messenger: controllerMessenger,
-    actions: ['AnalyticsController:getState'],
+    actions: ['MetaMetricsController:getState'],
   });
   const constructorOptions = {
     dataDeletionService: mockDataDeletionService,
+    getMetaMetricsId: jest.fn().mockReturnValue('mockMetaMetricsId'),
     messenger: controllerMessenger,
     ...options,
   };

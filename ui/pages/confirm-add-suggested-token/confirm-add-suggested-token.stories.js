@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import React from 'react';
 import { Provider } from 'react-redux';
 import { pendingTokenApprovals as mockPendingTokenApprovals } from '../../../.storybook/initial-states/approval-screens/add-suggested-token';

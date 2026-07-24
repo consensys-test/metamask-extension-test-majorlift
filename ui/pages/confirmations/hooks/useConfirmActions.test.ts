@@ -81,31 +81,24 @@ describe('useConfirmActions', () => {
     expect(mockNavigateBackIfSend).not.toHaveBeenCalled();
   });
 
-  // TAT-3131: navigating back from a transient wallet-initiated confirmation
-  // (perpsDeposit / perpsWithdraw / musdClaim) must REPLACE the confirmation
-  // history entry, not push on top of it. Pushing left a phantom
-  // confirm-transaction entry that broke Perps order-screen back navigation
-  // (double-tap) and post-trade navigation.
-  it('navigates to goBackTo with replace when navigateBackToPreviousPage is true', async () => {
+  it('navigates to goBackTo when navigateBackToPreviousPage is true', async () => {
     mockDispatch.mockResolvedValue(undefined);
     const result = renderHook('/?goBackTo=%2Fasset%2F0x1%2F0xabc');
     await result.onCancel({
       location: 'dummy',
       navigateBackToPreviousPage: true,
     });
-    expect(mockNavigate).toHaveBeenCalledWith('/asset/0x1/0xabc', {
-      replace: true,
-    });
+    expect(mockNavigate).toHaveBeenCalledWith('/asset/0x1/0xabc');
   });
 
-  it('navigates to DEFAULT_ROUTE with replace when navigateBackToPreviousPage is true but no goBackTo', async () => {
+  it('navigates to DEFAULT_ROUTE when navigateBackToPreviousPage is true but no goBackTo', async () => {
     mockDispatch.mockResolvedValue(undefined);
     const result = renderHook();
     await result.onCancel({
       location: 'dummy',
       navigateBackToPreviousPage: true,
     });
-    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
   it('does not navigate back by default', async () => {

@@ -1,11 +1,10 @@
 import { Suite } from 'mocha';
 import { withFixtures } from '../../helpers';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
-import ActivityTab from '../../page-objects/pages/home/activity-tab';
+import ActivityList from '../../page-objects/pages/home/activity-list';
 import HomePage from '../../page-objects/pages/home/homepage';
 import SettingsPage from '../../page-objects/pages/settings/settings-page';
 import { login } from '../../page-objects/flows/login.flow';
-import { closeSettings } from '../../page-objects/flows/settings.flow';
 
 describe('Clear account activity', function (this: Suite) {
   // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,9 +26,9 @@ describe('Clear account activity', function (this: Suite) {
         // Check local "Sent" transaction history is displayed
         const homePage = new HomePage(driver);
         await homePage.goToActivityList();
-        const activityTab = new ActivityTab(driver);
-        await activityTab.checkTxAction({
-          action: 'Sent ETH',
+        const activityList = new ActivityList(driver);
+        await activityList.checkTxAction({
+          action: 'Sent',
           confirmedTx: 1,
         });
 
@@ -40,9 +39,9 @@ describe('Clear account activity', function (this: Suite) {
         await settingsPage.goToDeveloperOptions();
         await settingsPage.clickDeveloperOptionsDeleteActivityAndNonceData();
         await settingsPage.confirmDeleteActivityAndNonceModal();
-        await closeSettings(driver);
+        await settingsPage.clickBackButton();
 
-        await activityTab.checkNoTxInActivity();
+        await activityList.checkNoTxInActivity();
       },
     );
   });

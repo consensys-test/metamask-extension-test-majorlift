@@ -1,5 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   twMerge,
   TextVariant,
@@ -10,28 +9,22 @@ import {
   IconName,
   IconSize,
   Text,
-  SensitiveText,
   BoxFlexDirection,
   BoxJustifyContent,
   BoxAlignItems,
   FontWeight,
   ButtonBase,
 } from '@metamask/design-system-react';
-import type { Position } from '@metamask/perps-controller';
 import {
   formatPerpsFiat,
   PRICE_RANGES_MINIMAL_VIEW,
 } from '../../../../../shared/lib/perps-formatters';
-import { getPreferences } from '../../../../../shared/lib/selectors/preferences';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 import { useFormatters } from '../../../../hooks/useFormatters';
 import { usePerpsEligibility } from '../../../../hooks/perps';
 import { usePerpsLiveAccount } from '../../../../hooks/perps/stream';
-import { useSelectedAccountComplianceGate } from '../../compliance';
 import { PerpsGeoBlockModal } from '../perps-geo-block-modal';
 import { PerpsControlBarSkeleton } from '../perps-skeletons';
-import { useOnClickOutside } from '../hooks/useClickOutside';
-import { getPrivacyAwareColor } from '../utils';
 
 /** Handler from perps triggers (e.g. deposit / withdraw); may return a Promise. */
 export type PerpsBalanceActionHandler = () => void | Promise<unknown>;
@@ -54,8 +47,6 @@ export function invokePerpsBalanceAction(
 export type PerpsBalanceDropdownProps = {
   /** Whether the user has open positions (controls P&L row visibility) */
   hasPositions?: boolean;
-  /** The only open position, used to keep single-position RoE synced with the card */
-  singlePosition?: Position;
   /** Callback when Add funds button is pressed */
   onAddFunds?: PerpsBalanceActionHandler;
   /** Callback when Withdraw button is pressed */
@@ -70,11 +61,9 @@ export type PerpsBalanceDropdownProps = {
  * @param options0.hasPositions - Whether the user has open positions (controls P&L row visibility)
  * @param options0.onAddFunds - Callback when Add funds button is pressed
  * @param options0.onWithdraw - Callback when Withdraw button is pressed
- * @param options0.singlePosition - The only open position, if exactly one is open
  */
 export const PerpsBalanceDropdown: React.FC<PerpsBalanceDropdownProps> = ({
   hasPositions = false,
-  singlePosition,
   onAddFunds,
   onWithdraw,
 }) => {
@@ -82,53 +71,37 @@ export const PerpsBalanceDropdown: React.FC<PerpsBalanceDropdownProps> = ({
   const { account, isInitialLoading } = usePerpsLiveAccount();
   const { formatPercentWithMinThreshold } = useFormatters();
   const { isEligible } = usePerpsEligibility();
-  const { gate } = useSelectedAccountComplianceGate();
-  const { privacyMode } = useSelector(getPreferences);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isGeoBlockModalOpen, setIsGeoBlockModalOpen] = useState(false);
 
   const totalBalance = account?.totalBalance ?? '0';
   const unrealizedPnl = account?.unrealizedPnl ?? '0';
-  const singlePositionReturnOnEquity = singlePosition?.returnOnEquity;
-  const accountReturnOnEquity = account?.returnOnEquity ?? '0';
+  const returnOnEquity = account?.returnOnEquity ?? '0';
 
   // totalBalance is HL accountValue (perps equity, already includes unrealizedPnl) + spot
-  const accountValue = Number.parseFloat(totalBalance);
+  const accountValue = parseFloat(totalBalance);
 
-  const pnlNum = Number.parseFloat(unrealizedPnl);
+  const pnlNum = parseFloat(unrealizedPnl);
   const isProfit = pnlNum >= 0;
   const pnlPrefix = isProfit ? '+' : '-';
-  const pnlColor = getPrivacyAwareColor(
-    isProfit ? TextColor.SuccessDefault : TextColor.ErrorDefault,
-    privacyMode,
-  );
   const formattedPnl = `${pnlPrefix}${formatPerpsFiat(Math.abs(pnlNum), {
     ranges: PRICE_RANGES_MINIMAL_VIEW,
   })}`;
-  const formattedRoe =
-    singlePositionReturnOnEquity === undefined
-      ? formatPercentWithMinThreshold(
-          Number.parseFloat(accountReturnOnEquity) / 100,
-        )
-      : formatPercentWithMinThreshold(
-          Number.parseFloat(singlePositionReturnOnEquity),
-        );
+  const formattedRoe = formatPercentWithMinThreshold(
+    parseFloat(returnOnEquity) / 100,
+  );
 
   const handleToggleDropdown = useCallback(() => {
     setIsDropdownOpen((prev) => !prev);
   }, []);
 
   const handleAddFunds = useCallback(() => {
-    gate(() => {
-      if (!isEligible) {
-        setIsGeoBlockModalOpen(true);
-        return;
-      }
-      invokePerpsBalanceAction(onAddFunds);
-    }).catch((error: unknown) => {
-      console.error(error);
-    });
-  }, [gate, isEligible, onAddFunds]);
+    if (!isEligible) {
+      setIsGeoBlockModalOpen(true);
+      return;
+    }
+    invokePerpsBalanceAction(onAddFunds);
+  }, [isEligible, onAddFunds]);
 
   const handleWithdraw = useCallback(() => {
     invokePerpsBalanceAction(onWithdraw);
@@ -137,11 +110,21 @@ export const PerpsBalanceDropdown: React.FC<PerpsBalanceDropdownProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
-  useOnClickOutside({
-    containerRef,
-    onClickOutside: () => setIsDropdownOpen(false),
-    active: isDropdownOpen,
-  });
+  useEffect(() => {
+    if (!isDropdownOpen) {
+      return undefined;
+    }
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDropdownOpen]);
 
   if (isInitialLoading) {
     return <PerpsControlBarSkeleton />;
@@ -185,15 +168,11 @@ export const PerpsBalanceDropdown: React.FC<PerpsBalanceDropdownProps> = ({
               alignItems={BoxAlignItems.Center}
               gap={2}
             >
-              <SensitiveText
-                variant={TextVariant.BodySm}
-                fontWeight={FontWeight.Medium}
-                isHidden={privacyMode}
-              >
+              <Text variant={TextVariant.BodySm} fontWeight={FontWeight.Medium}>
                 {formatPerpsFiat(accountValue, {
                   ranges: PRICE_RANGES_MINIMAL_VIEW,
                 })}
-              </SensitiveText>
+              </Text>
               <Icon
                 name={isDropdownOpen ? IconName.ArrowUp : IconName.ArrowDown}
                 size={IconSize.Xs}
@@ -245,30 +224,13 @@ export const PerpsBalanceDropdown: React.FC<PerpsBalanceDropdownProps> = ({
           <Text variant={TextVariant.BodySm} color={TextColor.TextAlternative}>
             {t('perpsUnrealizedPnl')}
           </Text>
-          <Box
-            flexDirection={BoxFlexDirection.Row}
-            alignItems={BoxAlignItems.Baseline}
-            gap={1}
+          <Text
+            variant={TextVariant.BodySm}
+            fontWeight={FontWeight.Medium}
+            color={isProfit ? TextColor.SuccessDefault : TextColor.ErrorDefault}
           >
-            <SensitiveText
-              variant={TextVariant.BodySm}
-              fontWeight={FontWeight.Medium}
-              color={pnlColor}
-              isHidden={privacyMode}
-              data-testid="perps-balance-dropdown-pnl-value"
-            >
-              {formattedPnl}
-            </SensitiveText>
-            <SensitiveText
-              variant={TextVariant.BodySm}
-              fontWeight={FontWeight.Medium}
-              color={pnlColor}
-              isHidden={privacyMode}
-              data-testid="perps-balance-dropdown-roe-value"
-            >
-              {`(${formattedRoe})`}
-            </SensitiveText>
-          </Box>
+            {formattedPnl} ({formattedRoe})
+          </Text>
         </Box>
       )}
       <PerpsGeoBlockModal

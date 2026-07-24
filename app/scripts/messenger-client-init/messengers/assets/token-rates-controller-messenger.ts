@@ -1,14 +1,31 @@
+import { Messenger } from '@metamask/messenger';
 import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { TokenRatesControllerMessenger } from '@metamask/assets-controllers';
+  NetworkControllerGetStateAction,
+  NetworkControllerStateChangeEvent,
+} from '@metamask/network-controller';
+import { NetworkEnablementControllerGetStateAction } from '@metamask/network-enablement-controller';
+import {
+  TokensControllerGetStateAction,
+  TokensControllerStateChangeEvent,
+} from '@metamask/assets-controllers';
 import {
   PreferencesControllerGetStateAction,
   PreferencesControllerStateChangeEvent,
 } from '../../../controllers/preferences-controller';
 import { RootMessenger } from '../../../lib/messenger';
+
+type Actions =
+  | TokensControllerGetStateAction
+  | NetworkControllerGetStateAction
+  | NetworkEnablementControllerGetStateAction;
+
+type Events =
+  | TokensControllerStateChangeEvent
+  | NetworkControllerStateChangeEvent;
+
+export type TokenRatesControllerMessenger = ReturnType<
+  typeof getTokenRatesControllerMessenger
+>;
 
 /**
  * Get a restricted messenger for the Token Rates controller. This is scoped to the
@@ -18,12 +35,14 @@ import { RootMessenger } from '../../../lib/messenger';
  * @returns The restricted controller messenger.
  */
 export function getTokenRatesControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<TokenRatesControllerMessenger>,
-    MessengerEvents<TokenRatesControllerMessenger>
-  >,
-): TokenRatesControllerMessenger {
-  const controllerMessenger: TokenRatesControllerMessenger = new Messenger({
+  messenger: RootMessenger<Actions, Events>,
+) {
+  const controllerMessenger = new Messenger<
+    'TokenRatesController',
+    Actions,
+    Events,
+    typeof messenger
+  >({
     namespace: 'TokenRatesController',
     parent: messenger,
   });

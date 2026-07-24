@@ -196,17 +196,12 @@ export const Amount = ({
             amountError ? TextColor.errorDefault : TextColor.textAlternative
           }
           variant={TextVariant.bodySm}
-          data-testid="send-amount-fiat-value"
         >
           {amountError ||
             (conversionSupportedForAsset ? alternateDisplayValue : '')}
         </Text>
         <Box display={Display.Flex}>
-          <Text
-            color={TextColor.textAlternative}
-            variant={TextVariant.bodySm}
-            data-testid="send-amount-balance"
-          >
+          <Text color={TextColor.textAlternative} variant={TextVariant.bodySm}>
             {balanceDisplayValue}
           </Text>
           {!isNonEvmNativeSendType && (

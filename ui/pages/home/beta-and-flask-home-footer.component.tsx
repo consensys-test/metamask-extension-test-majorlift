@@ -1,19 +1,17 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   MetaMetricsContextProp,
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../shared/constants/metametrics';
+import { MetaMetricsContext } from '../../contexts/metametrics';
 import { SUPPORT_LINK } from '../../helpers/constants/common';
 import { isFlask } from '../../../shared/lib/build-types';
 import { useI18nContext } from '../../hooks/useI18nContext';
-import { useAnalytics } from '../../hooks/useAnalytics';
-import { useSegmentContext } from '../../hooks/useSegmentContext';
 
 export default function BetaAndFlaskHomeFooter() {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
-  const segmentContext = useSegmentContext();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   return (
     <>
@@ -23,13 +21,18 @@ export default function BetaAndFlaskHomeFooter() {
         href={SUPPORT_LINK}
         onClick={() => {
           trackEvent(
-            createEventBuilder(MetaMetricsEventName.SupportLinkClicked)
-              .addCategory(MetaMetricsEventCategory.Footer)
-              .addProperties({
+            {
+              category: MetaMetricsEventCategory.Footer,
+              event: MetaMetricsEventName.SupportLinkClicked,
+              properties: {
                 url: SUPPORT_LINK,
-                [MetaMetricsContextProp.PageTitle]: segmentContext.page?.title,
-              })
-              .build(),
+              },
+            },
+            {
+              contextPropsIntoEventProperties: [
+                MetaMetricsContextProp.PageTitle,
+              ],
+            },
           );
         }}
       >

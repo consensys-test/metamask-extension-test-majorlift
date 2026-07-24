@@ -151,13 +151,6 @@ export const useHistoricalPrices = ({
   currency,
   timeRange,
 }: UseHistoricalPricesParams) => {
-  const flatlinePlaceholder: { prices: [number, number][] } = {
-    prices: [
-      [Date.now() - 24 * 60 * 60 * 1000, 0],
-      [Date.now(), 0],
-    ],
-  };
-
   const v3Params = useMemo(
     () => getV3HistoricalPricesCaipParams(chainId, address),
     [chainId, address],
@@ -181,13 +174,7 @@ export const useHistoricalPrices = ({
     ] as const;
   }, [v3Params, currency, timePeriod]);
 
-  const {
-    data: prices = [],
-    isFetching,
-    isInitialLoading,
-    isFetchedAfterMount,
-    isPlaceholderData,
-  } = useQuery({
+  const { data: prices = [], isFetching } = useQuery({
     // @ts-expect-error - fix once extension in react-query v5
     queryKey,
     queryFn: async ({ queryKey: qk, signal }) => {
@@ -212,7 +199,6 @@ export const useHistoricalPrices = ({
     },
     enabled: Boolean(v3Params),
     keepPreviousData: true,
-    placeholderData: flatlinePlaceholder,
     retry: false,
     staleTime: STALE_TIMES.PRICES,
     gcTime: GC_TIMES.DEFAULT,
@@ -222,10 +208,7 @@ export const useHistoricalPrices = ({
   const metadata = useMemo(() => deriveMetadata(prices), [prices]);
 
   return {
-    loading: isInitialLoading,
-    isFetching,
-    isFetchedAfterMount,
-    isPlaceholderData,
+    loading: isFetching,
     data: { prices, metadata },
   };
 };

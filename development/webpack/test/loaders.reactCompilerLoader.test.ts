@@ -7,7 +7,7 @@ import {
 
 describe('getReactCompilerLoader', () => {
   const baseConfig: ReactCompilerLoaderConfig = {
-    target: '18',
+    target: '17',
     verbose: false,
     debug: 'none',
     threadLoaderEnabled: false,
@@ -36,6 +36,7 @@ describe('getReactCompilerLoader', () => {
 
       const opts = (
         loader as {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           options: { __verbose?: boolean };
         }
       ).options;
@@ -51,6 +52,7 @@ describe('getReactCompilerLoader', () => {
 
       const opts = (
         loader as {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           options: { __verbose?: boolean };
         }
       ).options;
@@ -107,6 +109,7 @@ describe('getReactCompilerLoader', () => {
 
       const opts = (
         loader as {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           options: { __verbose?: boolean };
         }
       ).options;

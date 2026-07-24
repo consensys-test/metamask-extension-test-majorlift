@@ -3,12 +3,7 @@ import { Browser } from 'selenium-webdriver';
 import { Mockttp } from 'mockttp';
 import { Anvil } from '../../seeder/anvil';
 import { withFixtures, isSidePanelEnabled } from '../../helpers';
-import {
-  HOMEPAGE_BALANCE_ASSERTION_TIMEOUT_MS,
-  NETWORK_CLIENT_ID,
-  WALLET_PASSWORD,
-  WINDOW_TITLES,
-} from '../../constants';
+import { WALLET_PASSWORD, WINDOW_TITLES } from '../../constants';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { Driver } from '../../webdriver/driver';
 import HomePage from '../../page-objects/pages/home/homepage';
@@ -22,76 +17,20 @@ import {
   handleSidepanelPostOnboarding,
   skipPasskeySetup,
 } from '../../page-objects/flows/onboarding.flow';
-import { mockSpotPrices } from '../tokens/utils/mocks';
 
-// 1 ETH in wei, hex-encoded
-const ONE_ETH_IN_WEI_HEX = '0xde0b6b3a7640000';
-
-// ABI-encoded uint256[] with a single element of 1 ETH (for BalanceChecker response)
-const BALANCE_CHECKER_1_ETH_RESULT =
-  '0x' +
-  '0000000000000000000000000000000000000000000000000000000000000020' +
-  '0000000000000000000000000000000000000000000000000000000000000001' +
-  '0000000000000000000000000000000000000000000000000de0b6b3a7640000';
-
-async function mockIncrementalSecurityEndpoints(mockServer: Mockttp) {
-  await mockSpotPrices(mockServer, {
-    'eip155:1/slip44:60': {
-      price: 1700,
-      marketCap: 382623505141,
-      pricePercentChange1d: 0,
-    },
-  });
-
-  // With assetsUnifyState, homepage balance reads Accounts API v5 instead of RPC.
-  await mockServer
-    .forGet(
-      /^https:\/\/accounts\.api\.cx\.metamask\.io\/v5\/multiaccount\/balances/u,
-    )
-    .asPriority(99)
-    .always()
-    .thenCallback((req) => {
-      const url = new URL(req.url);
-      const accountIds = (url.searchParams.get('accountIds') ?? '')
-        .split(',')
-        .filter(Boolean);
-      const balances = accountIds
-        .filter((accountId) => accountId.startsWith('eip155:1:'))
-        .map((accountId) => ({
-          accountId,
-          assetId: 'eip155:1/slip44:60',
-          balance: '1',
-        }));
-
-      return {
-        statusCode: 200,
-        json: {
-          count: balances.length,
-          balances,
-          unprocessedNetworks: [],
+async function mockSpotPrices(mockServer: Mockttp) {
+  return await mockServer
+    .forGet(/^https:\/\/price\.api\.cx\.metamask\.io\/v3\/spot-prices/u)
+    .thenCallback(() => ({
+      statusCode: 200,
+      json: {
+        'eip155:1/slip44:60': {
+          id: 'ethereum',
+          price: 1700,
+          marketCap: 382623505141,
+          pricePercentChange1d: 0,
         },
-      };
-    });
-
-  await mockServer
-    .forPost(/^https:\/\/mainnet\.infura\.io\//u)
-    .withJsonBodyIncluding({ method: 'eth_getBalance' })
-    .always()
-    .thenCallback(() => ({
-      statusCode: 200,
-      json: { jsonrpc: '2.0', id: '1', result: ONE_ETH_IN_WEI_HEX },
-    }));
-
-  await mockServer
-    .forPost(/^https:\/\/mainnet\.infura\.io\//u)
-    .withJsonBodyIncluding({
-      method: 'eth_call',
-      params: [{ to: '0xb1f8e55c7f64d203c1400b9d8555d050f94adf39' }],
-    })
-    .always()
-    .thenCallback(() => ({
-      statusCode: 200,
-      json: { jsonrpc: '2.0', id: '1', result: BALANCE_CHECKER_1_ETH_RESULT },
+      },
     }));
 }
 
@@ -104,7 +43,6 @@ describe('Incremental Security', function (this: Suite) {
         },
         fixtures: new FixtureBuilderV2({ onboarding: true })
           .withShowNativeTokenAsMainBalanceEnabled()
-          .withSelectedNetwork(NETWORK_CLIENT_ID.MAINNET)
           .withEnabledNetworks({
             eip155: {
               '0x1': true,
@@ -114,10 +52,7 @@ describe('Incremental Security', function (this: Suite) {
         localNodeOptions: {
           chainId: 1,
         },
-        unifiedEvmAccountsApiBalances: {
-          mainnetNativeEthHuman: '1',
-        },
-        testSpecificMock: mockIncrementalSecurityEndpoints,
+        testSpecificMock: mockSpotPrices,
 
         title: this.test?.fullTitle(),
       },
@@ -206,11 +141,7 @@ describe('Incremental Security', function (this: Suite) {
         await homePage.checkPageIsLoaded();
         // to update balance faster and avoid timeout error
         await driver.refresh();
-        await homePage.checkExpectedBalanceIsDisplayed({
-          expectedBalance: '1',
-          symbol: 'ETH',
-          timeout: HOMEPAGE_BALANCE_ASSERTION_TIMEOUT_MS,
-        });
+        await homePage.checkExpectedBalanceIsDisplayed('1', 'ETH');
 
         // Backup SRP flow - only for non-sidepanel builds
         // With sidepanel, appState is lost during page reload, so this flow won't work
@@ -228,11 +159,7 @@ describe('Incremental Security', function (this: Suite) {
 
           // check the balance is correct after revealing and confirming the SRP
           await homePage.checkPageIsLoaded();
-          await homePage.checkExpectedBalanceIsDisplayed({
-            expectedBalance: '1',
-            symbol: 'ETH',
-            timeout: HOMEPAGE_BALANCE_ASSERTION_TIMEOUT_MS,
-          });
+          await homePage.checkExpectedBalanceIsDisplayed('1', 'ETH');
 
           // check backup reminder is not displayed on homepage
           await homePage.checkBackupReminderIsNotDisplayed();

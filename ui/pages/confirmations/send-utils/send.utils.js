@@ -1,6 +1,8 @@
 import { encode } from '@metamask/abi-utils';
 import { isHexString } from '@metamask/utils';
-import { addHexPrefix } from '../../../../shared/lib/add-hex-prefix';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { addHexPrefix } from '../../../../app/scripts/lib/util';
 import { TokenStandard } from '../../../../shared/constants/transaction';
 import { Numeric } from '../../../../shared/lib/Numeric';
 import { BURN_ADDRESS } from '../../../../shared/lib/hexstring-utils';

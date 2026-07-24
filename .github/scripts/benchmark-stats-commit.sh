@@ -122,21 +122,15 @@ assemble_performance_data() {
 
     # Merge the startup group into presets (only if any startup files were found).
     if [[ "${page_load_json}" != "{}" ]]; then
-        # Keep large JSON off argv (ARG_MAX): presets_json via stdin, page_load_json
-        # via a temp file read with --slurpfile.
-        pl_file="$(mktemp)"
-        printf '%s' "${page_load_json}" >"${pl_file}"
-        presets_json=$(printf '%s' "${presets_json}" | jq --slurpfile pl "${pl_file}" '. + {"pageLoad": $pl[0]}')
-        rm -f "${pl_file}"
+        presets_json=$(echo "${presets_json}" | jq --argjson pl "${page_load_json}" '. + {"pageLoad": $pl}')
     fi
 
     echo "Collected ${file_count} preset(s)" >&2
 
-    # presets_json can exceed ARG_MAX; pass it via stdin instead of as a jq argument
-    # (a too-large argv makes the kernel fail to exec jq with "Argument list too long").
-    printf '%s' "${presets_json}" | jq \
+    jq -n \
         --argjson timestamp "$(date +%s000)" \
-        '{ timestamp: $timestamp, presets: . }'
+        --argjson presets "${presets_json}" \
+        '{ timestamp: $timestamp, presets: $presets }'
 }
 
 # Resolve stats file and assemble data
@@ -197,21 +191,15 @@ fi
 
 TEMP_FILE="${STATS_FILE}.tmp"
 
-# COMMIT_DATA wraps presets_json and is strictly larger, so it can exceed
-# ARG_MAX too. Read it via --slurpfile from a temp file rather than passing
-# the blob on argv.
-data_file="$(mktemp)"
-printf '%s' "${COMMIT_DATA}" >"${data_file}"
-jq --arg sha "${HEAD_COMMIT_HASH}" --slurpfile data "${data_file}" \
-    '. + {($sha): $data[0]}' "${STATS_FILE}" > "${TEMP_FILE}"
-rm -f "${data_file}"
+jq --arg sha "${HEAD_COMMIT_HASH}" --argjson data "${COMMIT_DATA}" \
+    '. + {($sha): $data}' "${STATS_FILE}" > "${TEMP_FILE}"
 mv "${TEMP_FILE}" "${STATS_FILE}"
 
 git add "${STATS_FILE}"
 git commit --message "${COMMIT_MESSAGE}"
 
 repo_slug="${OWNER}/extension_benchmark_stats"
-git push "https://x-access-token:${EXTENSION_BENCHMARK_STATS_TOKEN}@github.com/${repo_slug}" main
+git push "https://metamaskbot:${EXTENSION_BENCHMARK_STATS_TOKEN}@github.com/${repo_slug}" main
 
 cd ..
 rm -rf "${CLONE_DIR}"

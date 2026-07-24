@@ -26,8 +26,7 @@ class MultichainAccountDetailsPage {
 
   private readonly accountNameInput = 'input[placeholder*="Account"]';
 
-  private readonly confirmAccountNameButton =
-    '[data-testid="account-name-confirm-button"]';
+  private readonly confirmAccountNameButton = 'button[aria-label="Confirm"]';
 
   // Address and wallet navigation
   private readonly addressValue =

@@ -1,12 +1,16 @@
 import React, { forwardRef } from 'react';
 import { useSelector } from 'react-redux';
 import {
-  ButtonIcon,
-  ButtonIconSize,
+  ButtonBase,
+  ButtonBaseSize,
   IconName,
-} from '@metamask/design-system-react';
+  IconSize,
+} from '../../../../component-library';
+import {
+  BackgroundColor,
+  TextColor,
+} from '../../../../../helpers/constants/design-system';
 import { getMultichainIsEvm } from '../../../../../selectors/multichain';
-import { useI18nContext } from '../../../../../hooks/useI18nContext';
 
 type ImportControlProps = {
   showTokensLinks?: boolean;
@@ -15,21 +19,22 @@ type ImportControlProps = {
 
 const ImportControl = forwardRef<HTMLButtonElement, ImportControlProps>(
   ({ showTokensLinks, onClick }, ref) => {
-    const t = useI18nContext();
     const isEvm = useSelector(getMultichainIsEvm);
     // NOTE: Since we can parametrize it now, we keep the original behavior
     // for EVM assets
     const shouldShowTokensLinks = showTokensLinks ?? isEvm;
 
     return (
-      <ButtonIcon
+      <ButtonBase
         ref={ref}
-        className="asset-list-control-bar__button flex items-center justify-center border-0 bg-transparent hover:bg-hover active:bg-pressed"
+        className="asset-list-control-bar__button"
         data-testid="asset-list-control-bar-action-button"
         disabled={!shouldShowTokensLinks}
-        size={ButtonIconSize.Sm}
-        iconName={IconName.MoreVertical}
-        ariaLabel={t('assetOptions')}
+        size={ButtonBaseSize.Sm}
+        startIconName={IconName.MoreVertical}
+        startIconProps={{ marginInlineEnd: 0, size: IconSize.Md }}
+        backgroundColor={BackgroundColor.backgroundDefault}
+        color={TextColor.textDefault}
         onClick={onClick}
       />
     );

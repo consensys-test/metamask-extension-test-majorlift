@@ -15,11 +15,9 @@ import {
 } from '../../test/data/mock-accounts';
 import mockState from '../../test/data/mock-state.json';
 import {
-  type AccountsState,
-  getSelectedInternalAccount,
-} from '../../shared/lib/selectors/accounts';
-import {
+  AccountsState,
   isSelectedInternalAccountEth,
+  getSelectedInternalAccount,
   getInternalAccounts,
   getInternalAccountsObject,
   getInternalAccountsByScope,
@@ -136,10 +134,6 @@ describe('Accounts Selectors', () => {
   });
 
   describe('#getSelectedInternalAccount', () => {
-    beforeEach(() => {
-      getSelectedInternalAccount.resetRecomputations();
-    });
-
     it('returns selected internalAccount', () => {
       expect(
         getSelectedInternalAccount(mockState as AccountsState),
@@ -213,21 +207,6 @@ describe('Accounts Selectors', () => {
           },
         }),
       ).toStrictEqual(mockInternalAccount);
-    });
-
-    it('memoizes repeated calls for the same selected account inputs', () => {
-      const state = MOCK_STATE;
-
-      const result1 = getSelectedInternalAccount(state);
-      const result2 = getSelectedInternalAccount({
-        ...state,
-        metamask: {
-          ...state.metamask,
-        },
-      });
-
-      expect(result2).toBe(result1);
-      expect(getSelectedInternalAccount.recomputations()).toBe(1);
     });
   });
 

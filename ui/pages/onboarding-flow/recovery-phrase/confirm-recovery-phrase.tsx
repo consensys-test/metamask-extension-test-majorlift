@@ -5,7 +5,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
 import {
@@ -28,7 +28,6 @@ import {
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { setSeedPhraseBackedUp } from '../../../store/actions';
 import { MetaMetricsContext } from '../../../contexts/metametrics';
-import { useAnalytics } from '../../../hooks/useAnalytics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -41,9 +40,9 @@ import {
   ONBOARDING_REVEAL_SRP_ROUTE,
   MANAGE_WALLET_RECOVERY_ROUTE,
 } from '../../../helpers/constants/routes';
+import { PLATFORM_FIREFOX } from '../../../../shared/constants/app';
 import { TraceName } from '../../../../shared/lib/trace';
-import { useIsFirefox } from '../../../hooks/useIsFirefox';
-import { useOnboardingSearchParams } from '../hooks/useOnboardingSearchParams';
+import { getBrowserName } from '../../../../shared/lib/browser-runtime.utils';
 import { getSeedPhraseBackedUp } from '../../../ducks/metamask/metamask';
 import ConfirmSrpModal from './confirm-srp-modal';
 import RecoveryPhraseChips from './recovery-phrase-chips';
@@ -75,16 +74,15 @@ const generateQuizWords = (
   return quizWords;
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function ConfirmRecoveryPhrase({ secretRecoveryPhrase = '' }) {
   const dispatch = useDispatch();
 
   const navigate = useNavigate();
+  const { search } = useLocation();
   const t = useI18nContext();
-  const isFirefox = useIsFirefox();
-  const { isFromReminder, isFromSettingsSecurity, nextRouteQueryString } =
-    useOnboardingSearchParams();
-  const { trackEvent, createEventBuilder } = useAnalytics();
-  const { bufferedEndTrace } = useContext(MetaMetricsContext);
+  const { trackEvent, bufferedEndTrace } = useContext(MetaMetricsContext);
   const hdEntropyIndex = useSelector(getHDEntropyIndex);
   const hasSeedPhraseBackedUp = useSelector(getSeedPhraseBackedUp);
 
@@ -92,6 +90,18 @@ export default function ConfirmRecoveryPhrase({ secretRecoveryPhrase = '' }) {
     () => (secretRecoveryPhrase ? secretRecoveryPhrase.split(' ') : []),
     [secretRecoveryPhrase],
   );
+  const searchParams = new URLSearchParams(search);
+  const isFromReminder = searchParams.get('isFromReminder');
+  const isFromSettingsSecurity = searchParams.get('isFromSettingsSecurity');
+
+  const queryParams = new URLSearchParams();
+  if (isFromReminder) {
+    queryParams.set('isFromReminder', isFromReminder);
+  }
+  if (isFromSettingsSecurity) {
+    queryParams.set('isFromSettingsSecurity', isFromSettingsSecurity);
+  }
+  const nextRouteQueryString = queryParams.toString();
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [matching, setMatching] = useState(false);
@@ -109,6 +119,7 @@ export default function ConfirmRecoveryPhrase({ secretRecoveryPhrase = '' }) {
         { replace: true },
       );
     } else if (hasSeedPhraseBackedUp) {
+      const isFirefox = getBrowserName() === PLATFORM_FIREFOX;
       // if user has already done the Secure Wallet flow, we can redirect to the next page
       navigate(
         isFirefox || isFromReminder
@@ -123,7 +134,6 @@ export default function ConfirmRecoveryPhrase({ secretRecoveryPhrase = '' }) {
     nextRouteQueryString,
     hasSeedPhraseBackedUp,
     isFromReminder,
-    isFirefox,
   ]);
 
   const resetQuizWords = useCallback(() => {
@@ -132,7 +142,7 @@ export default function ConfirmRecoveryPhrase({ secretRecoveryPhrase = '' }) {
   }, [splitSecretRecoveryPhrase]);
 
   const handleQuizInput = useCallback(
-    (inputValue: { index: number; word: string }[]) => {
+    (inputValue) => {
       const isNotAnswered = inputValue.some(
         (answer: { word: string }) => !answer.word,
       );
@@ -157,22 +167,19 @@ export default function ConfirmRecoveryPhrase({ secretRecoveryPhrase = '' }) {
 
   const handleConfirmedPhrase = useCallback(() => {
     dispatch(setSeedPhraseBackedUp(true));
-    trackEvent(
-      createEventBuilder(
-        MetaMetricsEventName.OnboardingWalletSecurityPhraseConfirmed,
-      )
-        .addCategory(MetaMetricsEventCategory.Onboarding)
-        .addProperties({
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          hd_entropy_index: hdEntropyIndex,
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Onboarding,
+      event: MetaMetricsEventName.OnboardingWalletSecurityPhraseConfirmed,
+      properties: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        hd_entropy_index: hdEntropyIndex,
+      },
+    });
     bufferedEndTrace?.({ name: TraceName.OnboardingNewSrpCreateWallet });
     bufferedEndTrace?.({ name: TraceName.OnboardingJourneyOverall });
 
     const nextRoute =
-      isFirefox || isFromReminder
+      getBrowserName() === PLATFORM_FIREFOX || isFromReminder
         ? ONBOARDING_COMPLETION_ROUTE
         : ONBOARDING_METAMETRICS;
 
@@ -183,9 +190,7 @@ export default function ConfirmRecoveryPhrase({ secretRecoveryPhrase = '' }) {
   }, [
     dispatch,
     hdEntropyIndex,
-    isFirefox,
     navigate,
-    createEventBuilder,
     trackEvent,
     isFromReminder,
     nextRouteQueryString,

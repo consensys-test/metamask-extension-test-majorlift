@@ -4,34 +4,35 @@ import classnames from 'clsx';
 import { formatChainIdToCaip } from '@metamask/bridge-controller';
 import { CaipChainId, Hex, isCaipChainId } from '@metamask/utils';
 import {
-  Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxFlexWrap,
-  Skeleton,
-} from '@metamask/design-system-react';
-import {
   getMultichainNativeTokenBalance,
+  selectAggregatedBalanceForSelectedAccount,
   selectBalanceBySelectedAccountGroup,
 } from '../../../../selectors/assets';
 
-import { TextVariant } from '../../../../helpers/constants/design-system';
-import { SensitiveText } from '../../../component-library';
+import {
+  AlignItems,
+  Display,
+  FlexWrap,
+  TextVariant,
+} from '../../../../helpers/constants/design-system';
+import { Box, SensitiveText } from '../../../component-library';
 import {
   getEnabledNetworksByNamespace,
-  getMultichainNetwork,
-  getShowFiatInTestnets,
+  getPreferences,
   selectAnyEnabledNetworksAreAvailable,
 } from '../../../../selectors';
-import { getPreferences } from '../../../../../shared/lib/selectors/preferences';
 import { useFormatters } from '../../../../hooks/useFormatters';
 import { getCurrentCurrency } from '../../../../ducks/metamask/metamask';
+import { Skeleton } from '../../../component-library/skeleton';
 import { isZeroAmount } from '../../../../helpers/utils/number-utils';
+import { useMultichainSelector } from '../../../../hooks/useMultichainSelector';
+import {
+  getMultichainNativeCurrency,
+  getMultichainIsTestnet,
+} from '../../../../selectors/multichain';
 import { getInternalAccountBySelectedAccountGroupAndCaip } from '../../../../selectors/multichain-accounts/account-tree';
 import { isEvmChainId } from '../../../../../shared/lib/asset-utils';
 import { hexWEIToDecETH } from '../../../../../shared/lib/conversion.utils';
-import { TEST_CHAINS } from '../../../../../shared/constants/network';
-import { getNetworkConfigurationsByChainId } from '../../../../../shared/lib/selectors/networks';
 
 export type AccountGroupBalanceProps = {
   classPrefix: string;
@@ -41,13 +42,13 @@ export type AccountGroupBalanceProps = {
   chainId: CaipChainId | Hex;
 };
 
-export const AccountGroupBalance = ({
+export const AccountGroupBalance: React.FC<AccountGroupBalanceProps> = ({
   classPrefix,
   balanceIsCached,
   handleSensitiveToggle,
   balance,
   chainId,
-}: AccountGroupBalanceProps) => {
+}) => {
   const { privacyMode, showNativeTokenAsMainBalance } =
     useSelector(getPreferences);
   const enabledNetworks = useSelector(getEnabledNetworksByNamespace);
@@ -58,11 +59,13 @@ export const AccountGroupBalance = ({
   const anyEnabledNetworksAreAvailable = useSelector(
     selectAnyEnabledNetworksAreAvailable,
   );
-
-  const caipChainId = useMemo(
-    () => (isCaipChainId(chainId) ? chainId : formatChainIdToCaip(chainId)),
-    [chainId],
+  const aggregatedBalance = useSelector(
+    selectAggregatedBalanceForSelectedAccount,
   );
+
+  const caipChainId = isCaipChainId(chainId)
+    ? chainId
+    : formatChainIdToCaip(chainId);
   const selectedAccount = useSelector((state) =>
     getInternalAccountBySelectedAccountGroupAndCaip(state, caipChainId),
   );
@@ -71,81 +74,58 @@ export const AccountGroupBalance = ({
     getMultichainNativeTokenBalance(state, selectedAccount),
   );
 
-  const isEvm = useMemo(() => isEvmChainId(chainId), [chainId]);
+  const isEvm = isEvmChainId(chainId);
 
-  const isTestnetSelected = useMemo(
-    () =>
-      Boolean(
-        Object.keys(enabledNetworks).length === 1 &&
-        TEST_CHAINS.includes(Object.keys(enabledNetworks)[0] as `0x${string}`),
-      ),
-    [enabledNetworks],
+  const isTestnet = useSelector(getMultichainIsTestnet);
+
+  const showNativeTokenAsMain = Boolean(
+    showNativeTokenAsMainBalance && Object.keys(enabledNetworks).length === 1,
   );
 
-  const networkConfigurationsByChainId = useSelector(
-    getNetworkConfigurationsByChainId,
+  const nativeCurrency = useMultichainSelector(
+    getMultichainNativeCurrency,
+    selectedAccount,
   );
-  const networks = useSelector(getMultichainNetwork);
-  const showNativeTokenAsMain = useMemo(
-    () =>
-      Boolean(
-        showNativeTokenAsMainBalance &&
-        Object.keys(enabledNetworks).length === 1,
-      ),
-    [showNativeTokenAsMainBalance, enabledNetworks],
-  );
-
-  const showConversionForTestnets = useSelector(getShowFiatInTestnets);
-
-  const nativeCurrencySymbol: string = useMemo(() => {
-    if (isEvm) {
-      return Object.keys(enabledNetworks).length === 1
-        ? networkConfigurationsByChainId[
-            Object.keys(enabledNetworks)[0] as `0x${string}`
-          ]?.nativeCurrency
-        : fallbackCurrency;
-    }
-
-    return Object.keys(enabledNetworks).length === 1
-      ? networks.network.ticker
-      : fallbackCurrency;
-  }, [
-    enabledNetworks,
-    networkConfigurationsByChainId,
-    isEvm,
-    networks,
-    fallbackCurrency,
-  ]);
-
-  const total = selectedGroupBalance?.totalBalanceInUserCurrency;
 
   let formattedNativeBalance = null;
-  if (showNativeTokenAsMain || isTestnetSelected) {
+  if (showNativeTokenAsMain || isTestnet) {
     if (isEvm) {
       const decimalBalance = parseFloat(hexWEIToDecETH(balance));
 
       formattedNativeBalance = formatTokenQuantity(
         decimalBalance,
-        nativeCurrencySymbol,
+        nativeCurrency,
       );
     } else {
       formattedNativeBalance = formatTokenQuantity(
         Number(multichainNativeTokenBalance.amount),
-        nativeCurrencySymbol,
+        nativeCurrency,
       );
     }
   }
 
+  const total = selectedGroupBalance?.totalBalanceInUserCurrency;
   const currency = selectedGroupBalance
     ? (selectedGroupBalance.userCurrency ?? fallbackCurrency)
     : undefined;
 
+  const useAggregatedBalance =
+    aggregatedBalance &&
+    (aggregatedBalance.entries.length > 0 ||
+      aggregatedBalance.totalBalanceInFiat !== undefined);
+
   const formattedTotal = useMemo(() => {
-    if (
-      showNativeTokenAsMain ||
-      (isTestnetSelected && !showConversionForTestnets)
-    ) {
+    if (showNativeTokenAsMain || isTestnet) {
       return formattedNativeBalance;
+    }
+    if (
+      useAggregatedBalance &&
+      aggregatedBalance?.totalBalanceInFiat !== undefined
+    ) {
+      return formatCurrency(
+        aggregatedBalance.totalBalanceInFiat,
+        fallbackCurrency,
+      );
     }
     if (total === undefined) {
       return null;
@@ -153,36 +133,32 @@ export const AccountGroupBalance = ({
     return formatCurrency(total, currency);
   }, [
     showNativeTokenAsMain,
-    isTestnetSelected,
+    isTestnet,
+    useAggregatedBalance,
+    aggregatedBalance,
     total,
     formatCurrency,
     currency,
+    fallbackCurrency,
     formattedNativeBalance,
-    showConversionForTestnets,
   ]);
 
   return (
     <Skeleton
-      hideChildren={
-        isEvm &&
+      isLoading={
         !anyEnabledNetworksAreAvailable &&
         (isZeroAmount(total) || currency === undefined)
       }
-      className="mb-1"
-      data-testid="account-group-balance-skeleton"
+      marginBottom={1}
     >
       <Box
-        className={classnames(
-          'flex',
-          `${classPrefix}-overview__primary-balance`,
-          {
-            [`${classPrefix}-overview__cached-balance`]: balanceIsCached,
-          },
-        )}
+        className={classnames(`${classPrefix}-overview__primary-balance`, {
+          [`${classPrefix}-overview__cached-balance`]: balanceIsCached,
+        })}
         data-testid={`${classPrefix}-overview__primary-currency`}
-        flexDirection={BoxFlexDirection.Row}
-        alignItems={BoxAlignItems.Center}
-        flexWrap={BoxFlexWrap.Wrap}
+        display={Display.Flex}
+        alignItems={AlignItems.center}
+        flexWrap={FlexWrap.Wrap}
       >
         <SensitiveText
           ellipsis

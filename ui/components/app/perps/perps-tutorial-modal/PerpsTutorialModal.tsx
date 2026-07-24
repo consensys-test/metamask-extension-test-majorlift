@@ -26,7 +26,8 @@ import {
   TUTORIAL_STEPS_ORDER,
 } from '../../../../ducks/perps';
 import { useTheme } from '../../../../hooks/useTheme';
-import { getEnvironmentType } from '../../../../../shared/lib/environment-type';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getEnvironmentType } from '../../../../../app/scripts/lib/util';
 import { ENVIRONMENT_TYPE_POPUP } from '../../../../../shared/constants/app';
 import { MetaMetricsEventName } from '../../../../../shared/constants/metametrics';
 import { usePerpsEventTracking } from '../../../../hooks/perps';
@@ -44,7 +45,7 @@ type PerpsTutorialModalProps = {
   onClose?: () => void;
 };
 
-const PerpsTutorialModal = ({ onClose }: PerpsTutorialModalProps) => {
+const PerpsTutorialModal: React.FC<PerpsTutorialModalProps> = ({ onClose }) => {
   const isOpen = useSelector(selectTutorialModalOpen);
   const activeStep = useSelector(selectTutorialActiveStep);
   const dispatch = useDispatch();

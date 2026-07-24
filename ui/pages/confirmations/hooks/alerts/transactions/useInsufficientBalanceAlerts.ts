@@ -32,7 +32,7 @@ export function useInsufficientBalanceAlerts({
   // user's native balance for gas, so suppress the "insufficient balance"
   // alert even when native balance is low.
   const isIgnoredType = isPerpsWithdrawTransaction(currentConfirmation);
-  const { hasInsufficientBalance, isNativeBalanceKnown, nativeCurrency } =
+  const { hasInsufficientBalance, nativeCurrency } =
     useHasInsufficientBalance();
   const isSimulationEnabled = useSelector(getUseTransactionSimulations);
   const isSponsored = currentConfirmation?.isGasFeeSponsored;
@@ -81,7 +81,6 @@ export function useInsufficientBalanceAlerts({
 
   const showAlert =
     hasInsufficientBalance &&
-    isNativeBalanceKnown &&
     !isUsingPay &&
     !isPayPendingInput &&
     isSimulationComplete &&

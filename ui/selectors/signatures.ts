@@ -1,10 +1,11 @@
 import { createSelector } from 'reselect';
+import { DefaultRootState } from 'react-redux';
 import {
   SignatureRequestStatus,
   type SignatureControllerState,
   type SignatureRequest,
 } from '@metamask/signature-controller';
-import type { MetaMaskReduxState } from '../store/store';
+import { createDeepEqualSelector } from '../../shared/lib/selectors/selector-creators';
 import {
   unapprovedPersonalMsgsSelector,
   unapprovedTypedMessagesSelector,
@@ -27,16 +28,8 @@ export const selectSignatureRequestById = createSelector(
   (signatureRequests, id) => (id ? signatureRequests[id] : undefined),
 );
 
-/**
- * Returns the unapproved {@link SignatureRequest} for a given ID, or
- * `undefined` if the request does not exist or is not in the unapproved state.
- *
- * The input selector casts `MetaMaskReduxState` to `SignatureState` so callers
- * inside `useSelector` need no type cast at the call site.
- */
 export const selectUnapprovedSignatureRequestById = createSelector(
-  (state: MetaMaskReduxState, id: string | undefined) =>
-    selectSignatureRequestById(state as unknown as SignatureState, id),
+  selectSignatureRequestById,
   (request) =>
     request?.status === SignatureRequestStatus.Unapproved ? request : undefined,
 );
@@ -51,9 +44,14 @@ const selectUnapprovedMessages = createSelector(
   }),
 );
 
-/** @deprecated Use {@link selectSignatureRequestById} or {@link selectUnapprovedSignatureRequestById} instead. */
-export const selectUnapprovedMessage = createSelector(
+export const internalSelectUnapprovedMessage = createSelector(
   selectUnapprovedMessages,
-  (_state: MetaMaskReduxState, messageId: string) => messageId,
+  (_state: DefaultRootState, messageId: string) => messageId,
   (messages, messageId) => messages[messageId],
+);
+
+/** @deprecated Use {@link selectSignatureRequestById} or {@link selectUnapprovedSignatureRequestById} instead. */
+export const selectUnapprovedMessage = createDeepEqualSelector(
+  internalSelectUnapprovedMessage,
+  (message) => message,
 );

@@ -1,4 +1,4 @@
-import type { MetaMaskReduxState } from '../../../../store/store';
+import { DefaultRootState } from 'react-redux';
 
 import mockState from '../../../../../test/data/mock-state.json';
 import {
@@ -10,7 +10,7 @@ import { renderHookWithProvider } from '../../../../../test/lib/render-helpers-n
 import * as SendContext from '../../context/send';
 import { useBalance } from './useBalance';
 
-function renderHook(state?: MetaMaskReduxState) {
+function renderHook(state?: DefaultRootState) {
   const { result } = renderHookWithProvider(useBalance, state ?? mockState);
   return result.current;
 }

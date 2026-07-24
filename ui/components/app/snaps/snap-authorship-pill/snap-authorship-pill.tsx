@@ -17,7 +17,10 @@ type SnapAuthorshipPillProps = {
   onClick: () => void;
 };
 
-const SnapAuthorshipPill = ({ snapId, onClick }: SnapAuthorshipPillProps) => {
+const SnapAuthorshipPill: React.FC<SnapAuthorshipPillProps> = ({
+  snapId,
+  onClick,
+}) => {
   const { name: snapName } = useSelector((state) =>
     getSnapMetadata(state, snapId),
   );

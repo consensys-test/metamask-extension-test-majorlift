@@ -4,8 +4,8 @@ import { WEBSOCKET_SERVICES } from '../../websocket/constants';
 import WebSocketRegistry from '../../websocket/registry';
 import { withFixtures } from '../../helpers';
 import { login } from '../../page-objects/flows/login.flow';
-import { PerpsTab } from '../../page-objects/pages/home/perps-tab';
-import { getPerpsConfigEligible } from './perps-fixture-config';
+import { PerpsHomePage } from '../../page-objects/pages/perps/perps-home-page';
+import { getConfig } from './helpers';
 
 async function waitForPerpsWebsocketConnections(
   driver: Driver,
@@ -42,14 +42,14 @@ describe.skip('Perps Web Socket', function (this: Suite) {
   it('a websocket connection is open when Perps view is open', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver);
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForBalanceSection();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForBalanceSection();
 
         await waitForPerpsWebsocketConnections(driver, 1);
       },
@@ -59,14 +59,14 @@ describe.skip('Perps Web Socket', function (this: Suite) {
   it('the websocket connection is maintained for a grace period when MetaMask window is closed', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver);
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForBalanceSection();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForBalanceSection();
 
         await waitForPerpsWebsocketConnections(driver, 1);
 
@@ -83,14 +83,14 @@ describe.skip('Perps Web Socket', function (this: Suite) {
   it('websocket connection is shared between multiple MetaMask windows', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver);
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForBalanceSection();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForBalanceSection();
 
         await waitForPerpsWebsocketConnections(driver, 1);
 

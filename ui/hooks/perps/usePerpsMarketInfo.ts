@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
 import type { MarketInfo } from '@metamask/perps-controller';
 import {
   clearPerpsMarketInfoModuleCache,
   fetchMarketInfos,
   peekCachedMarketInfos,
 } from '../../providers/perps/perps-cache';
-import { getIsPerpsTerminalBackendEnabled } from '../../selectors/perps';
 import { usePerpsCacheKey } from './usePerpsCacheKey';
 
 export { clearPerpsMarketInfoModuleCache };
@@ -31,14 +29,13 @@ export { clearPerpsMarketInfoModuleCache };
  */
 export function usePerpsMarketInfo(symbol: string): MarketInfo | undefined {
   const marketInfoCacheKey = usePerpsCacheKey();
-  const useTerminalApi = useSelector(getIsPerpsTerminalBackendEnabled);
 
   const [marketInfos, setMarketInfos] = useState<MarketInfo[]>(
-    () => peekCachedMarketInfos(marketInfoCacheKey, useTerminalApi) ?? [],
+    () => peekCachedMarketInfos(marketInfoCacheKey) ?? [],
   );
 
   useEffect(() => {
-    const cached = peekCachedMarketInfos(marketInfoCacheKey, useTerminalApi);
+    const cached = peekCachedMarketInfos(marketInfoCacheKey);
     if (cached) {
       setMarketInfos(cached);
       return undefined;
@@ -47,7 +44,7 @@ export function usePerpsMarketInfo(symbol: string): MarketInfo | undefined {
     let cancelled = false;
     setMarketInfos([]);
 
-    fetchMarketInfos(marketInfoCacheKey, useTerminalApi).then((infos) => {
+    fetchMarketInfos(marketInfoCacheKey).then((infos) => {
       if (!cancelled) {
         setMarketInfos(infos);
       }
@@ -56,7 +53,7 @@ export function usePerpsMarketInfo(symbol: string): MarketInfo | undefined {
     return () => {
       cancelled = true;
     };
-  }, [marketInfoCacheKey, useTerminalApi]);
+  }, [marketInfoCacheKey]);
 
   return marketInfos.find((m) => m.name.toLowerCase() === symbol.toLowerCase());
 }

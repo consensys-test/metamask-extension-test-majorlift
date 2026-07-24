@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useContext, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { BannerAlert } from '../../../../components/component-library';
 import { Severity } from '../../../../helpers/constants/design-system';
@@ -9,34 +9,27 @@ import {
   MetaMetricsEventName,
   MetaMetricsEventUiCustomization,
 } from '../../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../../contexts/metametrics';
 
 export default function SimulationErrorMessage({
   userAcknowledgedGasMissing = false,
   setUserAcknowledgedGasMissing,
 }) {
-  const t = React.useContext(I18nContext);
+  const t = useContext(I18nContext);
 
-  const { trackEvent, createEventBuilder } = useAnalytics();
-  const hasTrackedSimulationFails = useRef(false);
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   useEffect(() => {
-    if (hasTrackedSimulationFails.current) {
-      return;
-    }
-
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.SimulationFails)
-        .addCategory(MetaMetricsEventCategory.Transactions)
-        .addProperties({
-          ui_customizations: [
-            MetaMetricsEventUiCustomization.GasEstimationFailed,
-          ],
-        })
-        .build(),
-    );
-    hasTrackedSimulationFails.current = true;
-  }, [createEventBuilder, trackEvent]);
+    trackEvent({
+      category: MetaMetricsEventCategory.Transactions,
+      event: MetaMetricsEventName.SimulationFails,
+      properties: {
+        ui_customizations: [
+          MetaMetricsEventUiCustomization.GasEstimationFailed,
+        ],
+      },
+    });
+  }, []);
 
   return userAcknowledgedGasMissing === true ? (
     <BannerAlert severity={Severity.Danger}>

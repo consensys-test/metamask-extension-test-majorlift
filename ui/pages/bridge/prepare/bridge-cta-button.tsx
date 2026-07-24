@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { useSelector, shallowEqual } from 'react-redux';
 import {
   Button,
@@ -26,10 +26,10 @@ import {
   useHardwareWalletConfig,
   useHardwareWalletState,
 } from '../../../contexts/hardware-wallets';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import { trackHardwareWalletRecoveryConnectCtaClicked } from '../../../helpers/utils/track-hardware-wallet-recovery-connect-cta-clicked';
 import { isFirefoxBrowser } from '../../../../shared/lib/browser-runtime.utils';
-import useSubmitBridgeTransaction from '../../../hooks/bridge/useSubmitBridgeTransaction';
+import useSubmitBridgeTransaction from '../hooks/useSubmitBridgeTransaction';
 
 export const BridgeCTAButton = ({
   onFetchNewQuotes,
@@ -61,7 +61,6 @@ export const BridgeCTAButton = ({
     isInsufficientGasBalance,
     isInsufficientGasForQuote,
     isInsufficientNativeReserve,
-    isNetworkFeeUnavailable,
     isStockMarketClosed: isMarketClosed,
     isQuoteExpired,
   } = useSelector(
@@ -73,7 +72,7 @@ export const BridgeCTAButton = ({
 
   const isTxSubmittable = useIsTxSubmittable();
 
-  const { trackEvent } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   const { isHardwareWalletAccount, walletType } = useHardwareWalletConfig();
   const { connectionState } = useHardwareWalletState();
@@ -136,7 +135,6 @@ export const BridgeCTAButton = ({
     }
 
     if (
-      isNetworkFeeUnavailable ||
       isInsufficientBalance ||
       isInsufficientGasForQuote ||
       isInsufficientGasBalance ||
@@ -193,7 +191,6 @@ export const BridgeCTAButton = ({
     isInsufficientGasBalance,
     isInsufficientGasForQuote,
     isInsufficientNativeReserve,
-    isNetworkFeeUnavailable,
     isSubmitting,
     isTxSubmittable,
     onFetchNewQuotes,

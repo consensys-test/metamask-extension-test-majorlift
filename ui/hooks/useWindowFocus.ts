@@ -1,11 +1,20 @@
-import { useState } from 'react';
-import { useEventListener } from './useEventListener';
+import { useEffect, useState } from 'react';
 
 export const useWindowFocus = () => {
   const [isFocused, setIsFocused] = useState(document.hasFocus());
 
-  useEventListener('focus', () => setIsFocused(true));
-  useEventListener('blur', () => setIsFocused(false));
+  useEffect(() => {
+    const onFocus = () => setIsFocused(true);
+    const onBlur = () => setIsFocused(false);
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
 
   return isFocused;
 };

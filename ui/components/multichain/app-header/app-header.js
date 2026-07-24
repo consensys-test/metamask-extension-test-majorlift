@@ -1,9 +1,9 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useContext, useRef } from 'react';
 import classnames from 'clsx';
 import PropTypes from 'prop-types';
 import { useDispatch, useSelector } from 'react-redux';
 import { matchPath } from 'react-router-dom';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -25,12 +25,14 @@ import { Box } from '../../component-library';
 import { getUnapprovedTransactions } from '../../../selectors';
 
 import { toggleNetworkMenu } from '../../../store/actions';
-import { getEnvironmentType } from '../../../../shared/lib/environment-type';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getEnvironmentType } from '../../../../app/scripts/lib/util';
 import {
   ENVIRONMENT_TYPE_POPUP,
   ENVIRONMENT_TYPE_SIDEPANEL,
 } from '../../../../shared/constants/app';
-import { getIsUnlocked } from '../../../ducks/metamask/base-selectors';
+import { getIsUnlocked } from '../../../ducks/metamask/metamask';
 import { getSelectedMultichainNetworkConfiguration } from '../../../selectors/multichain/networks';
 import { getNetworkIcon } from '../../../../shared/lib/network.utils';
 import { MultichainMetaFoxLogo } from './multichain-meta-fox-logo';
@@ -39,7 +41,7 @@ import { AppHeaderUnlockedContent } from './app-header-unlocked-content';
 import { AppHeaderLockedContent } from './app-header-locked-content';
 
 export const AppHeader = ({ location }) => {
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const menuRef = useRef(null);
   const isUnlocked = useSelector(getIsUnlocked);
 
@@ -93,16 +95,15 @@ export const AppHeader = ({ location }) => {
   // Callback for network dropdown
   const networkOpenCallback = useCallback(() => {
     dispatch(toggleNetworkMenu());
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.NavNetworkMenuOpened)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          location: 'App header',
-          chain_id: chainId,
-        })
-        .build(),
-    );
-  }, [chainId, dispatch, trackEvent, createEventBuilder]);
+    trackEvent({
+      event: MetaMetricsEventName.NavNetworkMenuOpened,
+      category: MetaMetricsEventCategory.Navigation,
+      properties: {
+        location: 'App header',
+        chain_id: chainId,
+      },
+    });
+  }, [chainId, dispatch, trackEvent]);
 
   const unlockedStyling = {
     alignItems: AlignItems.center,

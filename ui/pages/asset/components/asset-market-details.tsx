@@ -2,18 +2,16 @@ import React, { ReactNode } from 'react';
 import { useSelector } from 'react-redux';
 import { CaipAssetType, Hex } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
-import {
-  Box,
-  BoxBorderColor,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
 import { formatCurrency } from '../../../helpers/utils/confirm-tx.util';
 
 import { getPricePrecision } from '../util';
 
-import { Text } from '../../../components/component-library';
+import { Box, Text } from '../../../components/component-library';
 import {
+  BorderColor,
+  Display,
+  FlexDirection,
+  JustifyContent,
   TextColor,
   TextVariant,
 } from '../../../helpers/constants/design-system';
@@ -28,7 +26,8 @@ import { getAssetsRates } from '../../../selectors/assets';
 import { getCurrencyRates, getMarketData } from '../../../selectors/selectors';
 import { AssetType } from '../../../../shared/constants/transaction';
 import { Asset } from '../types/asset';
-import { getConversionRatesForNativeAsset } from '../../../../shared/lib/asset-conversion-rates';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getConversionRatesForNativeAsset } from '../../../../app/scripts/lib/util';
 import { isEvmChainId } from '../../../../shared/lib/asset-utils';
 import { useFormatters } from '../../../hooks/useFormatters';
 
@@ -114,9 +113,9 @@ export const AssetMarketDetails = ({
   return (
     <Box>
       <Box
-        className="mx-4 border border-solid"
         marginBottom={2}
-        borderColor={BoxBorderColor.BorderMuted}
+        borderColor={BorderColor.borderMuted}
+        marginInline={4}
         style={{ height: '1px', borderBottomWidth: 0 }}
       ></Box>
       <Text
@@ -128,8 +127,9 @@ export const AssetMarketDetails = ({
         {t('marketDetails')}
       </Text>
       <Box
-        className="flex px-4"
-        flexDirection={BoxFlexDirection.Column}
+        paddingInline={4}
+        display={Display.Flex}
+        flexDirection={FlexDirection.Column}
         gap={2}
       >
         {marketCap > 0 &&
@@ -185,7 +185,7 @@ export const AssetMarketDetails = ({
 
 function renderRow(leftColumn: string, rightColumn: ReactNode) {
   return (
-    <Box className="flex" justifyContent={BoxJustifyContent.Between}>
+    <Box display={Display.Flex} justifyContent={JustifyContent.spaceBetween}>
       <Text
         color={TextColor.textAlternative}
         variant={TextVariant.bodyMdMedium}

@@ -1,11 +1,4 @@
-import React, {
-  useState,
-  useMemo,
-  useEffect,
-  useLayoutEffect,
-  useCallback,
-  useRef,
-} from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Box,
   BoxBackgroundColor,
@@ -13,51 +6,30 @@ import {
   BoxJustifyContent,
   twMerge,
 } from '@metamask/design-system-react';
-import { isViewTransitionSupported } from '../transition';
+import { getBrowserName } from '../../../../shared/lib/browser-runtime.utils';
+import { PLATFORM_FIREFOX } from '../../../../shared/constants/app';
 import { TabsProps, TabChild } from './tabs.types';
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max));
 }
 
-// Identifies the most recently started tab transition so a superseded one's
-// cleanup doesn't tear down state the newer transition just set up.
-let latestTabTransitionId = 0;
-
 async function startTransition(
   direction: 'forward' | 'backward',
   update: () => void,
-  panel: HTMLElement | null,
 ) {
-  if (!isViewTransitionSupported()) {
-    update();
-    return;
-  }
+  if (document.startViewTransition && getBrowserName() !== PLATFORM_FIREFOX) {
+    document.documentElement.dataset.tabTransitionDirection = direction;
 
-  latestTabTransitionId += 1;
-  const transitionId = latestTabTransitionId;
-  document.documentElement.dataset.tabTransitionDirection = direction;
-  // Name the panel only during the tab switch; a persistent name would also be
-  // captured by unrelated (e.g. page) transitions, where it overflows.
-  if (panel) {
-    panel.style.viewTransitionName = 'tab-content';
-  }
+    const transition = document.startViewTransition(update);
 
-  const transition = document.startViewTransition(update);
-
-  try {
-    await transition.finished;
-  } catch {
-    // A rapid switch aborts the in-flight transition, rejecting
-    // `finished`. That's expected — swallow it to avoid unhandled rejection.
-  } finally {
-    // Skip cleanup if a newer transition has taken over
-    if (transitionId === latestTabTransitionId) {
+    try {
+      await transition.finished;
+    } finally {
       delete document.documentElement.dataset.tabTransitionDirection;
-      if (panel) {
-        panel.style.viewTransitionName = '';
-      }
     }
+  } else {
+    update();
   }
 }
 
@@ -72,9 +44,6 @@ export const Tabs = <TKey extends string = string>({
   animated,
   ...props
 }: TabsProps<TKey>) => {
-  const tabListRef = useRef<HTMLDivElement>(null);
-  const tabContentRef = useRef<HTMLDivElement>(null);
-
   // Helper function to get valid children, filtering out null/undefined/false values
   const getValidChildren = useMemo((): TabChild<TKey>[] => {
     return React.Children.toArray(children).filter(
@@ -108,39 +77,27 @@ export const Tabs = <TKey extends string = string>({
 
   useEffect(() => {
     const childIndex = findChildByKey(activeTab);
-    if (childIndex >= 0) {
+    if (childIndex >= 0 && activeTabIndex !== childIndex) {
       setActiveTabIndex(childIndex);
     }
-  }, [activeTab, findChildByKey]);
+  }, [activeTab, findChildByKey, activeTabIndex]);
 
   const clampedIndex =
     getValidChildren.length > 0
       ? clamp(activeTabIndex, 0, getValidChildren.length - 1)
       : 0;
 
-  useLayoutEffect(() => {
-    const childIndex = findChildByKey(activeTab);
-    const index = childIndex >= 0 ? childIndex : clampedIndex;
-    const tabs = tabListRef.current?.querySelectorAll('[role="tab"]');
-
-    tabs?.[index]?.scrollIntoView({
-      behavior: 'smooth',
-      inline: 'nearest',
-      block: 'nearest',
-    });
-  }, [activeTab, findChildByKey, clampedIndex]);
-
   const handleTabClick = (tabIndex: number, tabKey: TKey): void => {
     if (tabIndex !== clampedIndex) {
       const direction = tabIndex > clampedIndex ? 'forward' : 'backward';
 
       const applyUpdate = () => {
-        onTabClick?.(tabKey);
         setActiveTabIndex(tabIndex);
+        onTabClick?.(tabKey);
       };
 
       if (animated) {
-        startTransition(direction, applyUpdate, tabContentRef.current);
+        startTransition(direction, applyUpdate);
       } else {
         applyUpdate();
       }
@@ -178,7 +135,6 @@ export const Tabs = <TKey extends string = string>({
   return (
     <Box className={twMerge('tabs', 'transform-gpu', className)} {...props}>
       <Box
-        ref={tabListRef}
         role="tablist"
         flexDirection={BoxFlexDirection.Row}
         justifyContent={BoxJustifyContent.Start}
@@ -189,7 +145,14 @@ export const Tabs = <TKey extends string = string>({
         {renderTabs()}
       </Box>
       {subHeader}
-      <Box ref={tabContentRef} role="tabpanel" {...tabContentProps}>
+      <Box
+        role="tabpanel"
+        {...tabContentProps}
+        style={{
+          ...tabContentProps?.style,
+          ...(animated ? { viewTransitionName: 'tab-content' } : undefined),
+        }}
+      >
         {renderActiveTabContent()}
       </Box>
     </Box>

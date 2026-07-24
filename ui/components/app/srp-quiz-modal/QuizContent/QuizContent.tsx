@@ -1,18 +1,19 @@
 import React from 'react';
 import {
-  Box,
-  BoxAlignItems,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
-import {
+  AlignItems,
   BlockSize,
+  Display,
+  FlexDirection,
+  JustifyContent,
   TextAlign,
   TextVariant,
 } from '../../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
-import { Button, Text } from '../../../component-library';
+import { Button, Box, Text } from '../../../component-library';
 import { IQuizInformationProps } from '../types';
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function QuizContent({
   icon,
   image,
@@ -26,15 +27,16 @@ export default function QuizContent({
     <>
       {icon && (
         <Box
-          className="flex flex-row"
-          alignItems={BoxAlignItems.Center}
-          justifyContent={BoxJustifyContent.Center}
+          display={Display.Flex}
+          flexDirection={FlexDirection.Row}
+          alignItems={AlignItems.center}
+          justifyContent={JustifyContent.center}
         >
           {icon}
         </Box>
       )}
       {image && (
-        <Box className="flex text-center m-auto">
+        <Box display={Display.Flex} margin="auto" textAlign={TextAlign.Center}>
           <img
             src={image}
             alt={t('srpSecurityQuizImgAlt')}

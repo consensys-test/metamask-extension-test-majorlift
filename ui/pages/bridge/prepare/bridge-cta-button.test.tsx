@@ -14,7 +14,7 @@ import {
 import configureStore from '../../../store/store';
 import { createBridgeMockStore } from '../../../../test/data/bridge/mock-bridge-store';
 import { CHAIN_IDS } from '../../../../shared/constants/network';
-import mockBridgeQuotesNativeErc20 from '../../../../test/data/bridge/mock-quotes-native-erc20';
+import mockBridgeQuotesNativeErc20 from '../../../../test/data/bridge/mock-quotes-native-erc20.json';
 import { enLocale as messages } from '../../../../test/lib/i18n-helpers';
 import * as bridgeSelectors from '../../../ducks/bridge/selectors';
 import { toBridgeToken } from '../../../ducks/bridge/utils';
@@ -27,23 +27,8 @@ import {
 import { setBackgroundConnection } from '../../../store/background-connection';
 import { MetaMetricsHardwareWalletRecoveryLocation } from '../../../../shared/constants/metametrics';
 import { trackHardwareWalletRecoveryConnectCtaClicked } from '../../../helpers/utils/track-hardware-wallet-recovery-connect-cta-clicked';
-import * as useSubmitBridgeTransactionModule from '../../../hooks/bridge/useSubmitBridgeTransaction';
+import * as useSubmitBridgeTransactionModule from '../hooks/useSubmitBridgeTransaction';
 import { BridgeCTAButton } from './bridge-cta-button';
-
-const mockTrackEvent = jest.fn().mockResolvedValue(undefined);
-
-jest.mock('../../../hooks/useAnalytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../../shared/lib/analytics/create-event-builder',
-  );
-
-  return {
-    useAnalytics: () => ({
-      trackEvent: mockTrackEvent,
-      createEventBuilder,
-    }),
-  };
-});
 
 const mockTrackHardwareWalletRecoveryConnectCtaClicked = jest.mocked(
   trackHardwareWalletRecoveryConnectCtaClicked,
@@ -77,14 +62,12 @@ setBackgroundConnection({
   submitTx: jest.fn(),
   setEnabledAllPopularNetworks: jest.fn(),
   getStatePatches: jest.fn(),
-  getLocation: jest.fn().mockResolvedValue('Main View'),
   resetState: () => mockResetState(),
 } as never);
 
 describe('BridgeCTAButton', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockTrackEvent.mockClear();
     mockTrackHardwareWalletRecoveryConnectCtaClicked.mockReset();
     mockUseHardwareWalletConfig.mockReturnValue(baseHardwareWalletConfig);
     mockUseHardwareWalletActions.mockReturnValue({
@@ -253,7 +236,7 @@ describe('BridgeCTAButton', () => {
         ),
       },
       bridgeStateOverrides: {
-        quotes: mockBridgeQuotesNativeErc20,
+        quotes: mockBridgeQuotesNativeErc20 as unknown as QuoteResponse[],
         quotesLastFetched: Date.now(),
         quotesLoadingStatus: RequestStatus.FETCHED,
       },
@@ -324,7 +307,7 @@ describe('BridgeCTAButton', () => {
         ),
       },
       bridgeStateOverrides: {
-        quotes: mockBridgeQuotesNativeErc20,
+        quotes: mockBridgeQuotesNativeErc20 as unknown as QuoteResponse[],
         quotesLastFetched: Date.now(),
         quotesLoadingStatus: RequestStatus.FETCHED,
       },
@@ -374,7 +357,7 @@ describe('BridgeCTAButton', () => {
         ),
       },
       bridgeStateOverrides: {
-        quotes: mockBridgeQuotesNativeErc20,
+        quotes: mockBridgeQuotesNativeErc20 as unknown as QuoteResponse[],
         quotesLastFetched: Date.now(),
         quotesLoadingStatus: RequestStatus.FETCHED,
       },
@@ -434,6 +417,7 @@ describe('BridgeCTAButton', () => {
           isSubmitting: false,
         }));
 
+      const mockTrackEvent = jest.fn().mockResolvedValue(undefined);
       const connectionState = {
         status: ConnectionStatus.Disconnected as const,
       };
@@ -464,13 +448,13 @@ describe('BridgeCTAButton', () => {
           ),
         },
         bridgeStateOverrides: {
-          quotes: mockBridgeQuotesNativeErc20,
+          quotes: mockBridgeQuotesNativeErc20 as unknown as QuoteResponse[],
           quotesLastFetched: Date.now(),
           quotesLoadingStatus: RequestStatus.FETCHED,
         },
       });
       const store = configureStore(mockStore);
-      const Wrapper = createProviderWrapper(store, '/');
+      const Wrapper = createProviderWrapper(store, '/', () => mockTrackEvent);
 
       const { getByRole } = render(
         <HardwareWalletProvider>
@@ -494,7 +478,7 @@ describe('BridgeCTAButton', () => {
 
       expect(
         mockTrackHardwareWalletRecoveryConnectCtaClicked,
-      ).toHaveBeenCalledWith(expect.any(Function), {
+      ).toHaveBeenCalledWith(mockTrackEvent, {
         location: MetaMetricsHardwareWalletRecoveryLocation.Swaps,
         walletType: HardwareWalletType.Ledger,
         connectionState,
@@ -558,26 +542,8 @@ describe('BridgeCTAButton', () => {
       { isInsufficientGasForQuote: true },
       messages.insufficientFundsSend.message,
     ],
-    [
-      'disable',
-      'there is insufficient native reserve',
-      { isInsufficientNativeReserve: true },
-      messages.insufficientFundsSend.message,
-    ],
     ['enable', 'the estimated return is low', { isEstimatedReturnLow: true }],
     ['enable', 'there are no validation errors', {}, messages.swap.message],
-    [
-      'disable',
-      'network fee is unavailable',
-      { isNetworkFeeUnavailable: true },
-      messages.insufficientFundsSend.message,
-    ],
-    [
-      'disable',
-      'network fee is unavailable with insufficient gas for quote',
-      { isNetworkFeeUnavailable: true, isInsufficientGasForQuote: true },
-      messages.insufficientFundsSend.message,
-    ],
     [
       'enable',
       'market is closed',
@@ -621,7 +587,7 @@ describe('BridgeCTAButton', () => {
           ...bridgeSliceOverrides,
         },
         bridgeStateOverrides: {
-          quotes: mockBridgeQuotesNativeErc20,
+          quotes: mockBridgeQuotesNativeErc20 as unknown as QuoteResponse[],
           quotesLastFetched: Date.now(),
           quotesLoadingStatus: RequestStatus.LOADING,
           ...bridgeStateOverrides,
@@ -634,7 +600,6 @@ describe('BridgeCTAButton', () => {
         isInsufficientGasForQuote: false,
         isInsufficientBalance: false,
         isInsufficientNativeReserve: false,
-        isNetworkFeeUnavailable: false,
         isEstimatedReturnLow: false,
         isTxAlertLoading: false,
         isStockMarketClosed: false,
@@ -703,7 +668,6 @@ describe('BridgeCTAButton', () => {
         isInsufficientGasForQuote: false,
         isInsufficientBalance: false,
         isInsufficientNativeReserve: false,
-        isNetworkFeeUnavailable: false,
         isEstimatedReturnLow: false,
         isTxAlertLoading: false,
         isPriceImpactWarning: false,
@@ -777,7 +741,7 @@ describe('BridgeCTAButton', () => {
           wasTxDeclined,
         },
         bridgeStateOverrides: {
-          quotes: mockBridgeQuotesNativeErc20,
+          quotes: mockBridgeQuotesNativeErc20 as unknown as QuoteResponse[],
           quotesLastFetched: Date.now(),
           quotesLoadingStatus: RequestStatus.FETCHED,
           quoteRequest: {
@@ -813,7 +777,7 @@ describe('BridgeCTAButton', () => {
         wasTxDeclined: false,
       },
       bridgeStateOverrides: {
-        quotes: mockBridgeQuotesNativeErc20,
+        quotes: mockBridgeQuotesNativeErc20 as unknown as QuoteResponse[],
         quotesLastFetched: Date.now() - 35000,
         quotesLoadingStatus: RequestStatus.FETCHED,
         quoteRequest: {
@@ -829,7 +793,6 @@ describe('BridgeCTAButton', () => {
       isInsufficientGasForQuote: false,
       isInsufficientBalance: false,
       isInsufficientNativeReserve: false,
-      isNetworkFeeUnavailable: false,
       isEstimatedReturnLow: false,
       isTxAlertLoading: false,
       isPriceImpactWarning: false,
@@ -871,7 +834,7 @@ describe('BridgeCTAButton', () => {
         ),
       },
       bridgeStateOverrides: {
-        quotes: mockBridgeQuotesNativeErc20,
+        quotes: mockBridgeQuotesNativeErc20 as unknown as QuoteResponse[],
         quotesLastFetched: Date.now(),
         quotesLoadingStatus: RequestStatus.LOADING,
       },
@@ -892,7 +855,7 @@ describe('BridgeCTAButton', () => {
     expect(getByRole('button')).not.toBeDisabled();
     expect(getByRole('button')).toMatchInlineSnapshot(`
       <button
-        class="inline-flex items-center justify-center rounded-xl px-4 font-medium overflow-hidden relative h-12 w-full transition-all duration-100 ease-linear active:scale-[0.97] active:ease-[cubic-bezier(0.3,0.8,0.3,1)] bg-icon-default text-primary-inverse hover:bg-icon-default-hover active:bg-icon-default-pressed focus-visible:ring-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default"
+        class="inline-flex items-center justify-center rounded-xl px-4 font-medium min-w-20 overflow-hidden relative h-12 w-full transition-all duration-100 ease-linear active:scale-[0.97] active:ease-[cubic-bezier(0.3,0.8,0.3,1)] bg-icon-default text-primary-inverse hover:bg-icon-default-hover active:bg-icon-default-pressed focus-visible:ring-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-default"
         data-testid="bridge-cta-button"
         role="button"
         style="box-shadow: none;"

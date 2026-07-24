@@ -1,6 +1,7 @@
 import { strict as assert } from 'assert';
 import { Key } from 'selenium-webdriver';
 import { Driver } from '../../../webdriver/driver';
+import { getRegistryBooleanFlag } from '../../../feature-flags/feature-flag-registry';
 
 export type BridgeQuote = {
   amount: string;
@@ -49,11 +50,6 @@ class BridgeQuotePage {
     css: '[data-testid="bridge-cta-button"]',
   };
 
-  private rwaGeoRestrictedMessage = {
-    css: '[data-testid="bridge-no-quotes"]',
-    text: "This swap isn't available in your region.",
-  };
-
   private maxButton = { text: 'Max' };
 
   private moreETHneededForGas = '[data-testid="bridge-insufficient-gas"]';
@@ -78,6 +74,9 @@ class BridgeQuotePage {
   private sourceAmount = '[data-testid="from-amount"]';
 
   public sourceAssetPickerButton = '[data-testid="bridge-source-button"]';
+
+  private statusPageCloseButton =
+    '[data-testid="smart-transaction-status-page-footer-close-button"]';
 
   private submitButton = '[data-testid="bridge-cta-button"]';
 
@@ -169,7 +168,6 @@ class BridgeQuotePage {
           this.assetPrickerSearchInput,
           quote.tokenTo,
         );
-        await this.driver.delay(2000);
         await this.driver.clickElementAndWaitToDisappear({
           text: quote.tokenTo,
           css: this.tokenButton,
@@ -305,8 +303,27 @@ class BridgeQuotePage {
     await this.submitQuote();
 
     // If no price data is available a confirmation modal appears before submission.
-    // Dismiss it so the transaction can proceed.
+    // Dismiss it so the transaction can proceed to the status page.
     await this.approveModalIfPresent();
+
+    await this.dismissStatusPageIfPresent();
+  };
+
+  dismissStatusPageIfPresent = async () => {
+    const skipStatusPage = getRegistryBooleanFlag(
+      'extensionSkipTransactionStatusPage',
+    );
+
+    if (skipStatusPage) {
+      return;
+    }
+
+    try {
+      await this.driver.waitForSelector(this.statusPageCloseButton);
+      await this.driver.clickElement(this.statusPageCloseButton);
+    } catch {
+      // Status page may have auto-closed or not appeared
+    }
   };
 
   confirmBridgeTransaction = async () => {
@@ -316,17 +333,6 @@ class BridgeQuotePage {
   goBack = async () => {
     await this.driver.waitForSelector(this.backButton);
     await this.driver.clickElement(this.backButton);
-  };
-
-  /**
-   * Navigates away from the bridge page via the bottom nav bar home tab.
-   * Use this instead of `goBack` when the user is in the bottom nav AB test
-   * treatment, where the back button is removed on the swap/bridge page.
-   */
-  goBackViaBottomNavHome = async () => {
-    const homeTab = '[data-testid="bottom-nav-home"]';
-    await this.driver.waitForSelector(homeTab);
-    await this.driver.clickElement(homeTab);
   };
 
   async searchAssetAndVerifyCount(
@@ -358,18 +364,6 @@ class BridgeQuotePage {
     console.log('The message "no trade route is available" is displayed');
   }
 
-  async checkRwaGeoRestrictedMessageIsDisplayed(): Promise<void> {
-    try {
-      await this.driver.waitForSelector(this.rwaGeoRestrictedMessage);
-    } catch (e) {
-      console.log(
-        `Expected message that "This swap isn't available in your region" is not present`,
-      );
-      throw e;
-    }
-    console.log('The RWA geo-restricted message is displayed');
-  }
-
   async checkInsufficientFundsButtonIsDisplayed(): Promise<void> {
     try {
       await this.driver.waitForSelector(this.insufficientFundsButton);
@@ -396,8 +390,8 @@ class BridgeQuotePage {
     try {
       const balance = await this.driver.waitForSelector(this.networkFees);
       const currentBalanceText = await balance.getText();
-      // Verify that the text matches the pattern $XXX.XX or $0.00X (for small fees < $0.01)
-      const pricePattern = /^\$\d+\.\d{2,4}$/u;
+      // Verify that the text matches the pattern $XXX.XX
+      const pricePattern = /^\$\d+\.\d{2}$/u;
       if (!pricePattern.test(currentBalanceText)) {
         throw new Error(`Price format is not valid: ${currentBalanceText}`);
       }

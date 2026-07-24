@@ -1,6 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { useCallback } from 'react';
-import isEqual from 'lodash/isEqual';
 import {
   AlertsState,
   selectAlerts,
@@ -21,9 +20,8 @@ const useAlerts = (ownerId: string) => {
     useSelector((state) => selectAlerts(state as AlertsState, ownerId)),
   );
 
-  const confirmedAlertKeys = useSelector(
-    (state) => selectConfirmedAlertKeys(state as AlertsState, ownerId),
-    isEqual,
+  const confirmedAlertKeys = useSelector((state) =>
+    selectConfirmedAlertKeys(state as AlertsState, ownerId),
   );
 
   const generalAlerts = sortAlertsBySeverity(

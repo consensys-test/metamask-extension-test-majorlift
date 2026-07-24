@@ -1,4 +1,5 @@
 import React from 'react';
+import type { FC } from 'react';
 
 import {
   AlignItems,
@@ -26,10 +27,10 @@ export type NotificationDetailTitleProps = {
  * @param props.date - The date of the notification.
  * @returns The NotificationDetailTitle component.
  */
-export const NotificationDetailTitle = ({
+export const NotificationDetailTitle: FC<NotificationDetailTitleProps> = ({
   title,
   date,
-}: NotificationDetailTitleProps): JSX.Element => {
+}): JSX.Element => {
   return (
     <Box
       display={Display.Flex}
@@ -44,7 +45,6 @@ export const NotificationDetailTitle = ({
         variant={TextVariant.headingSm}
         textAlign={TextAlign.Center}
         overflowWrap={OverflowWrap.BreakWord}
-        data-testid="notification-details-title"
       >
         {title}
       </Text>

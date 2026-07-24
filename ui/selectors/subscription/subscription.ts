@@ -6,7 +6,6 @@ import {
   Subscription,
   SubscriptionControllerState,
 } from '@metamask/subscription-controller';
-import { createSelector } from 'reselect';
 import {
   getIsShieldSubscriptionActive,
   getShieldSubscription,
@@ -26,20 +25,19 @@ export function getSubscriptionPricing(
   return state.metamask.pricing;
 }
 
-export const getUserSubscriptions = createSelector(
-  [
-    (state: SubscriptionState) => state.metamask.customerId,
-    (state: SubscriptionState) => state.metamask.subscriptions,
-    (state: SubscriptionState) => state.metamask.trialedProducts,
-    (state: SubscriptionState) => state.metamask.lastSubscription,
-  ],
-  (customerId, subscriptions, trialedProducts, lastSubscription) => ({
-    customerId,
-    subscriptions,
-    trialedProducts,
-    lastSubscription,
-  }),
-);
+export function getUserSubscriptions(state: SubscriptionState): {
+  customerId?: string;
+  subscriptions: Subscription[];
+  trialedProducts: ProductType[];
+  lastSubscription?: Subscription;
+} {
+  return {
+    customerId: state.metamask.customerId,
+    subscriptions: state.metamask.subscriptions,
+    trialedProducts: state.metamask.trialedProducts,
+    lastSubscription: state.metamask.lastSubscription,
+  };
+}
 
 export function getIsActiveShieldSubscription(
   state: SubscriptionState,

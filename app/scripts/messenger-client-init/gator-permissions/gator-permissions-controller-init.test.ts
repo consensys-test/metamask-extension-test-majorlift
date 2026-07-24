@@ -1,47 +1,30 @@
 import {
   GatorPermissionsController,
   SupportedPermissionType,
-  GatorPermissionsControllerMessenger,
 } from '@metamask/gator-permissions-controller';
 import { buildControllerInitRequestMock } from '../test/utils';
 import type { MessengerClientInitRequest } from '../types';
+import { getEnabledAdvancedPermissions } from '../../../../shared/lib/environment';
 import {
-  ENABLED_ADVANCED_PERMISSIONS_FEATURE_FLAG,
-  getEnabledAdvancedPermissions,
-} from '../../../../shared/lib/gator-permissions/feature-flags';
-import { getGatorPermissionsControllerMessenger } from '../messengers/gator-permissions';
+  getGatorPermissionsControllerMessenger,
+  GatorPermissionsControllerMessenger,
+} from '../messengers/gator-permissions';
 import { getRootMessenger } from '../../lib/messenger';
 import { GatorPermissionsControllerInit } from './gator-permissions-controller-init';
 
 jest.mock('@metamask/gator-permissions-controller');
-jest.mock('../../../../shared/lib/gator-permissions/feature-flags', () => ({
-  ...jest.requireActual(
-    '../../../../shared/lib/gator-permissions/feature-flags',
-  ),
-  getEnabledAdvancedPermissions: jest.fn(),
-}));
+jest.mock('../../../../shared/lib/environment');
 
 function buildInitRequestMock(): jest.Mocked<
   MessengerClientInitRequest<GatorPermissionsControllerMessenger>
 > {
   const baseControllerMessenger = getRootMessenger();
-  const remoteFeatureFlagController = {
-    state: {
-      remoteFeatureFlags: {
-        [ENABLED_ADVANCED_PERMISSIONS_FEATURE_FLAG]: {
-          permissions: ['native-token-stream'],
-        },
-      },
-      cacheTimestamp: 0,
-    },
-  };
 
   return {
     ...buildControllerInitRequestMock(),
     controllerMessenger: getGatorPermissionsControllerMessenger(
       baseControllerMessenger,
     ),
-    getMessengerClient: jest.fn().mockReturnValue(remoteFeatureFlagController),
     initMessenger: undefined,
   };
 }
@@ -112,9 +95,6 @@ describe('GatorPermissionsControllerInit', () => {
 
   it('passes supportedPermissionTypes from getEnabledAdvancedPermissions to config', () => {
     const requestMock = buildInitRequestMock();
-    const remoteFeatureFlagController = requestMock.getMessengerClient(
-      'RemoteFeatureFlagController',
-    );
     const supportedTypes: SupportedPermissionType[] = [
       'native-token-stream',
       'erc20-token-stream',
@@ -124,9 +104,6 @@ describe('GatorPermissionsControllerInit', () => {
     GatorPermissionsControllerInit(requestMock);
 
     const { config } = GatorPermissionsControllerClassMock.mock.calls[0][0];
-    expect(getEnabledAdvancedPermissions).toHaveBeenCalledWith(
-      remoteFeatureFlagController.state,
-    );
     expect(config.supportedPermissionTypes).toEqual(supportedTypes);
   });
 

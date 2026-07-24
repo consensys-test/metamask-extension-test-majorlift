@@ -1,5 +1,5 @@
 import type { CarouselSlide } from '../../../../../shared/constants/app-state';
-import type { TransitionState } from '../types';
+import type { NavigationAction, TransitionState } from '../types';
 
 export type StackCardProps = {
   slide: CarouselSlide;
@@ -7,7 +7,7 @@ export type StackCardProps = {
   isLastSlide?: boolean;
   isExiting?: boolean;
   transitionState?: TransitionState;
-  onSlideClick?: (slideId: string) => boolean | void;
+  onSlideClick?: (slideId: string, navigation?: NavigationAction) => void;
   onTransitionToNextCard?: (slideId: string, isLastSlide: boolean) => void;
   className?: string;
 };

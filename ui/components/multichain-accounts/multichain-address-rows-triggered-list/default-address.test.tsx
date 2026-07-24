@@ -3,6 +3,7 @@ import { screen, fireEvent } from '@testing-library/react';
 import configureStore from 'redux-mock-store';
 import { renderWithProvider } from '../../../../test/lib/render-helpers-navigate';
 import { enLocale as messages } from '../../../../test/lib/i18n-helpers';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -17,21 +18,6 @@ jest.mock('../../../store/actions', () => ({
   }),
 }));
 
-const mockTrackEvent = jest.fn();
-
-jest.mock('../../../hooks/useAnalytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../../shared/lib/analytics/create-event-builder',
-  );
-
-  return {
-    useAnalytics: () => ({
-      trackEvent: mockTrackEvent,
-      createEventBuilder,
-    }),
-  };
-});
-
 const mockStore = configureStore([]);
 
 const createMockState = (overrides = {}) => ({
@@ -44,11 +30,14 @@ const createMockState = (overrides = {}) => ({
   },
 });
 
-describe('DefaultAddress', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+const createMockMetaMetricsContext = (trackEvent = jest.fn()) => ({
+  trackEvent,
+  bufferedTrace: jest.fn().mockResolvedValue(undefined),
+  bufferedEndTrace: jest.fn().mockResolvedValue(undefined),
+  onboardingParentContext: { current: null },
+});
 
+describe('DefaultAddress', () => {
   it('renders the show default address label', () => {
     const store = mockStore(createMockState());
     renderWithProvider(<DefaultAddress />, store);
@@ -78,40 +67,54 @@ describe('DefaultAddress', () => {
   });
 
   it('tracks NavSettingsOpened when Change in Settings is clicked', () => {
+    const mockTrackEvent = jest.fn();
     const store = mockStore(createMockState());
-    renderWithProvider(<DefaultAddress />, store);
+    renderWithProvider(
+      <MetaMetricsContext.Provider
+        value={createMockMetaMetricsContext(mockTrackEvent)}
+      >
+        <DefaultAddress />
+      </MetaMetricsContext.Provider>,
+      store,
+    );
 
     fireEvent.click(screen.getByTestId('change-in-settings-link'));
 
     expect(mockTrackEvent).toHaveBeenCalledWith({
-      name: MetaMetricsEventName.NavSettingsOpened,
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.NavSettingsOpened,
       properties: {
-        category: MetaMetricsEventCategory.Navigation,
         location: 'Account Hover Menu',
         // eslint-disable-next-line @typescript-eslint/naming-convention
         settings_type: 'show_default_address',
       },
-      sensitiveProperties: {},
     });
   });
 
   it('tracks SettingsUpdated when show default address toggle is clicked', () => {
+    const mockTrackEvent = jest.fn();
     const store = mockStore(createMockState());
-    renderWithProvider(<DefaultAddress />, store);
+    renderWithProvider(
+      <MetaMetricsContext.Provider
+        value={createMockMetaMetricsContext(mockTrackEvent)}
+      >
+        <DefaultAddress />
+      </MetaMetricsContext.Provider>,
+      store,
+    );
 
     fireEvent.click(screen.getByTestId('show-default-address-toggle'));
 
     expect(mockTrackEvent).toHaveBeenCalledWith({
-      name: MetaMetricsEventName.SettingsUpdated,
+      category: MetaMetricsEventCategory.Settings,
+      event: MetaMetricsEventName.SettingsUpdated,
       properties: {
-        category: MetaMetricsEventCategory.Settings,
         // eslint-disable-next-line @typescript-eslint/naming-convention
         default_address_network: 'eip155',
         location: 'Account Hover Menu',
         // eslint-disable-next-line @typescript-eslint/naming-convention
         show_default_address: false,
       },
-      sensitiveProperties: {},
     });
   });
 });

@@ -1,21 +1,20 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Icon, IconName, IconSize } from '@metamask/design-system-react';
 import fetchWithCache from '../../../../shared/lib/fetch-with-cache';
 import { DAY } from '../../../../shared/constants/time';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
 import {
+  getSelectedInternalAccount,
   getLastViewedUserSurvey,
   getUseExternalServices,
-  getAnalyticsId,
-  getCompletedMetaMetricsOnboarding,
-  getOptedIn,
+  getMetaMetricsId,
+  getParticipateInMetaMetrics,
 } from '../../../selectors';
-import { getSelectedInternalAccount } from '../../../../shared/lib/selectors/accounts';
 import { ACCOUNTS_API_BASE_URL } from '../../../../shared/constants/accounts';
 import { setLastViewedUserSurvey } from '../../../store/actions';
 import { Toast } from '../../multichain';
@@ -28,27 +27,25 @@ type Survey = {
   id: number;
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function SurveyToast() {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const dispatch = useDispatch();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const lastViewedUserSurvey = useSelector(getLastViewedUserSurvey);
-  const isOptedIn = useSelector(getOptedIn);
-  const completedMetaMetricsOnboarding = useSelector(
-    getCompletedMetaMetricsOnboarding,
-  );
+  const participateInMetaMetrics = useSelector(getParticipateInMetaMetrics);
   const basicFunctionality = useSelector(getUseExternalServices);
   const internalAccount = useSelector(getSelectedInternalAccount);
-  const analyticsId = useSelector(getAnalyticsId);
-  const isMetaMetricsEnabled = completedMetaMetricsOnboarding && isOptedIn;
+  const metaMetricsId = useSelector(getMetaMetricsId);
 
   const surveyUrl = useMemo(
-    () => `${ACCOUNTS_API_BASE_URL}/v1/users/${analyticsId}/surveys`,
-    [analyticsId],
+    () => `${ACCOUNTS_API_BASE_URL}/v1/users/${metaMetricsId}/surveys`,
+    [metaMetricsId],
   );
 
   useEffect(() => {
-    if (!basicFunctionality || !analyticsId || !isMetaMetricsEnabled) {
+    if (!basicFunctionality || !metaMetricsId || !participateInMetaMetrics) {
       return undefined;
     }
 
@@ -82,7 +79,7 @@ export function SurveyToast() {
         setSurvey(_survey);
       } catch (error: unknown) {
         if (error instanceof Error && error.name !== 'AbortError') {
-          console.error('Failed to fetch survey:', analyticsId, error);
+          console.error('Failed to fetch survey:', metaMetricsId, error);
         }
       }
     };
@@ -96,8 +93,7 @@ export function SurveyToast() {
     internalAccount?.address,
     lastViewedUserSurvey,
     basicFunctionality,
-    analyticsId,
-    isMetaMetricsEnabled,
+    metaMetricsId,
     dispatch,
   ]);
 
@@ -121,19 +117,18 @@ export function SurveyToast() {
   }
 
   function trackAction(response: 'accept' | 'deny') {
-    if (!isMetaMetricsEnabled || !survey) {
+    if (!participateInMetaMetrics || !survey) {
       return;
     }
 
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.SurveyToast)
-        .addCategory(MetaMetricsEventCategory.Feedback)
-        .addProperties({
-          response,
-          survey: survey.id,
-        })
-        .build(),
-    );
+    trackEvent({
+      event: MetaMetricsEventName.SurveyToast,
+      category: MetaMetricsEventCategory.Feedback,
+      properties: {
+        response,
+        survey: survey.id,
+      },
+    });
   }
 
   if (!survey || survey.id <= lastViewedUserSurvey) {

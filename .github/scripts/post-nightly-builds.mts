@@ -1,7 +1,9 @@
 import { IncomingWebhook } from '@slack/webhook';
 import type { AnyBlock } from '@slack/types';
 import { version } from '../../package.json';
-import { getBuildLinks } from '../../development/metamaskbot-build-announce/build-links.ts';
+import artifactsModule from '../../development/metamaskbot-build-announce/artifacts';
+
+const { getBuildLinks } = artifactsModule;
 
 async function main() {
   const env = {
@@ -282,6 +284,98 @@ async function postSuccessNotification(env: any, version: string) {
             {
               type: 'text' as const,
               text: ' Download Links:\n',
+              style: {
+                bold: true,
+              },
+            },
+            {
+              type: 'emoji' as const,
+              name: 'chrome',
+            },
+            {
+              type: 'text' as const,
+              text: ' ',
+            },
+            {
+              type: 'link' as const,
+              url: buildLinks.browserify.main.chrome,
+              text: 'Main Chrome Extension',
+            },
+            {
+              type: 'text' as const,
+              text: '\n',
+            },
+            {
+              type: 'emoji' as const,
+              name: 'firefox',
+            },
+            {
+              type: 'text' as const,
+              text: ' ',
+            },
+            {
+              type: 'link' as const,
+              url: buildLinks.browserify.main.firefox,
+              text: 'Main Firefox Extension',
+            },
+            {
+              type: 'text' as const,
+              text: '\n',
+            },
+            {
+              type: 'emoji' as const,
+              name: 'test_tube',
+            },
+            {
+              type: 'text' as const,
+              text: ' ',
+            },
+            {
+              type: 'link' as const,
+              url: buildLinks.browserify.experimental.chrome,
+              text: 'Experimental Chrome Extension',
+            },
+            {
+              type: 'text' as const,
+              text: '\n',
+            },
+            {
+              type: 'emoji' as const,
+              name: 'test_tube',
+            },
+            {
+              type: 'text' as const,
+              text: ' ',
+            },
+            {
+              type: 'link' as const,
+              url: buildLinks.browserify.experimental.firefox,
+              text: 'Experimental Firefox Extension',
+            },
+            {
+              type: 'text' as const,
+              text: '\n',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: 'divider',
+    },
+    {
+      type: 'rich_text',
+      elements: [
+        {
+          type: 'rich_text_section',
+          elements: [
+            {
+              type: 'emoji' as const,
+              name: 'package',
+            },
+            {
+              type: 'text' as const,
+              text: ' Webpack Download Links:\n',
               style: {
                 bold: true,
               },

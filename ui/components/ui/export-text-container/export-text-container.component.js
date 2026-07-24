@@ -1,21 +1,18 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import {
-  Box,
-  BoxAlignItems,
-  BoxBorderColor,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
 import { MINUTE } from '../../../../shared/constants/time';
 import {
+  AlignItems,
+  BorderColor,
+  BorderRadius,
   Display,
+  FlexDirection,
   JustifyContent,
   TextVariant,
 } from '../../../helpers/constants/design-system';
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard';
 import { useI18nContext } from '../../../hooks/useI18nContext';
-import { ButtonSecondary, Text } from '../../component-library';
+import { Box, ButtonSecondary, Text } from '../../component-library';
 
 function ExportTextContainer({ text = '', onClickCopy = null }) {
   const t = useI18nContext();
@@ -25,11 +22,12 @@ function ExportTextContainer({ text = '', onClickCopy = null }) {
 
   return (
     <Box
-      className="flex rounded-md border border-solid"
-      justifyContent={BoxJustifyContent.Center}
-      flexDirection={BoxFlexDirection.Column}
-      alignItems={BoxAlignItems.Center}
-      borderColor={BoxBorderColor.BorderDefault}
+      display={Display.Flex}
+      justifyContent={JustifyContent.center}
+      flexDirection={FlexDirection.Column}
+      alignItems={AlignItems.center}
+      borderColor={BorderColor.borderDefault}
+      borderRadius={BorderRadius.MD}
       padding={4}
       gap={4}
     >

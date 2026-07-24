@@ -15,7 +15,7 @@ import {
 } from '../testHelpers';
 
 describe('Initializing a session w/ several scopes and accounts, then calling `wallet_revokeSession`', function () {
-  const EVM_SCOPES = ['eip155:1337', 'eip155:1338', 'eip155:1000'];
+  const GANACHE_SCOPES = ['eip155:1337', 'eip155:1338', 'eip155:1000'];
   const CAIP_ACCOUNT_IDS = [
     toEvmCaipAccountId(ACCOUNT_1),
     toEvmCaipAccountId(ACCOUNT_2),
@@ -36,7 +36,10 @@ describe('Initializing a session w/ several scopes and accounts, then calling `w
         await testDapp.openTestDappPage();
         await testDapp.checkPageIsLoaded();
         await testDapp.connectExternallyConnectable(extensionId);
-        await testDapp.initCreateSessionScopes(EVM_SCOPES, CAIP_ACCOUNT_IDS);
+        await testDapp.initCreateSessionScopes(
+          GANACHE_SCOPES,
+          CAIP_ACCOUNT_IDS,
+        );
 
         const connectAccountConfirmation = new ConnectAccountConfirmation(
           driver,
@@ -103,7 +106,10 @@ describe('Initializing a session w/ several scopes and accounts, then calling `w
         await testDapp.checkPageIsLoaded();
         await testDapp.connectExternallyConnectable(extensionId);
 
-        await testDapp.initCreateSessionScopes(EVM_SCOPES, CAIP_ACCOUNT_IDS);
+        await testDapp.initCreateSessionScopes(
+          GANACHE_SCOPES,
+          CAIP_ACCOUNT_IDS,
+        );
         const connectAccountConfirmation = new ConnectAccountConfirmation(
           driver,
         );
@@ -125,7 +131,7 @@ describe('Initializing a session w/ several scopes and accounts, then calling `w
         await testDapp.revokeSession();
         await driver.delay(largeDelayMs);
 
-        for (const scope of EVM_SCOPES) {
+        for (const scope of GANACHE_SCOPES) {
           const request = {
             jsonrpc: '2.0' as const,
             method: 'wallet_invokeMethod',

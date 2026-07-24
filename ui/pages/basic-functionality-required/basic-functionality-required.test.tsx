@@ -67,11 +67,6 @@ jest.mock('../../hooks/useI18nContext', () => ({
   },
 }));
 
-jest.mock('../../selectors/multichain/feature-flags', () => ({
-  ...jest.requireActual('../../selectors/multichain/feature-flags'),
-  getIsBasicFunctionalityConsolidationEnabled: () => false,
-}));
-
 function renderWithStore(
   ui: React.ReactElement,
   { useExternalServices = false } = {},
@@ -129,7 +124,7 @@ describe('BasicFunctionalityOff', () => {
     renderWithStore(<BasicFunctionalityOff />);
     screen.getByTestId('basic-functionality-off-review-in-settings').click();
 
-    expect(mockNavigate).toHaveBeenCalledWith('/settings/privacy');
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/security');
   });
 
   it('renders Go to the home page link', () => {

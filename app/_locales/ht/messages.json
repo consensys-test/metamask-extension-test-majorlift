@@ -23,6 +23,9 @@
   "accountSelectionRequired": {
     "message": "Ou bezwen chwazi yon kont!"
   },
+  "addAcquiredTokens": {
+    "message": "Ajoute tokens yo ou te achte lè l sèvi avèk MetaMask"
+  },
   "addSuggestedTokens": {
     "message": "Ajoute Token Yo Sikjere W"
   },
@@ -105,14 +108,26 @@
   "create": {
     "message": "Kreye"
   },
+  "currentLanguage": {
+    "message": "Lang Aktyèl"
+  },
+  "customToken": {
+    "message": "Koutim Token"
+  },
   "decimal": {
     "message": "Presizyon desimal la"
+  },
+  "decimalsMustZerotoTen": {
+    "message": "Desimal yo dwe omwen 0, epi pa dwe plis pase 36."
   },
   "details": {
     "message": "Detay yo"
   },
   "done": {
     "message": "Fini"
+  },
+  "downloadGoogleChrome": {
+    "message": "Telechaje Google Chrome"
   },
   "downloadStateLogs": {
     "message": "Telechaje State Logs"
@@ -159,6 +174,9 @@
   },
   "hardwareWallets": {
     "message": "Materyèl Wallet konekte"
+  },
+  "hardwareWalletsMsg": {
+    "message": "Chwazi yon Materyèl Wallet ou ta renmen itilize ak MetaMask"
   },
   "here": {
     "message": "isit la",
@@ -218,6 +236,9 @@
   "likeToImportTokens": {
     "message": "Èske ou ta renmen ajoute sa nan tokens?"
   },
+  "links": {
+    "message": "Lyen"
+  },
   "loading": {
     "message": "Telechaje..."
   },
@@ -236,12 +257,21 @@
   "metamaskVersion": {
     "message": "MetaMask Vèsyon"
   },
+  "mustSelectOne": {
+    "message": "Ou dwe chwazi omwen 1 token."
+  },
   "needImportFile": {
     "message": "Ou dwe chwazi yon dosye pou enpòte.",
     "description": "User is important an account and needs to add a file to continue"
   },
   "networks": {
     "message": "Rezo"
+  },
+  "nevermind": {
+    "message": "Pa pwoblèm"
+  },
+  "newAccount": {
+    "message": "Nouvo Kont"
   },
   "newAccountNumberName": {
     "message": "Kont $1",
@@ -330,6 +360,9 @@
   "restore": {
     "message": "Retabli"
   },
+  "revealSeedWords": {
+    "message": "Revele Seed Mo Yo"
+  },
   "revealSeedWordsWarning": {
     "message": "Yo ka itilize mo sa pou vòlè kont ou.",
     "description": "$1 is bolded text using the message from 'revealSeedWordsWarning2'"
@@ -376,6 +409,9 @@
   "sign": {
     "message": "Siyen"
   },
+  "signatureRequest": {
+    "message": "Siyati Mande"
+  },
   "signed": {
     "message": "Te Siyen"
   },
@@ -384,6 +420,9 @@
   },
   "stateLogError": {
     "message": "Erè nan retwouve State Logs yo."
+  },
+  "stateLogsDescription": {
+    "message": "State logs gen adrès kont piblik ou yo epi tranzaksyon ou te voye yo."
   },
   "submitted": {
     "message": "Te Soumèt"

@@ -1,10 +1,7 @@
-import {
-  LoggingController,
-  LoggingControllerMessenger,
-  LogType,
-} from '@metamask/logging-controller';
+import { LoggingController, LogType } from '@metamask/logging-controller';
 import { LOG_EVENT } from '../../../shared/constants/logs';
 import { MessengerClientInitFunction } from './types';
+import { LoggingControllerMessenger } from './messengers';
 
 /**
  * Initialize the logging controller.

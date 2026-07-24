@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import Box from '../../../components/ui/box';
 import { I18nContext } from '../../../contexts/i18n';
 import { getURLHostName } from '../../../helpers/utils/util';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventLinkType,
@@ -16,24 +16,23 @@ export default function ViewOnBlockExplorer({
   sensitiveTrackingProperties,
 }) {
   const t = useContext(I18nContext);
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const blockExplorerHostName = getURLHostName(blockExplorerUrl);
 
   return (
     <Box marginTop={6} className="view-on-block-explorer">
       <button
         onClick={() => {
-          trackEvent(
-            createEventBuilder(MetaMetricsEventName.ExternalLinkClicked)
-              .addCategory(MetaMetricsEventCategory.Swaps)
-              .addSensitiveProperties(sensitiveTrackingProperties)
-              .addProperties({
-                link_type: MetaMetricsEventLinkType.TransactionBlockExplorer,
-                location: 'Swap Transaction',
-                url_domain: blockExplorerHostName,
-              })
-              .build(),
-          );
+          trackEvent({
+            event: MetaMetricsEventName.ExternalLinkClicked,
+            category: MetaMetricsEventCategory.Swaps,
+            sensitiveProperties: sensitiveTrackingProperties,
+            properties: {
+              link_type: MetaMetricsEventLinkType.TransactionBlockExplorer,
+              location: 'Swap Transaction',
+              url_domain: blockExplorerHostName,
+            },
+          });
           global.platform.openTab({ url: blockExplorerUrl });
         }}
       >

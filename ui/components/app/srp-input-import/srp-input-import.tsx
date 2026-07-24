@@ -23,7 +23,9 @@ import {
   PLATFORM_FIREFOX,
 } from '../../../../shared/constants/app';
 import { getBrowserName } from '../../../../shared/lib/browser-runtime.utils';
-import { getEnvironmentType } from '../../../../shared/lib/environment-type';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getEnvironmentType } from '../../../../app/scripts/lib/util';
 import { parseSecretRecoveryPhrase } from './parse-secret-recovery-phrase';
 
 const SRP_LENGTHS = [12, 15, 18, 21, 24];
@@ -44,6 +46,8 @@ type SrpInputImportProps = {
   onClearCallback?: () => void;
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function SrpInputImport({
   onChange,
   onClearCallback,

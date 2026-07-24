@@ -45,7 +45,7 @@ class TransactionConfirmation extends Confirmation {
     '[data-testid="edit-gas-fee-item-custom"]';
 
   private readonly gasFeeCloseToastMessage: RawLocator =
-    '.toast-container button[aria-label="Close"]';
+    '.toasts-container__banner-base button[aria-label="Close"]';
 
   private readonly gasFeeEstimate = (amount: string): RawLocator => ({
     text: amount,
@@ -132,11 +132,6 @@ class TransactionConfirmation extends Confirmation {
 
   private readonly enforcedSimulationsToggleUnchecked: RawLocator =
     '[data-testid="enforced-simulations-toggle-input"]:not(:checked)';
-
-  private readonly reviewAlertButton: RawLocator = {
-    tag: 'button',
-    text: 'Review alert',
-  };
 
   private readonly simulationDetailsLayout: RawLocator =
     '[data-testid="simulation-details-layout"]';
@@ -269,12 +264,11 @@ class TransactionConfirmation extends Confirmation {
     await this.driver.waitForSelector(this.gasFeeEstimate(amount));
   }
 
-  async checkGasFeeFiat(amountFiat: string, timeout = 20_000): Promise<void> {
-    console.log(`Checking gas fee fiat ${amountFiat} is displayed`);
-    await this.driver.waitForSelector(
-      { css: this.gasFeeFiatText, text: amountFiat },
-      { timeout },
-    );
+  async checkGasFeeFiat(amountFiat: string) {
+    await this.driver.findElement({
+      css: this.gasFeeFiatText,
+      text: amountFiat,
+    });
   }
 
   async checkGasFeeLabel(label: string): Promise<void> {
@@ -368,7 +362,7 @@ class TransactionConfirmation extends Confirmation {
     await this.driver.assertElementNotPresent(
       { css: this.networkName, text: network },
       {
-        waitAtLeastGuard: 3000,
+        waitAtLeastGuard: 1000,
       },
     );
   }
@@ -688,13 +682,6 @@ class TransactionConfirmation extends Confirmation {
       text: fiatFee,
     });
     console.log('Send fees validation successful');
-  }
-
-  async waitForReviewAlertToDisappear(): Promise<void> {
-    // We need a guard because the review alert may not be present immediately
-    await this.driver.assertElementNotPresent(this.reviewAlertButton, {
-      waitAtLeastGuard: 2000,
-    });
   }
 }
 

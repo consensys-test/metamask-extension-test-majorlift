@@ -3,10 +3,7 @@ import {
   MOCK_ANY_NAMESPACE,
   MockAnyNamespace,
 } from '@metamask/messenger';
-import {
-  NetworkEnablementController,
-  NetworkEnablementControllerMessenger,
-} from '@metamask/network-enablement-controller';
+import { NetworkEnablementController } from '@metamask/network-enablement-controller';
 import { BtcScope, SolAccountType, SolScope } from '@metamask/keyring-api';
 import { AccountsControllerSelectedAccountChangeEvent } from '@metamask/accounts-controller';
 import {
@@ -21,6 +18,7 @@ import {
   getNetworkEnablementControllerInitMessenger,
   getNetworkEnablementControllerMessenger,
   NetworkEnablementControllerInitMessenger,
+  NetworkEnablementControllerMessenger,
 } from '../messengers/assets';
 import { getRootMessenger } from '../../lib/messenger';
 import { NetworkEnablementControllerInit } from './network-enablement-controller-init';

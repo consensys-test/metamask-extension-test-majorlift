@@ -1,13 +1,19 @@
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
+import { shallowEqual, useSelector } from 'react-redux';
 import BigNumber from 'bignumber.js';
-import { uniqBy } from 'lodash';
+import { isEqual, uniqBy } from 'lodash';
 import { formatIconUrlWithProxy } from '@metamask/assets-controllers';
 import { getTokenFiatAmount } from '../helpers/utils/token-util';
-import { getTokenExchangeRates, getSwapsDefaultToken } from '../selectors';
+import {
+  getTokenExchangeRates,
+  getSwapsDefaultToken,
+  getTokenList,
+} from '../selectors';
 import { getCurrentChainId } from '../../shared/lib/selectors/networks';
-import { getCurrentCurrency } from '../ducks/metamask/metamask';
-import { getConversionRate } from '../ducks/metamask/base-selectors';
+import {
+  getConversionRate,
+  getCurrentCurrency,
+} from '../ducks/metamask/metamask';
 import { getSwapsTokens } from '../ducks/swaps/swaps';
 import { isSwapsDefaultTokenSymbol } from '../../shared/lib/swaps.utils';
 import { toChecksumHexAddress } from '../../shared/lib/hexstring-utils';
@@ -21,6 +27,7 @@ export function getRenderableTokenData(
   conversionRate,
   currentCurrency,
   chainId,
+  tokenList,
 ) {
   const { symbol, name, address, iconUrl, string, balance, decimals } = token;
   let contractExchangeRate;
@@ -76,7 +83,7 @@ export function getRenderableTokenData(
   return {
     ...token,
     primaryLabel: symbol,
-    secondaryLabel: name,
+    secondaryLabel: name || tokenList[address?.toLowerCase()]?.name,
     rightPrimaryLabel:
       string && `${new BigNumber(string).round(6).toString()} ${symbol}`,
     rightSecondaryLabel: formattedFiat,
@@ -84,7 +91,7 @@ export function getRenderableTokenData(
     identiconAddress: usedIconUrl ? null : address,
     balance,
     decimals,
-    name,
+    name: name || tokenList[address?.toLowerCase()]?.name,
     rawFiat,
     image: token.image || token.iconUrl,
   };
@@ -97,10 +104,11 @@ export function useTokensToSearch({
   tokenBucketPriority = TokenBucketPriority.owned,
 }) {
   const chainId = useSelector(getCurrentChainId);
-  const tokenConversionRates = useSelector(getTokenExchangeRates);
+  const tokenConversionRates = useSelector(getTokenExchangeRates, isEqual);
   const conversionRate = useSelector(getConversionRate);
   const currentCurrency = useSelector(getCurrentCurrency);
-  const defaultSwapsToken = useSelector(getSwapsDefaultToken);
+  const defaultSwapsToken = useSelector(getSwapsDefaultToken, shallowEqual);
+  const tokenList = useSelector(getTokenList, isEqual);
 
   const memoizedTopTokens = useEqualityCheck(topTokens);
   const memoizedUsersToken = useEqualityCheck(usersTokens);
@@ -111,10 +119,11 @@ export function useTokensToSearch({
     conversionRate,
     currentCurrency,
     chainId,
+    tokenList,
   );
   const memoizedDefaultToken = useEqualityCheck(defaultToken);
 
-  const swapsTokens = useSelector(getSwapsTokens) || [];
+  const swapsTokens = useSelector(getSwapsTokens, isEqual) || [];
 
   const tokensToSearch = swapsTokens.length
     ? swapsTokens
@@ -150,6 +159,7 @@ export function useTokensToSearch({
         conversionRate,
         currentCurrency,
         chainId,
+        tokenList,
       );
       if (tokenBucketPriority === TokenBucketPriority.owned) {
         if (
@@ -205,6 +215,7 @@ export function useTokensToSearch({
     currentCurrency,
     memoizedDefaultToken,
     chainId,
+    tokenList,
     tokenBucketPriority,
   ]);
 }

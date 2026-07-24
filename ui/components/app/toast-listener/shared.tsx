@@ -1,45 +1,28 @@
 import React from 'react';
-import { toast, ToastContent as ToastContentBase } from '../../ui/toast/toast';
-import { useToastLabel } from './useToastLabel';
+import { toast } from 'react-hot-toast';
+import {
+  useTransactionDisplay,
+  type TransactionStatus,
+} from '../../../helpers/utils/transaction-display';
+import { ToastContent as ToastContentBase } from '../../ui/toast/toast';
 
 export type ToastStatus = 'pending' | 'success' | 'failed';
 
-type ToastContentOptions = {
-  title?: string;
-  description?: string;
-  dataTestId?: string;
-  transactionId?: string;
+export const ToastContent = ({ status }: { status: TransactionStatus }) => {
+  const { title } = useTransactionDisplay(status);
+  return <ToastContentBase title={title} />;
 };
 
-export const ToastContent = ({
-  status,
-  title,
-  description,
-  dataTestId,
-  transactionId,
-}: { status: ToastStatus } & ToastContentOptions) => {
-  const { title: derivedTitle, description: derivedDescription } =
-    useToastLabel(status, transactionId);
-
-  return (
-    <ToastContentBase
-      title={title ?? derivedTitle}
-      description={description ?? derivedDescription}
-      dataTestId={dataTestId}
-    />
-  );
-};
-
-export function showPendingToast(id: string, options?: ToastContentOptions) {
-  toast.loading(<ToastContent status="pending" {...options} />, { id });
+export function showPendingToast(id: string) {
+  toast.loading(<ToastContent status="pending" />, { id });
 }
 
-export function showSuccessToast(id: string, options?: ToastContentOptions) {
-  toast.success(<ToastContent status="success" {...options} />, { id });
+export function showSuccessToast(id: string) {
+  toast.success(<ToastContent status="success" />, { id });
 }
 
-export function showFailedToast(id: string, options?: ToastContentOptions) {
-  toast.error(<ToastContent status="failed" {...options} />, { id });
+export function showFailedToast(id: string) {
+  toast.error(<ToastContent status="failed" />, { id });
 }
 
 export function dismissToast(id: string) {

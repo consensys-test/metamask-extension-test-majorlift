@@ -3,7 +3,9 @@ import PropTypes from 'prop-types';
 import { AvatarBaseSize } from '@metamask/design-system-react';
 import { PreferredAvatar } from '../preferred-avatar';
 import AccountMismatchWarning from '../../ui/account-mismatch-warning/account-mismatch-warning.component';
-import { normalizeSafeAddress } from '../../../../shared/lib/multichain/address';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { normalizeSafeAddress } from '../../../../app/scripts/lib/multichain/address';
 
 export default function AccountListItem({
   account,

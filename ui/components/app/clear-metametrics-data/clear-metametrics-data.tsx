@@ -1,17 +1,12 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { useDispatch } from 'react-redux';
-import {
-  Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
 import {
   hideDeleteMetaMetricsDataModal,
   openDataDeletionErrorModal,
 } from '../../../ducks/app/app';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import {
+  Box,
   Button,
   ButtonSize,
   ButtonVariant,
@@ -27,23 +22,22 @@ import {
   BlockSize,
   Display,
   FlexDirection,
+  JustifyContent,
   TextVariant,
 } from '../../../helpers/constants/design-system';
 import { createMetaMetricsDataDeletionTask } from '../../../store/actions';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
 
-export default function ClearMetaMetricsData({
-  onDeletionSuccess,
-}: {
-  onDeletionSuccess?: () => void;
-}) {
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export default function ClearMetaMetricsData() {
   const t = useI18nContext();
   const dispatch = useDispatch();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   const closeModal = () => {
     dispatch(hideDeleteMetaMetricsDataModal());
@@ -53,17 +47,24 @@ export default function ClearMetaMetricsData({
     try {
       await createMetaMetricsDataDeletionTask();
       trackEvent(
-        createEventBuilder(MetaMetricsEventName.MetricsDataDeletionRequest)
-          .addCategory(MetaMetricsEventCategory.Settings)
-          .build({ excludeMetaMetricsId: true }),
+        {
+          category: MetaMetricsEventCategory.Settings,
+          event: MetaMetricsEventName.MetricsDataDeletionRequest,
+        },
+        {
+          excludeMetaMetricsId: true,
+        },
       );
-      onDeletionSuccess?.();
     } catch (error: unknown) {
       dispatch(openDataDeletionErrorModal());
       trackEvent(
-        createEventBuilder(MetaMetricsEventName.ErrorOccured)
-          .addCategory(MetaMetricsEventCategory.Settings)
-          .build({ excludeMetaMetricsId: true }),
+        {
+          category: MetaMetricsEventCategory.Settings,
+          event: MetaMetricsEventName.ErrorOccured,
+        },
+        {
+          excludeMetaMetricsId: true,
+        },
       );
     } finally {
       dispatch(hideDeleteMetaMetricsDataModal());
@@ -82,10 +83,10 @@ export default function ClearMetaMetricsData({
       >
         <ModalHeader onClose={closeModal}>
           <Box
-            className="flex"
-            flexDirection={BoxFlexDirection.Column}
-            alignItems={BoxAlignItems.Center}
-            justifyContent={BoxJustifyContent.Center}
+            display={Display.Flex}
+            flexDirection={FlexDirection.Column}
+            alignItems={AlignItems.center}
+            justifyContent={JustifyContent.center}
           >
             <Text variant={TextVariant.headingSm}>
               {t('deleteMetaMetricsDataModalTitle')}
@@ -96,8 +97,8 @@ export default function ClearMetaMetricsData({
           marginLeft={4}
           marginRight={4}
           marginBottom={3}
-          className="flex"
-          flexDirection={BoxFlexDirection.Column}
+          display={Display.Flex}
+          flexDirection={FlexDirection.Column}
           gap={4}
         >
           <Text variant={TextVariant.bodySmMedium}>
@@ -105,7 +106,7 @@ export default function ClearMetaMetricsData({
           </Text>
         </Box>
         <ModalFooter>
-          <Box className="flex" gap={4}>
+          <Box display={Display.Flex} gap={4}>
             <Button
               size={ButtonSize.Lg}
               width={BlockSize.Half}
@@ -119,6 +120,8 @@ export default function ClearMetaMetricsData({
               size={ButtonSize.Lg}
               width={BlockSize.Half}
               variant={ButtonVariant.Primary}
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+              // eslint-disable-next-line @typescript-eslint/no-misused-promises
               onClick={deleteMetaMetricsData}
               danger
             >

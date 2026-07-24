@@ -8,10 +8,13 @@ class SelectNetwork {
 
   private readonly addNetworkButton = '[data-testid="test-add-button"]';
 
-  private readonly closeButton = '[data-testid="settings-header-back-button"]';
+  private readonly closeButton =
+    '[data-testid="settings-v2-header-back-button"]';
 
-  private readonly confirmDeleteNetworkButton =
-    '[data-testid="confirm-delete-network-modal-delete-button"]';
+  private readonly confirmDeleteNetworkButton = {
+    text: 'Delete',
+    tag: 'button',
+  };
 
   private readonly confirmDeleteNetworkModal = {
     testId: 'confirm-delete-network-modal',
@@ -34,12 +37,13 @@ class SelectNetwork {
   private readonly rpcUrlItem = '.select-rpc-url__item';
 
   private readonly searchButton =
-    '[data-testid="settings-header-search-button"]';
+    '[data-testid="settings-v2-header-search-button"]';
 
-  private readonly searchInput = '[data-testid="settings-header-search-input"]';
+  private readonly searchInput =
+    '[data-testid="settings-v2-header-search-input"]';
 
   private readonly selectNetworkMessage = {
-    text: 'Manage networks',
+    text: 'Networks',
     tag: 'p',
   };
 
@@ -119,22 +123,7 @@ class SelectNetwork {
   }
 
   /**
-   * Disable a featured default network from the network list.
-   * Default networks are removed immediately without a confirmation modal.
-   *
-   * @param chainId - The chain ID of the network to disable.
-   */
-  async disableNetwork(chainId: string): Promise<void> {
-    console.log(`Disable network ${chainId} from network list`);
-    await this.openNetworkListOptions(chainId);
-    await this.driver.clickElement(this.deleteNetworkButton);
-    await this.driver.assertElementNotPresent(this.confirmDeleteNetworkModal, {
-      waitAtLeastGuard: 200,
-    });
-  }
-
-  /**
-   * Delete a custom network from the network list.
+   * Delete a network from the network list.
    *
    * @param chainId - The chain ID of the network to delete.
    */

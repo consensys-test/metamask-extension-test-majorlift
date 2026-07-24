@@ -3,7 +3,6 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useMemo,
 } from 'react';
 
 type AlertActionHandlerContextType = {
@@ -14,13 +13,10 @@ export const AlertActionHandlerContext = createContext<
   AlertActionHandlerContextType | undefined
 >(undefined);
 
-export const AlertActionHandlerProvider = ({
-  children,
-  onProcessAction,
-}: React.PropsWithChildren<{
+export const AlertActionHandlerProvider: React.FC<{
   children: ReactElement;
   onProcessAction: (actionKey: string) => void;
-}>) => {
+}> = ({ children, onProcessAction }) => {
   const processAction = useCallback(
     (_actionKey: string) => {
       onProcessAction(_actionKey);
@@ -28,10 +24,8 @@ export const AlertActionHandlerProvider = ({
     [onProcessAction],
   );
 
-  const contextValue = useMemo(() => ({ processAction }), [processAction]);
-
   return (
-    <AlertActionHandlerContext.Provider value={contextValue}>
+    <AlertActionHandlerContext.Provider value={{ processAction }}>
       {children}
     </AlertActionHandlerContext.Provider>
   );

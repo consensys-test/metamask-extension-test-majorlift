@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { FC } from 'react';
 
 import { Text } from '../../component-library';
 import {
@@ -28,11 +28,11 @@ export type NotificationListItemTextProps = {
  * @param props.color - The text color of the component
  * @returns A JSX element
  */
-export const NotificationListItemText = ({
+export const NotificationListItemText: FC<NotificationListItemTextProps> = ({
   items,
   variant = TextVariant.bodySm,
   color = TextColor.textDefault,
-}: NotificationListItemTextProps) => {
+}) => {
   const renderItems = items.map(({ text, highlighted }, index) => {
     const key = getRandomKey(text, index);
     const textColor = highlighted ? TextColor.infoDefault : color;

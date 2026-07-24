@@ -21,7 +21,7 @@ import {
 } from '../context/gas-fee-modal';
 import { useHideToasts } from '../../../hooks/useHideToasts';
 
-const Confirm = ({ confirmationId }: { confirmationId?: string }) => {
+const Confirm: React.FC<{ confirmationId?: string }> = ({ confirmationId }) => {
   useHideToasts();
 
   return (

@@ -18,7 +18,9 @@ import {
   TextVariant,
 } from '../../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
-import { isWebUrl } from '../../../../../shared/lib/url-utils';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { isWebUrl } from '../../../../../app/scripts/lib/util';
 
 const AddBlockExplorerModal = ({
   onAdded,
@@ -76,6 +78,8 @@ const AddBlockExplorerModal = ({
           width={BlockSize.Full}
           disabled={Boolean(error)}
           size={ButtonPrimarySize.Lg}
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+          // eslint-disable-next-line @typescript-eslint/no-misused-promises
           onClick={async () => {
             if (url) {
               onAdded(url);

@@ -1,12 +1,11 @@
 import React from 'react';
 
+import { Box, Text } from '../../../../component-library';
 import {
-  Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
-import { Text } from '../../../../component-library';
+  AlignItems,
+  Display,
+  JustifyContent,
+} from '../../../../../helpers/constants/design-system';
 
 type NftDetailInformationFrameProps = {
   title?: string;
@@ -17,7 +16,7 @@ type NftDetailInformationFrameProps = {
   frameTextTitleStyle?: React.CSSProperties;
   frameTextValueStyle?: React.CSSProperties;
   icon?: React.ReactNode;
-  buttonAddressValue?: React.ReactNode;
+  buttonAddressValue?: React.ButtonHTMLAttributes<HTMLButtonElement>;
 };
 
 const NftDetailInformationFrame = ({
@@ -39,13 +38,14 @@ const NftDetailInformationFrame = ({
 
       {icon ? (
         <Box
-          flexDirection={BoxFlexDirection.Row}
-          justifyContent={BoxJustifyContent.Center}
-          alignItems={BoxAlignItems.Center}
-          className="flex"
+          display={Display.Flex}
+          justifyContent={JustifyContent.center}
+          alignItems={AlignItems.center}
         >
           {' '}
-          {buttonAddressValue ?? (
+          {buttonAddressValue ? (
+            { ...buttonAddressValue }
+          ) : (
             <Text style={frameTextValueStyle} {...frameTextValueProps}>
               {value}
             </Text>

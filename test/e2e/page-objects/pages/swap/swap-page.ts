@@ -64,7 +64,7 @@ class SwapPage {
   };
 
   private readonly rateMessage = {
-    text: `Includes 0.875% MetaMask fee`,
+    text: `Includes 0.875% MM fee.`,
     tag: 'p',
   };
 
@@ -83,11 +83,6 @@ class SwapPage {
   private readonly swapButton = {
     css: '[data-testid="bridge-cta-button"]',
     text: 'Swap',
-  };
-
-  private readonly insufficientFundsButton = {
-    text: 'Insufficient funds',
-    css: '[data-testid="bridge-cta-button"]',
   };
 
   private readonly transactionHeader = '[data-testid="awaiting-swap-header"]';
@@ -256,22 +251,6 @@ class SwapPage {
     );
   }
 
-  async checkQuoteIsDisplayedWithoutNetworkFee(options?: {
-    timeout?: number;
-  }): Promise<void> {
-    await this.driver.waitForMultipleSelectors(
-      [this.slippageEditButton, this.minimumReceived, this.reviewToAmount],
-      options,
-    );
-  }
-
-  async checkInsufficientFundsButtonIsDisplayed(): Promise<void> {
-    await this.driver.waitForSelector(this.insufficientFundsButton);
-    await this.driver.waitForSelector(this.submitSwapButton, {
-      state: 'disabled',
-    });
-  }
-
   async checkQuoteIsGasIncluded(): Promise<void> {
     await this.driver.waitForSelector(this.gasIncludedLabel);
   }
@@ -283,18 +262,10 @@ class SwapPage {
   }
 
   async clickViewActivity(): Promise<void> {
-    await this.driver.clickElementSafe(this.viewActivityButton);
+    await this.driver.clickElement(this.viewActivityButton);
   }
 
   async waitForSmartTransactionToComplete(): Promise<void> {
-    if (
-      !(await this.driver.isElementPresentAndVisible(
-        this.transactionStatusHeader,
-        2000,
-      ))
-    ) {
-      return;
-    }
     console.log('Wait for Smart Transaction to complete');
     await this.driver.waitForSelector(this.transactionCompleteHeader, {
       timeout: 30000,

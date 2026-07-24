@@ -1,16 +1,65 @@
+import { Messenger } from '@metamask/messenger';
+import type {
+  NetworkControllerFindNetworkClientIdByChainIdAction,
+  NetworkControllerGetNetworkClientByIdAction,
+  NetworkControllerGetNetworkConfigurationByNetworkClientId,
+  NetworkControllerGetStateAction,
+  NetworkControllerNetworkDidChangeEvent,
+} from '@metamask/network-controller';
+import { AuthenticationController } from '@metamask/profile-sync-controller';
 import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
+  AccountsControllerGetAccountAction,
+  AccountsControllerGetSelectedAccountAction,
+  AccountsControllerSelectedEvmAccountChangeEvent,
+} from '@metamask/accounts-controller';
 import {
-  TokenDetectionControllerMessenger,
+  KeyringControllerGetStateAction,
+  KeyringControllerLockEvent,
+  KeyringControllerUnlockEvent,
+} from '@metamask/keyring-controller';
+import {
+  TokensControllerAddDetectedTokensAction,
+  TokensControllerAddTokensAction,
+  TokensControllerGetStateAction,
   AssetsContractControllerGetBalancesInSingleCallAction,
+  TokenListStateChange,
+  GetTokenListState,
 } from '@metamask/assets-controllers';
-import type { NetworkControllerGetStateAction } from '@metamask/network-controller';
-import type { PreferencesControllerGetStateAction } from '@metamask/preferences-controller';
-import type { OnboardingControllerGetStateAction } from '../../controllers/onboarding';
+import { TransactionControllerTransactionConfirmedEvent } from '@metamask/transaction-controller';
+import type {
+  PreferencesControllerGetStateAction,
+  PreferencesControllerStateChangeEvent,
+} from '@metamask/preferences-controller';
+import { MetaMetricsControllerTrackEventAction } from '../../controllers/metametrics-controller-method-action-types';
 import { RootMessenger } from '../../lib/messenger';
+
+type AllowedActions =
+  | AccountsControllerGetSelectedAccountAction
+  | AccountsControllerGetAccountAction
+  | NetworkControllerGetNetworkClientByIdAction
+  | NetworkControllerGetNetworkConfigurationByNetworkClientId
+  | NetworkControllerGetStateAction
+  | GetTokenListState
+  | KeyringControllerGetStateAction
+  | PreferencesControllerGetStateAction
+  | TokensControllerGetStateAction
+  | TokensControllerAddDetectedTokensAction
+  | TokensControllerAddTokensAction
+  | NetworkControllerFindNetworkClientIdByChainIdAction
+  | AuthenticationController.AuthenticationControllerGetBearerTokenAction;
+
+type AllowedEvents =
+  | AccountsControllerSelectedEvmAccountChangeEvent
+  | NetworkControllerNetworkDidChangeEvent
+  | TokenListStateChange
+  | KeyringControllerLockEvent
+  | KeyringControllerUnlockEvent
+  | PreferencesControllerStateChangeEvent
+  | TransactionControllerTransactionConfirmedEvent;
+
+export type TokenDetectionControllerMessenger = ReturnType<
+  typeof getTokenDetectionControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the
@@ -20,12 +69,14 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getTokenDetectionControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<TokenDetectionControllerMessenger>,
-    MessengerEvents<TokenDetectionControllerMessenger>
-  >,
-): TokenDetectionControllerMessenger {
-  const controllerMessenger: TokenDetectionControllerMessenger = new Messenger({
+  messenger: RootMessenger<AllowedActions, AllowedEvents>,
+) {
+  const controllerMessenger = new Messenger<
+    'TokenDetectionController',
+    AllowedActions,
+    AllowedEvents,
+    typeof messenger
+  >({
     namespace: 'TokenDetectionController',
     parent: messenger,
   });
@@ -40,6 +91,7 @@ export function getTokenDetectionControllerMessenger(
       'NetworkController:getState',
       'TokensController:getState',
       'TokensController:addDetectedTokens',
+      'TokenListController:getState',
       'PreferencesController:getState',
       'TokensController:addTokens',
       'NetworkController:findNetworkClientIdByChainId',
@@ -50,6 +102,7 @@ export function getTokenDetectionControllerMessenger(
       'KeyringController:lock',
       'KeyringController:unlock',
       'NetworkController:networkDidChange',
+      'TokenListController:stateChange',
       'PreferencesController:stateChange',
       'TransactionController:transactionConfirmed',
     ],
@@ -59,8 +112,8 @@ export function getTokenDetectionControllerMessenger(
 
 type AllowedInitializationActions =
   | AssetsContractControllerGetBalancesInSingleCallAction
+  | MetaMetricsControllerTrackEventAction
   | NetworkControllerGetStateAction
-  | OnboardingControllerGetStateAction
   | PreferencesControllerGetStateAction;
 
 export type TokenDetectionControllerInitMessenger = ReturnType<
@@ -89,7 +142,7 @@ export function getTokenDetectionControllerInitMessenger(
     messenger: controllerInitMessenger,
     actions: [
       'AssetsContractController:getBalancesInSingleCall',
-      'OnboardingController:getState',
+      'MetaMetricsController:trackEvent',
       'PreferencesController:getState',
     ],
   });

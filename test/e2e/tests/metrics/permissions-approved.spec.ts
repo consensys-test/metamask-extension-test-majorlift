@@ -4,11 +4,7 @@ import { Suite } from 'mocha';
 import { getEventPayloads, withFixtures } from '../../helpers';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { MetaMetricsRequestedThrough } from '../../../../shared/constants/metametrics';
-import {
-  DEFAULT_FIXTURE_ACCOUNT,
-  MOCK_ANALYTICS_ID,
-  MOCK_PROFILE_IDENTITY_EVENT_PROPERTIES,
-} from '../../constants';
+import { DEFAULT_FIXTURE_ACCOUNT, MOCK_META_METRICS_ID } from '../../constants';
 import TestDapp from '../../page-objects/pages/test-dapp';
 import { login } from '../../page-objects/flows/login.flow';
 import { connectAccountToTestDapp } from '../../page-objects/flows/test-dapp.flow';
@@ -55,9 +51,8 @@ describe('Permissions Approved Event', function (this: Suite) {
         dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: MOCK_META_METRICS_ID,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -98,7 +93,6 @@ describe('Permissions Approved Event', function (this: Suite) {
           // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
           // eslint-disable-next-line @typescript-eslint/naming-convention
           top_level_origin: null,
-          ...MOCK_PROFILE_IDENTITY_EVENT_PROPERTIES,
         });
         assert.deepStrictEqual(events[1].properties, {
           method: 'eth_requestAccounts',
@@ -125,7 +119,6 @@ describe('Permissions Approved Event', function (this: Suite) {
           // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
           // eslint-disable-next-line @typescript-eslint/naming-convention
           top_level_origin: null,
-          ...MOCK_PROFILE_IDENTITY_EVENT_PROPERTIES,
         });
       },
     );

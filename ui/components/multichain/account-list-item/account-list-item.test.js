@@ -1,3 +1,4 @@
+/* eslint-disable jest/require-top-level-describe */
 import React from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { merge } from 'lodash';

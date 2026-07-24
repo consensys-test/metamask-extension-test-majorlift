@@ -58,14 +58,14 @@ import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import { trace, TraceName, TraceOperation } from '../../../../shared/lib/trace';
 
 export const MultichainAccountDetailsPage = () => {
   const t = useI18nContext();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const [searchParams] = useSearchParams();
 
   const accountGroupId = (searchParams.get('accountGroupId') ??
@@ -143,27 +143,19 @@ export const MultichainAccountDetailsPage = () => {
     if (firstAccountAddress) {
       // Don't want to blindly call removeAccount without an invalid or empty parameter
       dispatch(removeAccount(firstAccountAddress));
-      trackEvent(
-        createEventBuilder(MetaMetricsEventName.AccountRemoved)
-          .addCategory(MetaMetricsEventCategory.Accounts)
-          .addProperties({
-            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            account_type: wallet?.type,
-          })
-          .build(),
-      );
+      trackEvent({
+        event: MetaMetricsEventName.AccountRemoved,
+        category: MetaMetricsEventCategory.Accounts,
+        properties: {
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          account_type: wallet?.type,
+        },
+      });
 
       navigate(DEFAULT_ROUTE);
     }
-  }, [
-    dispatch,
-    trackEvent,
-    createEventBuilder,
-    navigate,
-    wallet?.type,
-    accountsWithAddresses,
-  ]);
+  }, [dispatch, trackEvent, navigate, wallet?.type, accountsWithAddresses]);
 
   const handleWalletAction = () => {
     navigate({

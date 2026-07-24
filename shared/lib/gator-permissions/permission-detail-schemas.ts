@@ -2,7 +2,6 @@ import { BigNumber } from 'bignumber.js';
 import type { Hex } from '@metamask/utils';
 
 import { DAY } from '../../constants/time';
-import { captureMessage } from '../sentry';
 import { formatPermissionPeriodDuration } from './format-permission-period-duration';
 import { MAX_UINT256 } from './permission-constants';
 import { parseHexPermissionAmount } from './parse-hex-permission-amount';
@@ -16,7 +15,6 @@ import {
   convertAmountPerSecondToAmountPerPeriod,
   getPeriodFrequencyValueTranslationKey,
 } from './time-utils';
-import { isMetaMaskFacilitatorAddress } from './facilitator-addresses';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,67 +45,6 @@ const requireStartTime = (permission: {
 };
 
 const alwaysVisible = () => true;
-
-function areOnlyMetaMaskFacilitatorAddresses(
-  addresses: string[] | null | undefined,
-): boolean {
-  if (!addresses?.length) {
-    return false;
-  }
-
-  return addresses.every(isMetaMaskFacilitatorAddress);
-}
-
-const TOKEN_APPROVAL_REVOCATION_METHODS: {
-  key: string;
-  translationKey: string;
-}[] = [
-  {
-    key: 'erc20Approve',
-    translationKey: 'gatorPermissionsErc20ApproveRevocation',
-  },
-  {
-    key: 'erc721Approve',
-    translationKey: 'gatorPermissionsErc721ApproveRevocation',
-  },
-  {
-    key: 'erc721SetApprovalForAll',
-    translationKey: 'gatorPermissionsSetApprovalForAllRevocation',
-  },
-  {
-    key: 'permit2Approve',
-    translationKey: 'gatorPermissionsPermit2ApproveRevocation',
-  },
-  {
-    key: 'permit2Lockdown',
-    translationKey: 'gatorPermissionsPermit2Lockdown',
-  },
-  {
-    key: 'permit2InvalidateNonces',
-    translationKey: 'gatorPermissionsPermit2InvalidateNonces',
-  },
-];
-
-const TOKEN_APPROVAL_REVOCATION_PRIMITIVE_KEYS =
-  TOKEN_APPROVAL_REVOCATION_METHODS.map(({ key }) => key);
-
-function getEnabledTokenApprovalRevocationMethods(
-  ctx: PermissionRenderContext,
-): string[] {
-  return TOKEN_APPROVAL_REVOCATION_METHODS.filter(({ key }) =>
-    Boolean(getData<boolean | undefined>(ctx, key)),
-  ).map(({ translationKey }) => translationKey);
-}
-
-function hasAllTokenApprovalRevocationPrimitivesEnabled(
-  ctx: PermissionRenderContext,
-): boolean {
-  const hasAllPrimitives = TOKEN_APPROVAL_REVOCATION_PRIMITIVE_KEYS.every(
-    (key) => Boolean(getData<boolean | undefined>(ctx, key)),
-  );
-
-  return hasAllPrimitives;
-}
 
 // ---------------------------------------------------------------------------
 // Common sections — shared across all permission types
@@ -172,33 +109,6 @@ const permissionInfoSection: SchemaSection = {
       includeInViews: ['confirmation'],
     },
     { type: 'network', includeInViews: ['confirmation', 'reviewDetail'] },
-    {
-      type: 'text',
-      labelKey: 'redeemers',
-      testId: 'confirmation-redeemer-metamask-facilitator',
-      getValue: () => ({ key: 'gatorPermissionsMetaMaskFacilitator' }),
-      isVisible: (ctx) =>
-        areOnlyMetaMaskFacilitatorAddresses(ctx.redeemerAddresses),
-      includeInViews: ['confirmation', 'reviewDetail'],
-    },
-    {
-      type: 'rule-address',
-      labelKey: 'redeemer',
-      testId: 'confirmation-redeemer',
-      getValue: (ctx) => ctx.redeemerAddresses ?? undefined,
-      isVisible: (ctx) =>
-        Boolean(ctx.redeemerAddresses?.length) &&
-        !areOnlyMetaMaskFacilitatorAddresses(ctx.redeemerAddresses),
-      includeInViews: ['confirmation', 'reviewDetail'],
-    },
-    {
-      type: 'rule-address',
-      labelKey: 'payee',
-      testId: 'confirmation-payee',
-      getValue: (ctx) => ctx.payeeAddresses ?? undefined,
-      isVisible: (ctx) => Boolean(ctx.payeeAddresses?.length),
-      includeInViews: ['confirmation', 'reviewDetail'],
-    },
   ],
 };
 
@@ -406,47 +316,6 @@ const nativeTokenStreamSchema: PermissionSchemaEntry = {
           getValue: () => ({ key: 'unlimited' }),
           isVisible: (ctx) => getStreamTotalExposure(ctx) === null,
           includeInViews: ['confirmation'],
-        },
-      ],
-    },
-    reviewSummaryAccountSection,
-  ],
-};
-
-const nativeTokenAllowanceSchema: PermissionSchemaEntry = {
-  tokenVariant: 'native',
-  tokenResolution: { kind: 'native' },
-  validate: requireStartTime,
-  sections: [
-    justificationSection,
-    permissionInfoSection,
-    {
-      testId: 'native-token-allowance-details-section',
-      elements: [
-        {
-          type: 'amount',
-          labelKey: 'amount',
-          testId: 'review-gator-permission-amount-label',
-          getValue: (ctx) =>
-            parseHexPermissionAmount(getData<string>(ctx, 'allowanceAmount')),
-          isVisible: alwaysVisible,
-          includeInViews: ['confirmation', 'reviewSummary'],
-        },
-        {
-          type: 'date',
-          labelKey: 'gatorPermissionsStartDate',
-          testId: 'review-gator-permission-start-date',
-          getValue: (ctx) => getData<number>(ctx, 'startTime'),
-          isVisible: alwaysVisible,
-          includeInViews: ['confirmation', 'reviewDetail'],
-        },
-        {
-          type: 'expiry',
-          labelKey: 'gatorPermissionsExpirationDate',
-          testId: 'review-gator-permission-expiration-date',
-          getValue: (ctx) => ctx.expiry,
-          isVisible: alwaysVisible,
-          includeInViews: ['confirmation', 'reviewDetail'],
         },
       ],
     },
@@ -673,59 +542,14 @@ const erc20TokenStreamSchema: PermissionSchemaEntry = {
   ],
 };
 
-const erc20TokenAllowanceSchema: PermissionSchemaEntry = {
-  tokenVariant: 'erc20',
-  tokenResolution: {
-    kind: 'erc20',
-    getTokenAddress: (p) => p.data.tokenAddress as string,
-  },
-  validate: requireStartTime,
-  sections: [
-    justificationSection,
-    permissionInfoSection,
-    {
-      testId: 'erc20-token-allowance-details-section',
-      elements: [
-        {
-          type: 'amount',
-          labelKey: 'amount',
-          testId: 'review-gator-permission-amount-label',
-          getValue: (ctx) =>
-            parseHexPermissionAmount(getData<string>(ctx, 'allowanceAmount')),
-          getTokenAddress: (ctx) => getData<Hex>(ctx, 'tokenAddress'),
-          isVisible: alwaysVisible,
-          includeInViews: ['confirmation', 'reviewSummary'],
-        },
-        {
-          type: 'date',
-          labelKey: 'gatorPermissionsStartDate',
-          testId: 'review-gator-permission-start-date',
-          getValue: (ctx) => getData<number>(ctx, 'startTime'),
-          isVisible: alwaysVisible,
-          includeInViews: ['confirmation', 'reviewDetail'],
-        },
-        {
-          type: 'expiry',
-          labelKey: 'gatorPermissionsExpirationDate',
-          testId: 'review-gator-permission-expiration-date',
-          getValue: (ctx) => ctx.expiry,
-          isVisible: alwaysVisible,
-          includeInViews: ['confirmation', 'reviewDetail'],
-        },
-      ],
-    },
-    reviewSummaryAccountSection,
-  ],
-};
-
-const tokenApprovalRevocationSchema: PermissionSchemaEntry = {
+const erc20TokenRevocationSchema: PermissionSchemaEntry = {
   tokenVariant: 'none',
   tokenResolution: { kind: 'none' },
   sections: [
     justificationSection,
     permissionInfoSection,
     {
-      testId: 'token-approval-revocation-details-section',
+      testId: 'erc20-token-revocation-details-section',
       elements: [
         {
           type: 'text',
@@ -736,28 +560,6 @@ const tokenApprovalRevocationSchema: PermissionSchemaEntry = {
           includeInViews: ['reviewSummary'],
         },
         {
-          type: 'text',
-          labelKey: 'gatorPermissionsRevocationMethods',
-          testId:
-            'review-gator-permission-all-token-approval-revocation-primitives',
-          getValue: () => ({
-            key: 'gatorPermissionsAllTokenApprovalRevocationPrimitives',
-          }),
-          isVisible: (ctx) =>
-            hasAllTokenApprovalRevocationPrimitivesEnabled(ctx),
-          includeInViews: ['confirmation', 'reviewDetail'],
-        },
-        {
-          type: 'list',
-          labelKey: 'gatorPermissionsRevocationMethods',
-          testId: 'review-gator-permission-revocation-methods',
-          getValue: (ctx) => getEnabledTokenApprovalRevocationMethods(ctx),
-          isVisible: (ctx) =>
-            !hasAllTokenApprovalRevocationPrimitivesEnabled(ctx),
-          includeInViews: ['confirmation', 'reviewDetail'],
-        },
-        { type: 'divider', includeInViews: ['confirmation'] },
-        {
           type: 'expiry',
           labelKey: 'gatorPermissionsExpirationDate',
           testId: 'review-gator-permission-expiration-date',
@@ -771,59 +573,31 @@ const tokenApprovalRevocationSchema: PermissionSchemaEntry = {
   ],
 };
 
-const unknownPermissionTypeSchema: PermissionSchemaEntry = {
-  tokenVariant: 'none',
-  tokenResolution: { kind: 'none' },
-  sections: [
-    justificationSection,
-    permissionInfoSection,
-    {
-      testId: 'unknown-permission-type-details-section',
-      elements: [
-        {
-          type: 'raw-text',
-          labelKey: 'unknownPermissionType',
-          testId: 'review-gator-permission-unknown-type',
-          getValue: (ctx) => ctx.permission.type,
-          isVisible: alwaysVisible,
-          includeInViews: ['reviewSummary'],
-        },
-      ],
-    },
-  ],
-};
-
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
-const PERMISSION_SCHEMAS: PermissionSchemaRegistry = {
+export const PERMISSION_SCHEMAS: PermissionSchemaRegistry = {
   'native-token-periodic': nativeTokenPeriodicSchema,
   'native-token-stream': nativeTokenStreamSchema,
-  'native-token-allowance': nativeTokenAllowanceSchema,
   'erc20-token-periodic': erc20TokenPeriodicSchema,
   'erc20-token-stream': erc20TokenStreamSchema,
-  'erc20-token-allowance': erc20TokenAllowanceSchema,
-  'token-approval-revocation': tokenApprovalRevocationSchema,
+  'erc20-token-revocation': erc20TokenRevocationSchema,
 };
 
-export function getPermissionSchemaEntry(
+/**
+ * Ensures a permission type is registered in {@link PERMISSION_SCHEMAS}.
+ * Call this when the controller can return types the UI registry does not yet implement,
+ * so the failure is explicit instead of rendering nothing.
+ *
+ * @param permissionType - Permission type string from the permission payload
+ * @param entry - Result of `PERMISSION_SCHEMAS[permissionType]`
+ */
+export function assertPermissionSchemaEntry(
   permissionType: string,
-  throwIfUnknown: boolean = false,
-): PermissionSchemaEntry {
-  const matchingSchema = PERMISSION_SCHEMAS[permissionType];
-  if (matchingSchema) {
-    return matchingSchema;
+  entry: PermissionSchemaEntry | undefined,
+): asserts entry is PermissionSchemaEntry {
+  if (!entry) {
+    throw new Error(`Invalid permission type: ${permissionType}`);
   }
-  if (throwIfUnknown) {
-    throw new Error(`Unknown permission type: ${permissionType}`);
-  }
-
-  captureMessage('Unknown advanced permission type encountered', {
-    extra: {
-      permissionType,
-    },
-  });
-
-  return unknownPermissionTypeSchema;
 }

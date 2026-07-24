@@ -6,7 +6,6 @@ import {
 } from '../store/actions';
 import useStaticTokensPollingHook from './useStaticTokensPolling';
 
-const mockSelectedAccountId = 'mock-account-uuid';
 const mockSelectedAccountAddress = '0x4f71DA06987BfeDE90aF0b33E1e3e4ffDCEE7a63';
 const mockEnabledChainIds = ['0x1', '0x89'];
 let mockPromises: Promise<string>[];
@@ -23,17 +22,9 @@ jest.mock('../store/actions', () => ({
 jest.mock('../selectors', () => ({
   ...jest.requireActual('../selectors'),
   getEnabledChainIds: jest.fn(() => mockEnabledChainIds),
-}));
-
-jest.mock('../selectors/multichain-accounts/account-tree', () => ({
-  getSelectedAccountGroup: jest.fn(() => 'mock-group-id'),
-  getInternalAccountsFromGroupById: jest.fn(() => [
-    {
-      id: mockSelectedAccountId,
-      address: mockSelectedAccountAddress,
-      type: 'eip155:eoa',
-    },
-  ]),
+  getSelectedAccount: jest.fn(() => ({
+    address: mockSelectedAccountAddress,
+  })),
 }));
 
 const state = {
@@ -92,7 +83,6 @@ describe('useStaticTokensPollingHook', () => {
     expect(staticAssetsStartPolling).toHaveBeenCalledWith({
       chainIds: mockEnabledChainIds,
       selectedAccountAddress: mockSelectedAccountAddress,
-      selectedAccountId: mockSelectedAccountId,
     });
     unmount();
     expect(staticAssetsStopPollingByPollingToken).toHaveBeenCalledTimes(1);

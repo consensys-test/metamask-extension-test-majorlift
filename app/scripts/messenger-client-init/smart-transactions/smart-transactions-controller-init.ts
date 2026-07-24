@@ -6,11 +6,6 @@ import {
 import type { Hex } from '@metamask/utils';
 import type { TraceCallback } from '@metamask/controller-utils';
 import { getAllowedSmartTransactionsChainIds } from '../../../../shared/constants/smartTransactions';
-import type {
-  MetaMetricsEventOptions,
-  MetaMetricsEventPayload,
-} from '../../../../shared/constants/metametrics';
-import { createEventBuilder, trackEvent } from '../../controllers/analytics';
 import {
   MessengerClientInitFunction,
   MessengerClientInitRequest,
@@ -39,6 +34,7 @@ export const SmartTransactionsControllerInit: MessengerClientInitFunction<
 > = (request) => {
   const {
     controllerMessenger,
+    initMessenger,
     persistedState,
     getUIState,
     getAccountType,
@@ -47,40 +43,13 @@ export const SmartTransactionsControllerInit: MessengerClientInitFunction<
     trace,
   } = request as SmartTransactionsControllerInitRequest;
 
-  const trackMetaMetricsEvent = (
-    payload: MetaMetricsEventPayload,
-    options?: MetaMetricsEventOptions,
-  ) => {
-    trackEvent(
-      createEventBuilder(payload.event)
-        .addProperties({
-          ...(payload.properties ?? {}),
-          ...(payload.category === undefined
-            ? {}
-            : { category: payload.category }),
-          ...(payload.revenue === undefined
-            ? {}
-            : { revenue: payload.revenue }),
-          ...(payload.value === undefined ? {} : { value: payload.value }),
-          ...(payload.currency === undefined
-            ? {}
-            : { currency: payload.currency }),
-        })
-        .addSensitiveProperties(payload.sensitiveProperties)
-        .build({
-          environmentType: payload.environmentType,
-          page: payload.page,
-          referrer: payload.referrer,
-          excludeMetaMetricsId: options?.excludeMetaMetricsId,
-          matomoEvent: options?.matomoEvent,
-        }),
-    );
-  };
-
   const smartTransactionsController = new SmartTransactionsController({
     supportedChainIds: getAllowedSmartTransactionsChainIds() as Hex[],
     clientId: ClientId.Extension,
-    trackMetaMetricsEvent: trackMetaMetricsEvent as ConstructorParameters<
+    trackMetaMetricsEvent: initMessenger.call.bind(
+      initMessenger,
+      'MetaMetricsController:trackEvent',
+    ) as ConstructorParameters<
       typeof SmartTransactionsController
     >[0]['trackMetaMetricsEvent'],
     state: persistedState.SmartTransactionsController,

@@ -1,4 +1,5 @@
 import React from 'react';
+import type { FC } from 'react';
 
 import { NotificationDetail } from '../notification-detail';
 import { AvatarIcon, IconName, Text } from '../../component-library';
@@ -32,12 +33,12 @@ export type NotificationDetailInfoProps = {
  * @param [props.action] - The action to display.
  * @returns The rendered component.
  */
-export const NotificationDetailInfo = ({
+export const NotificationDetailInfo: FC<NotificationDetailInfoProps> = ({
   icon,
   label,
   detail,
   action,
-}: NotificationDetailInfoProps): JSX.Element => {
+}): JSX.Element => {
   return (
     <NotificationDetail
       icon={<AvatarIcon {...icon} />}

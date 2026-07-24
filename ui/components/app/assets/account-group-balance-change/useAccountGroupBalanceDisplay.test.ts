@@ -4,10 +4,7 @@ import { useSelector } from 'react-redux';
 import { getIntlLocale } from '../../../../ducks/locale/locale';
 import { getCurrentCurrency } from '../../../../ducks/metamask/metamask';
 import { TextColor } from '../../../../helpers/constants/design-system';
-import {
-  getPrivacyMode,
-  selectAnyEnabledNetworksAreAvailable,
-} from '../../../../selectors';
+import { getPrivacyMode } from '../../../../selectors';
 import { selectBalanceChangeBySelectedAccountGroup } from '../../../../selectors/assets';
 import { determineBalanceColor } from './get-display-balance';
 import { useAccountGroupBalanceDisplay } from './useAccountGroupBalanceDisplay';
@@ -62,10 +59,6 @@ describe('useAccountGroupBalanceDisplay', () => {
         return false;
       }
 
-      if (selector === selectAnyEnabledNetworksAreAvailable) {
-        return true;
-      }
-
       if (selector === mockBalanceSelector) {
         return mockBalanceSelector();
       }
@@ -83,7 +76,6 @@ describe('useAccountGroupBalanceDisplay', () => {
       amountChange: 100.5,
       percentChange: 0.0525,
       portfolioChange: mockBalanceChange,
-      isLoading: false,
     });
   });
 });

@@ -29,14 +29,14 @@ import { Container } from '../../components/component-library/container/containe
 import { ButtonLink, Label } from '../../components/component-library';
 import { Checkbox } from '../../components/component-library/checkbox/checkbox';
 import { setSkipDeepLinkInterstitial } from '../../store/actions';
-import { getPreferences } from '../../../shared/lib/selectors/preferences';
+import { getPreferences } from '../../selectors/selectors';
 import { MetaMaskReduxState } from '../../store/store';
 import { VALID, verify } from '../../../shared/lib/deep-links/verify';
 import ZENDESK_URLS from '../../helpers/constants/zendesk-url';
 
 type TranslateFunction = (
   key: string,
-  substitutions?: (string | JSX.Element)[],
+  substitutions?: (string | React.JSX.Element)[],
 ) => string;
 
 type Route = {
@@ -103,13 +103,13 @@ async function updateStateFromUrl(
     if (parsed) {
       const { destination } = parsed;
 
-      const href =
-        'redirectTo' in destination
-          ? destination.redirectTo.toString()
-          : getExtensionURL(
-              destination.path,
-              destination.query.toString() ?? null,
-            );
+      if ('redirectTo' in destination) {
+        window.location.href = destination.redirectTo.toString();
+        return;
+      }
+
+      const { path, query } = destination;
+      const href = getExtensionURL(path, query.toString() ?? null);
       const title = parsed.route.getTitle(url.searchParams);
 
       const signed = parsed.signature === VALID;

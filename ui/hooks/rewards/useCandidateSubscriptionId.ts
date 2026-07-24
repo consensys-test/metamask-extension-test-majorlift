@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import log from 'loglevel';
 import { useSelector, useDispatch } from 'react-redux';
 import { getRewardsCandidateSubscriptionId } from '../../store/actions';
-import { getIsUnlocked } from '../../ducks/metamask/base-selectors';
+import { getIsUnlocked } from '../../ducks/metamask/metamask';
 import {
   selectCandidateSubscriptionId,
   selectRewardsEnabled,

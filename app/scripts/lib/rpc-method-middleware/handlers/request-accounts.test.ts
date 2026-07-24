@@ -31,7 +31,7 @@ const createMockedHandler = () => {
   const sendMetrics = jest.fn();
   const metamaskState = {
     permissionHistory: {},
-    analyticsId: 'analyticsId',
+    metaMetricsId: 'metaMetricsId',
     internalAccounts: {
       accounts: {
         '0x01': { address: '0x01' },

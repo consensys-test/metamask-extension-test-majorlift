@@ -42,7 +42,6 @@ const render = (
   stateOverrides = {},
 ) => {
   const store = configureStore({
-    activeTab: mockState.activeTab,
     metamask: {
       ...mockState.metamask,
       preferences: {

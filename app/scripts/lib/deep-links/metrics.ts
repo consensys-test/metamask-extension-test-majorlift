@@ -1,14 +1,24 @@
-import { createEventBuilder } from '../../../../shared/lib/analytics/create-event-builder';
-import type { AnalyticsEvent } from '../../../../shared/lib/analytics/create-event-builder';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
+  type MetaMetricsEventPayload,
 } from '../../../../shared/constants/metametrics';
 import type { SignatureStatus } from '../../../../shared/lib/deep-links/verify';
-import {
-  type UTMParameter,
-  UTM_PARAMETERS,
-} from '../../../../shared/types/metametrics';
+
+type UTMParameter =
+  | 'utm_campaign'
+  | 'utm_content'
+  | 'utm_medium'
+  | 'utm_source'
+  | 'utm_term';
+
+const UTM_PARAMETERS = new Set([
+  'utm_campaign',
+  'utm_content',
+  'utm_medium',
+  'utm_source',
+  'utm_term',
+]) as Set<UTMParameter> & { has: (key: string) => key is UTMParameter };
 
 export type Properties = {
   route: string;
@@ -24,7 +34,7 @@ export type EventDetails = {
 };
 
 /**
- * Creates a trackable analytics event representing deep link usage.
+ * Creates a trackable Event Payload representing deep link usage.
  *
  * If the route has query params, and the query params have duplicate keys,
  * only the last value will be used in the properties.
@@ -34,7 +44,7 @@ export type EventDetails = {
  * @param route.signature - Whether the deep link has a signature, and if it is
  * valid.
  */
-export function createEvent({ signature, url }: EventDetails): AnalyticsEvent {
+export function createEvent({ signature, url }: EventDetails) {
   const properties: Properties = {
     route: url.pathname,
     signature,
@@ -57,9 +67,10 @@ export function createEvent({ signature, url }: EventDetails): AnalyticsEvent {
     }
   }
 
-  return createEventBuilder(MetaMetricsEventName.DeepLinkUsed)
-    .addCategory(MetaMetricsEventCategory.DeepLink)
-    .addProperties(properties)
-    .addSensitiveProperties(sensitiveProperties)
-    .build();
+  return {
+    category: MetaMetricsEventCategory.DeepLink as const,
+    event: MetaMetricsEventName.DeepLinkUsed as const,
+    properties,
+    sensitiveProperties,
+  } satisfies MetaMetricsEventPayload;
 }

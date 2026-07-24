@@ -1,6 +1,6 @@
 import { isConnectionError } from '@metamask/network-controller';
 import { generateDeterministicRandomNumber } from '@metamask/remote-feature-flag-controller';
-import { ENVIRONMENT } from '../../../../shared/constants/build';
+import { ENVIRONMENT } from '../../../../development/build/constants';
 
 /**
  * We capture Segment events for degraded or unavailable RPC endpoints for 1%
@@ -22,46 +22,46 @@ export const PRODUCTION_LIKE_ENVIRONMENTS = [
  *
  * - The RPC endpoint is slow
  * - The user does not have local connectivity issues
- * - The user is in the Analytics sample
+ * - The user is in the MetaMetrics sample
  *
  * @param args - The arguments.
  * @param args.error - The connection or response error encountered after making
  * a request to the RPC endpoint.
- * @param args.analyticsId - The analytics ID of the user.
+ * @param args.metaMetricsId - The MetaMetrics ID of the user.
  * @returns True if Segment events should be created, false otherwise.
  */
 export function shouldCreateRpcServiceEvents({
   error,
-  analyticsId,
+  metaMetricsId,
 }: {
   error?: unknown;
-  analyticsId: string | null | undefined;
+  metaMetricsId: string | null | undefined;
 }) {
   return (
     (!error || !isConnectionError(error)) &&
-    analyticsId !== undefined &&
-    analyticsId !== null &&
-    isSamplingAnalyticsUser(analyticsId)
+    metaMetricsId !== undefined &&
+    metaMetricsId !== null &&
+    isSamplingMetaMetricsUser(metaMetricsId)
   );
 }
 
 /**
- * Determines whether the user is included in the sample for Analytics.
+ * Determines whether the user is included in the sample for MetaMetrics.
  *
  * In production and for a release candidate, we sample only 1% of the available
  * events; in development and testing we create every event.
  *
- * @param analyticsId - The analytics ID of the user.
- * @returns True if the user is included in the sample for Analytics, false
+ * @param metaMetricsId - The MetaMetrics ID of the user.
+ * @returns True if the user is included in the sample for MetaMetrics, false
  * otherwise.
  */
-function isSamplingAnalyticsUser(analyticsId: string) {
+function isSamplingMetaMetricsUser(metaMetricsId: string) {
   if (process.env.METAMASK_ENVIRONMENT === undefined) {
     return false;
   }
 
   if (PRODUCTION_LIKE_ENVIRONMENTS.includes(process.env.METAMASK_ENVIRONMENT)) {
-    return generateDeterministicRandomNumber(analyticsId) < SAMPLING_RATE;
+    return generateDeterministicRandomNumber(metaMetricsId) < SAMPLING_RATE;
   }
 
   return true;

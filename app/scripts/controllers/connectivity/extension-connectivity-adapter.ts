@@ -18,9 +18,9 @@ export class ExtensionConnectivityAdapter implements ConnectivityAdapter {
   /**
    * Returns the current connectivity status.
    *
-   * @returns A promise that resolves to the current connectivity status.
+   * @returns The current connectivity status.
    */
-  async getStatus(): Promise<ConnectivityStatus> {
+  getStatus(): ConnectivityStatus {
     return this.#status;
   }
 

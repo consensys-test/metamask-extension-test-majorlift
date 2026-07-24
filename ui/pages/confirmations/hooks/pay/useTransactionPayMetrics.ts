@@ -30,7 +30,7 @@ export function useTransactionPayMetrics() {
   const totals = useTransactionPayTotals();
   const tokens = useTransactionPayAvailableTokens();
 
-  const hasQuotes = Boolean(quotes?.length);
+  const hasQuotes = (quotes?.length ?? 0) > 0;
   if (hasQuotes && !hasLoadedQuoteRef.current) {
     hasLoadedQuoteRef.current = true;
   }
@@ -84,6 +84,10 @@ export function useTransactionPayMetrics() {
 
     if (nonGasQuote) {
       props.mm_pay_dust_usd = nonGasQuote.dust.usd;
+    }
+
+    if (strategy === TransactionPayStrategy.Bridge) {
+      props.mm_pay_strategy = 'mm_swaps_bridge';
     }
 
     if (strategy === TransactionPayStrategy.Relay) {

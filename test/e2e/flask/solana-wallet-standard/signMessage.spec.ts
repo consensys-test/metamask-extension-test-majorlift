@@ -4,8 +4,11 @@ import { DAPP_PATH, WINDOW_TITLES } from '../../constants';
 import { withFixtures } from '../../helpers';
 import { login } from '../../page-objects/flows/login.flow';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
-import { connectSolanaTestDapp } from '../../page-objects/flows/solana-dapp.flow';
-import { account1, assertSignedMessageIsValid } from './testHelpers';
+import {
+  account1,
+  assertSignedMessageIsValid,
+  connectSolanaTestDapp,
+} from './testHelpers';
 
 describe('Solana Wallet Standard - Sign Message', function () {
   describe('Sign a message', function () {

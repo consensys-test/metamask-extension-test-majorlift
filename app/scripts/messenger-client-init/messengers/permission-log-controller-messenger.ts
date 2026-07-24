@@ -1,10 +1,9 @@
-import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { PermissionLogControllerMessenger } from '@metamask/permission-log-controller';
+import { Messenger } from '@metamask/messenger';
 import { RootMessenger } from '../../lib/messenger';
+
+export type PermissionLogControllerMessenger = ReturnType<
+  typeof getPermissionLogControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the
@@ -14,14 +13,15 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getPermissionLogControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<PermissionLogControllerMessenger>,
-    MessengerEvents<PermissionLogControllerMessenger>
-  >,
-): PermissionLogControllerMessenger {
-  const controllerMessenger: PermissionLogControllerMessenger = new Messenger({
+  messenger: RootMessenger<never, never>,
+) {
+  return new Messenger<
+    'PermissionLogController',
+    never,
+    never,
+    typeof messenger
+  >({
     namespace: 'PermissionLogController',
     parent: messenger,
   });
-  return controllerMessenger;
 }

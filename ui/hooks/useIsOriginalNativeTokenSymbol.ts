@@ -5,7 +5,9 @@ import { getUseSafeChainsListValidation } from '../selectors';
 import { getMultichainCurrentNetwork } from '../selectors/multichain';
 import { isEvmChainId } from '../../shared/lib/asset-utils';
 
-import { getValidUrl } from '../../shared/lib/url-utils';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getValidUrl } from '../../app/scripts/lib/util';
 import { isOriginalNativeTokenSymbol } from '../helpers/utils/isOriginalNativeTokenSymbol';
 
 export function useIsOriginalNativeTokenSymbol(

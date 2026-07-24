@@ -1,4 +1,10 @@
 {
+  "QRHardwareInvalidTransactionTitle": {
+    "message": "Errore"
+  },
+  "QRHardwareMismatchedSignId": {
+    "message": "Dati incongruenti. Controlla i dati della transazione."
+  },
   "QRHardwarePubkeyAccountOutOfRange": {
     "message": "Non ci sono altri account. Se desideri accedere a un altro account non elencato di seguito, ricollega il tuo portafoglio hardware e selezionalo."
   },
@@ -23,8 +29,20 @@
   "QRHardwareUnknownQRCodeTitle": {
     "message": "Errore"
   },
+  "QRHardwareUnknownWalletQRCode": {
+    "message": "Codice QR non valido. Scansiona il codice QR di sincronizzazione del portafoglio hardware."
+  },
   "QRHardwareWalletImporterTitle": {
     "message": "Scansiona Codice QR"
+  },
+  "QRHardwareWalletSteps1Description": {
+    "message": "Collega un portafoglio hardware air-gapped che comunica tramite codici QR. I portafogli hardware air-gapped supportati ufficialmente includono:"
+  },
+  "QRHardwareWalletSteps1Title": {
+    "message": "Portafoglio HW basato su QR"
+  },
+  "QRHardwareWalletSteps2Description": {
+    "message": "Ngrave Zero"
   },
   "about": {
     "message": "Informazioni"
@@ -66,6 +84,9 @@
   },
   "addANickname": {
     "message": "Aggiungo un nickname"
+  },
+  "addAcquiredTokens": {
+    "message": "Aggiungi i token che hai acquistato usando MetaMask"
   },
   "addAlias": {
     "message": "Aggiungi alias"
@@ -153,6 +174,9 @@
   "autoLockTimeLimit": {
     "message": "Timer di logout automatico (minuti)"
   },
+  "autoLockTimeLimitDescription": {
+    "message": "Imposta il tempo di inattività dopo il quale MetaMask fa il log out automaticamente"
+  },
   "average": {
     "message": "Media"
   },
@@ -202,6 +226,9 @@
   },
   "browserNotSupported": {
     "message": "Il tuo Browser non è supportato..."
+  },
+  "builtAroundTheWorld": {
+    "message": "MetaMask è progettato e costruito in tutto il mondo."
   },
   "busy": {
     "message": "Occupato"
@@ -345,6 +372,9 @@
   "createPassword": {
     "message": "Crea Password"
   },
+  "currencyConversion": {
+    "message": "Conversione Moneta"
+  },
   "currencySymbol": {
     "message": "Simbolo moneta"
   },
@@ -356,6 +386,9 @@
   },
   "currentExtension": {
     "message": "Pagina estensione corrente"
+  },
+  "currentLanguage": {
+    "message": "Lingua Corrente"
   },
   "currentlyUnavailable": {
     "message": "Non disponibile su questa Rete"
@@ -376,6 +409,9 @@
     "message": "Usa $1 per personalizzare il prezzo del gas. Questo può creare confusione se non hai familiarità. Interagisci a tuo rischio.",
     "description": "$1 is key 'advanced' (text: 'Advanced') separated here so that it can be passed in with bold font-weight"
   },
+  "customToken": {
+    "message": "Token Personalizzato"
+  },
   "customTokenWarningInTokenDetectionNetwork": {
     "message": "Prima di importare manualmente un token, assicurati sia attendibile. Ulteriori informazioni su $1"
   },
@@ -394,6 +430,9 @@
   },
   "decimal": {
     "message": "Precisione Decimali"
+  },
+  "decimalsMustZerotoTen": {
+    "message": "Il numero di decimali deve essere almeno 0, e non oltre 36."
   },
   "decrypt": {
     "message": "Decifra"
@@ -446,6 +485,12 @@
   "dismiss": {
     "message": "Ignora"
   },
+  "dismissReminderDescriptionField": {
+    "message": "Attiva questa opzione per ignorare il messaggio di promemoria del backup della frase di ripristino segreta. Ti consigliamo vivamente di eseguire il backup della tua frase di recupero segreta per evitare la perdita di fondi"
+  },
+  "dismissReminderField": {
+    "message": "Ignora il promemoria di backup della frase di ripristino segreta"
+  },
   "domain": {
     "message": "Dominio"
   },
@@ -454,6 +499,12 @@
   },
   "dontShowThisAgain": {
     "message": "Non mostrare di nuovo"
+  },
+  "downloadGoogleChrome": {
+    "message": "Scarica Google Chrome"
+  },
+  "downloadNow": {
+    "message": "Scarica ora"
   },
   "downloadStateLogs": {
     "message": "Scarica i log di stato"
@@ -567,6 +618,9 @@
   "hardwareWallets": {
     "message": "Connetti portafoglio hardware"
   },
+  "hardwareWalletsMsg": {
+    "message": "Selezione un portafoglio hardware che vuoi utilizzare con MetaMask"
+  },
   "here": {
     "message": "qui",
     "description": "as in -click here- for more information (goes with troubleTokenBalances)"
@@ -673,6 +727,12 @@
   "likeToImportTokens": {
     "message": "Vorresti aggiungere questi token?"
   },
+  "lineaGoerli": {
+    "message": "Rete di test Linea Goerli"
+  },
+  "links": {
+    "message": "Collegamenti"
+  },
   "loading": {
     "message": "Caricamento..."
   },
@@ -706,6 +766,9 @@
   "metamaskVersion": {
     "message": "versione di MetaMask"
   },
+  "mustSelectOne": {
+    "message": "Devi selezionare almeno un token."
+  },
   "needImportFile": {
     "message": "Devi selezionare un file da importare.",
     "description": "User is important an account and needs to add a file to continue"
@@ -715,6 +778,12 @@
   },
   "networks": {
     "message": "Reti"
+  },
+  "nevermind": {
+    "message": "Non importa"
+  },
+  "newAccount": {
+    "message": "Nuovo Account"
   },
   "newContract": {
     "message": "Nuovo Contratto"
@@ -743,6 +812,9 @@
   },
   "notCurrentAccount": {
     "message": "È questo l'account corretto? È diverso dall'account selezionato nel tuo portafoglio"
+  },
+  "notEnoughGas": {
+    "message": "Gas Non Sufficiente"
   },
   "ofTextNofM": {
     "message": "di"
@@ -841,6 +913,9 @@
   "reusedTokenNameWarning": {
     "message": "Un token usa un simbolo già usato da un altro token, ciò può confondere o ingannare."
   },
+  "revealSeedWords": {
+    "message": "Rivela Frase Seed"
+  },
   "revealSeedWordsWarning": {
     "message": "Non ripristinare la tua frase seed in pubblico!. Queste parole possono essere usate per rubare il tuo account.",
     "description": "$1 is bolded text using the message from 'revealSeedWordsWarning2'"
@@ -893,6 +968,9 @@
   "showFiatConversionInTestnets": {
     "message": "Mostra conversione nelle reti di test"
   },
+  "showFiatConversionInTestnetsDescription": {
+    "message": "Seleziona se vuoi vedere la conversione in valuta fiat nelle reti di test"
+  },
   "showHexData": {
     "message": "Mostra dati hex"
   },
@@ -904,6 +982,9 @@
   },
   "sign": {
     "message": "Firma"
+  },
+  "signatureRequest": {
+    "message": "Firma Richiesta"
   },
   "signed": {
     "message": "Firmata"
@@ -925,6 +1006,9 @@
   },
   "stateLogs": {
     "message": "Log di stato"
+  },
+  "stateLogsDescription": {
+    "message": "I log di stato contengono i tuoi indirizzi pubblici e le transazioni effettuate."
   },
   "statusNotConnected": {
     "message": "Non connesso"
@@ -1047,6 +1131,10 @@
   "swapTokenAvailable": {
     "message": "I $1 sono stati aggiunti al tuo account.",
     "description": "This message is shown after a swap is successful and communicates the exact amount of tokens the user has received for a swap. The $1 is a decimal number of tokens followed by the token symbol."
+  },
+  "swapTokenToToken": {
+    "message": "Scambia da $1 a $2",
+    "description": "Used in the transaction display list to describe a swap. $1 and $2 are the symbols of tokens in involved in a swap."
   },
   "swapTransactionComplete": {
     "message": "Transazione completata"

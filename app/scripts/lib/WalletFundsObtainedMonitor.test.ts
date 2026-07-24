@@ -16,35 +16,13 @@ import {
   WalletFundsObtainedMonitorMessenger,
 } from './WalletFundsObtainedMonitor';
 
-const mockTrackEvent = jest.fn();
-
-jest.mock('../controllers/analytics', () => ({
-  createEventBuilder: jest.requireActual('../controllers/analytics')
-    .createEventBuilder,
-  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
-}));
-
 // Opt out of the global `isAssetsUnifyStateFeatureEnabled` mock (see test/jest/setup.js)
-// and provide the pure flag-evaluation logic without the IN_TEST bypass
-// (test/helpers/setup-helper.js sets process.env.IN_TEST=true for all unit tests,
-// so using jest.requireActual here would make the function always return true,
-// breaking tests that exercise the disabled-flag path).
-jest.mock('../../../shared/lib/assets-unify-state/remote-feature-flag', () => ({
-  ...jest.requireActual(
+// so these tests exercise the real gating logic driven by the messenger mock.
+jest.mock('../../../shared/lib/assets-unify-state/remote-feature-flag', () =>
+  jest.requireActual(
     '../../../shared/lib/assets-unify-state/remote-feature-flag',
   ),
-  isAssetsUnifyStateFeatureEnabled: jest.fn(
-    (
-      featureFlag:
-        | { enabled: boolean; featureVersion: string }
-        | undefined
-        | null,
-      featureVersion: string,
-    ) =>
-      Boolean(featureFlag?.enabled) &&
-      featureFlag?.featureVersion === featureVersion,
-  ),
-}));
+);
 
 function createMessengerMock(): jest.Mocked<WalletFundsObtainedMonitorMessenger> {
   return {
@@ -60,7 +38,6 @@ describe('WalletFundsObtainedMonitor', () => {
 
   beforeEach(() => {
     messenger = createMessengerMock();
-    mockTrackEvent.mockClear();
 
     // Setup default mock implementations
     messenger.call.mockImplementation(((action: string) => {
@@ -325,7 +302,10 @@ describe('WalletFundsObtainedMonitor', () => {
         processNotification(createMockFeatureAnnouncementRaw()),
       ]);
 
-      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(messenger.call).not.toHaveBeenCalledWith(
+        'MetaMetricsController:trackEvent',
+        expect.anything(),
+      );
       expect(messenger.call).not.toHaveBeenCalledWith(
         'AppStateController:setCanTrackWalletFundsObtained',
         false,
@@ -335,7 +315,10 @@ describe('WalletFundsObtainedMonitor', () => {
     it('should return early if notifications array is empty', () => {
       triggerMockNotifications([]);
 
-      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(messenger.call).not.toHaveBeenCalledWith(
+        'MetaMetricsController:trackEvent',
+        expect.anything(),
+      );
       expect(messenger.call).not.toHaveBeenCalledWith(
         'AppStateController:setCanTrackWalletFundsObtained',
         false,
@@ -347,7 +330,10 @@ describe('WalletFundsObtainedMonitor', () => {
         arrangeEthReceievedNotification({ chainId: 0 }),
       ]);
 
-      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(messenger.call).not.toHaveBeenCalledWith(
+        'MetaMetricsController:trackEvent',
+        expect.anything(),
+      );
       expect(messenger.call).not.toHaveBeenCalledWith(
         'AppStateController:setCanTrackWalletFundsObtained',
         false,
@@ -359,7 +345,10 @@ describe('WalletFundsObtainedMonitor', () => {
         arrangeEthReceievedNotification({ amountUsd: '' }),
       ]);
 
-      expect(mockTrackEvent).not.toHaveBeenCalled();
+      expect(messenger.call).not.toHaveBeenCalledWith(
+        'MetaMetricsController:trackEvent',
+        expect.anything(),
+      );
       expect(messenger.call).not.toHaveBeenCalledWith(
         'AppStateController:setCanTrackWalletFundsObtained',
         false,
@@ -371,9 +360,10 @@ describe('WalletFundsObtainedMonitor', () => {
         arrangeEthReceievedNotification({ chainId: 1, amountUsd: '150' }),
       ]);
 
-      expect(mockTrackEvent).toHaveBeenCalledWith(
+      expect(messenger.call).toHaveBeenCalledWith(
+        'MetaMetricsController:trackEvent',
         expect.objectContaining({
-          name: 'Wallet Funds Obtained',
+          event: 'Wallet Funds Obtained',
           properties: expect.objectContaining({
             // eslint-disable-next-line @typescript-eslint/naming-convention
             chain_id_caip: 'eip155:1',
@@ -397,9 +387,10 @@ describe('WalletFundsObtainedMonitor', () => {
         arrangeERC20ReceivedNotification({ chainId: 1, amountUsd: '50' }),
       ]);
 
-      expect(mockTrackEvent).toHaveBeenCalledWith(
+      expect(messenger.call).toHaveBeenCalledWith(
+        'MetaMetricsController:trackEvent',
         expect.objectContaining({
-          name: 'Wallet Funds Obtained',
+          event: 'Wallet Funds Obtained',
           properties: expect.objectContaining({
             // eslint-disable-next-line @typescript-eslint/naming-convention
             chain_id_caip: 'eip155:1',
@@ -426,7 +417,8 @@ describe('WalletFundsObtainedMonitor', () => {
 
       triggerMockNotifications(notifications);
 
-      expect(mockTrackEvent).toHaveBeenCalledWith(
+      expect(messenger.call).toHaveBeenCalledWith(
+        'MetaMetricsController:trackEvent',
         expect.objectContaining({
           properties: expect.objectContaining({
             // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -450,7 +442,8 @@ describe('WalletFundsObtainedMonitor', () => {
 
       triggerMockNotifications(notifications);
 
-      expect(mockTrackEvent).toHaveBeenCalledWith(
+      expect(messenger.call).toHaveBeenCalledWith(
+        'MetaMetricsController:trackEvent',
         expect.objectContaining({
           properties: expect.objectContaining({
             // eslint-disable-next-line @typescript-eslint/naming-convention

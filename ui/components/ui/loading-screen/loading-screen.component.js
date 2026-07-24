@@ -1,12 +1,13 @@
 import React, { isValidElement } from 'react';
 import PropTypes from 'prop-types';
-import {
-  Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
 import Spinner from '../spinner';
+import { Box } from '../../component-library';
+import {
+  AlignItems,
+  Display,
+  FlexDirection,
+  JustifyContent,
+} from '../../../helpers/constants/design-system';
 
 const LoadingScreen = ({
   header,
@@ -32,10 +33,10 @@ const LoadingScreen = ({
         {showLoadingSpinner && <Spinner className="loading-overlay__spinner" />}
       </Box>
       <Box
-        className="flex"
-        flexDirection={BoxFlexDirection.Row}
-        justifyContent={BoxJustifyContent.Center}
-        alignItems={BoxAlignItems.Center}
+        display={Display.Flex}
+        flexDirection={FlexDirection.Row}
+        justifyContent={JustifyContent.center}
+        alignItems={AlignItems.center}
       >
         {renderMessage()}
       </Box>

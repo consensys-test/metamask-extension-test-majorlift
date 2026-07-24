@@ -1,12 +1,15 @@
 import React from 'react';
-import { Box, BoxFlexDirection, Skeleton } from '@metamask/design-system-react';
+import { Box, BoxFlexDirection } from '@metamask/design-system-react';
+
+import { Skeleton } from '../../../component-library/skeleton';
+import { BorderRadius } from '../../../../helpers/constants/design-system';
 import { PerpsCardSkeleton } from './perps-card-skeleton';
 
 /**
  * PerpsActivityPageSkeleton displays a loading skeleton for the activity page
  * Matches the layout: filter dropdown + date groups with transaction cards
  */
-export const PerpsActivityPageSkeleton = () => {
+export const PerpsActivityPageSkeleton: React.FC = () => {
   return (
     <Box
       flexDirection={BoxFlexDirection.Column}
@@ -14,7 +17,7 @@ export const PerpsActivityPageSkeleton = () => {
     >
       {/* Filter Dropdown Skeleton */}
       <Box paddingLeft={4} paddingRight={4} paddingBottom={4}>
-        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-10 w-full" borderRadius={BorderRadius.MD} />
       </Box>
 
       {/* Date groups with transaction cards */}

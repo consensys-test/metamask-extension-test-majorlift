@@ -252,10 +252,12 @@ export class DataDeletionService {
    * returns a "regulation ID" to keep track of this request and get status updates for it.
    * https://docs.segmentapis.com/tag/Deletion-and-Suppression#operation/createSourceRegulation
    *
-   * @param analyticsId - The ID associated with the analytics data that we will be deleting.
+   * @param metaMetricsId - The ID associated with the analytics data that we will be deleting.
    * @returns The regulation ID for the deletion request.
    */
-  async createDataDeletionRegulationTask(analyticsId: string): Promise<string> {
+  async createDataDeletionRegulationTask(
+    metaMetricsId: string,
+  ): Promise<string> {
     const response = await this.#createDataDeletionTaskPolicy.execute(() =>
       this.#fetchWithTimeout(
         `${this.#analyticsDataDeletionEndpoint}/regulations/sources/${
@@ -267,7 +269,7 @@ export class DataDeletionService {
           body: JSON.stringify({
             regulationType: 'DELETE_ONLY',
             subjectType: 'USER_ID',
-            subjectIds: [analyticsId],
+            subjectIds: [metaMetricsId],
           }),
         },
       ),

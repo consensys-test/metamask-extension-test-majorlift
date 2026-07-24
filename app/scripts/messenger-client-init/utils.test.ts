@@ -1,21 +1,19 @@
+import { PPOMController } from '@metamask/ppom-validator';
 import {
   MOCK_ANY_NAMESPACE,
   Messenger,
   MockAnyNamespace,
 } from '@metamask/messenger';
-import { PPOMController } from '@metamask/ppom-validator';
-import { Wallet } from '@metamask/wallet';
-
 import { buildControllerInitRequestMock } from './test/utils';
 import { MessengerClientApi, MessengerClientName } from './types';
-import { initMessengerClients, TaggedApiMethod } from './utils';
+import { initMessengerClients } from './utils';
 
 type InitFunctions = Parameters<
   typeof initMessengerClients
 >[0]['initFunctions'];
 
 const CONTROLLER_NAME_MOCK = 'PPOMController';
-const CONTROLLER_NAME_2_MOCK = 'TransactionPayController';
+const CONTROLLER_NAME_2_MOCK = 'TransactionController';
 
 function buildControllerMock(name?: string) {
   return { name: name ?? CONTROLLER_NAME_MOCK } as unknown as PPOMController;
@@ -54,10 +52,6 @@ function buildBaseControllerMessenger() {
   });
 }
 
-function buildWalletMock() {
-  return { getInstance: jest.fn() } as unknown as Wallet;
-}
-
 describe('Messenger Client Init Utils', () => {
   describe('initMessengerClients', () => {
     it('returns messenger clients by name', () => {
@@ -70,7 +64,6 @@ describe('Messenger Client Init Utils', () => {
       );
 
       const { messengerClientsByName } = initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           [CONTROLLER_NAME_MOCK]: init1Mock,
@@ -95,7 +88,6 @@ describe('Messenger Client Init Utils', () => {
       );
 
       initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           [CONTROLLER_NAME_MOCK]: init1Mock,
@@ -114,7 +106,6 @@ describe('Messenger Client Init Utils', () => {
         const initMock = buildControllerFunctionMock();
 
         initMessengerClients({
-          wallet: buildWalletMock(),
           baseControllerMessenger: buildBaseControllerMessenger(),
           initFunctions: {
             [CONTROLLER_NAME_MOCK]: initMock,
@@ -134,7 +125,6 @@ describe('Messenger Client Init Utils', () => {
         const initMock = buildControllerFunctionMock();
 
         initMessengerClients({
-          wallet: buildWalletMock(),
           baseControllerMessenger: buildBaseControllerMessenger(),
           initFunctions: {
             [CONTROLLER_NAME_MOCK]: initMock,
@@ -168,7 +158,6 @@ describe('Messenger Client Init Utils', () => {
       );
 
       const { messengerClientApi } = initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           [CONTROLLER_NAME_MOCK]: initMock,
@@ -182,42 +171,6 @@ describe('Messenger Client Init Utils', () => {
         test2: expect.any(Function),
         test3: expect.any(Function),
       });
-    });
-
-    it('tags API functions with _controllerName', () => {
-      const requestMock = buildControllerInitRequestMock();
-      const initMock = buildControllerFunctionMock();
-      const init2Mock = buildControllerFunctionMock();
-
-      initMock.mockReturnValue(
-        buildControllerInitResultMock({
-          api: { test1: jest.fn(), test2: jest.fn() },
-        }),
-      );
-
-      init2Mock.mockReturnValue(
-        buildControllerInitResultMock({ api: { test3: jest.fn() } }),
-      );
-
-      const { messengerClientApi } = initMessengerClients({
-        wallet: buildWalletMock(),
-        baseControllerMessenger: buildBaseControllerMessenger(),
-        initFunctions: {
-          [CONTROLLER_NAME_MOCK]: initMock,
-          [CONTROLLER_NAME_2_MOCK]: init2Mock,
-        },
-        initRequest: requestMock,
-      });
-
-      expect(
-        (messengerClientApi.test1 as TaggedApiMethod)._controllerName,
-      ).toBe(CONTROLLER_NAME_MOCK);
-      expect(
-        (messengerClientApi.test2 as TaggedApiMethod)._controllerName,
-      ).toBe(CONTROLLER_NAME_MOCK);
-      expect(
-        (messengerClientApi.test3 as TaggedApiMethod)._controllerName,
-      ).toBe(CONTROLLER_NAME_2_MOCK);
     });
 
     it('returns all persisted state entries', () => {
@@ -245,7 +198,6 @@ describe('Messenger Client Init Utils', () => {
       );
 
       const { controllerPersistedState } = initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           [CONTROLLER_NAME_MOCK]: initMock,
@@ -286,7 +238,6 @@ describe('Messenger Client Init Utils', () => {
       );
 
       const { controllerMemState } = initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           [CONTROLLER_NAME_MOCK]: initMock,
@@ -307,7 +258,6 @@ describe('Messenger Client Init Utils', () => {
       const initMock = buildControllerFunctionMock();
 
       initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           [CONTROLLER_NAME_MOCK]: initMock,
@@ -325,7 +275,6 @@ describe('Messenger Client Init Utils', () => {
       const initMock = buildControllerFunctionMock();
 
       initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           TestName: initMock,
@@ -343,7 +292,6 @@ describe('Messenger Client Init Utils', () => {
       const initMock = buildControllerFunctionMock();
 
       initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           [CONTROLLER_NAME_MOCK]: initMock,
@@ -361,7 +309,6 @@ describe('Messenger Client Init Utils', () => {
       const initMock = buildControllerFunctionMock();
 
       initMessengerClients({
-        wallet: buildWalletMock(),
         baseControllerMessenger: buildBaseControllerMessenger(),
         initFunctions: {
           TestName: initMock,

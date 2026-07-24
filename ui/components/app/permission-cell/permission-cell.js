@@ -3,18 +3,17 @@ import PropTypes from 'prop-types';
 import classnames from 'clsx';
 import { useSelector } from 'react-redux';
 import {
-  Box,
-  BoxFlexDirection,
-  BoxAlignItems,
-  BoxJustifyContent,
-  BoxFlexWrap,
-} from '@metamask/design-system-react';
-import {
+  AlignItems,
   Color,
   IconColor,
+  JustifyContent,
   Size,
   TextColor,
   TextVariant,
+  Display,
+  BlockSize,
+  FlexWrap,
+  FlexDirection,
 } from '../../../helpers/constants/design-system';
 import {
   AvatarIcon,
@@ -23,6 +22,7 @@ import {
   IconName,
   IconSize,
   Text,
+  Box,
 } from '../../component-library';
 import Tooltip from '../../ui/tooltip';
 import { getRequestingNetworkInfo } from '../../../selectors';
@@ -110,13 +110,14 @@ const PermissionCell = ({
 
   return (
     <Box
-      className="permission-cell flex"
-      justifyContent={BoxJustifyContent.Center}
-      alignItems={BoxAlignItems.Start}
+      className="permission-cell"
+      display={Display.Flex}
+      justifyContent={JustifyContent.center}
+      alignItems={AlignItems.flexStart}
       paddingTop={2}
       paddingBottom={2}
     >
-      <Box className="flex">
+      <Box display={Display.Flex}>
         {typeof permissionIcon === 'string' ? (
           <AvatarIcon
             iconName={permissionIcon}
@@ -132,9 +133,10 @@ const PermissionCell = ({
         )}
       </Box>
       <Box
-        className="flex w-full"
-        flexWrap={BoxFlexWrap.Wrap}
-        flexDirection={BoxFlexDirection.Column}
+        display={Display.Flex}
+        flexWrap={FlexWrap.Wrap}
+        flexDirection={FlexDirection.Column}
+        width={BlockSize.Full}
         marginLeft={4}
         marginRight={4}
       >
@@ -157,7 +159,7 @@ const PermissionCell = ({
           />
         )}
       </Box>
-      <Box className="flex">
+      <Box display={Display.Flex}>
         {showOptions && snapId ? (
           <PermissionCellOptions
             snapId={snapId}

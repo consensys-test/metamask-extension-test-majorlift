@@ -11,10 +11,10 @@
 
 import { TransactionEnvelopeType } from '@metamask/transaction-controller';
 import { Mockttp } from 'mockttp';
-import ActivityTab from '../../page-objects/pages/home/activity-tab';
+import ActivityListPage from '../../page-objects/pages/home/activity-list';
 import HomePage from '../../page-objects/pages/home/homepage';
 import NFTDetailsPage from '../../page-objects/pages/nft-details-page';
-import NftsTab from '../../page-objects/pages/home/nfts-tab';
+import NFTListPage from '../../page-objects/pages/home/nft-list';
 import SendPage from '../../page-objects/pages/send/send-page';
 import TestDapp from '../../page-objects/pages/test-dapp';
 import TokenTransferTransactionConfirmation from '../../page-objects/pages/confirmations/token-transfer-confirmation';
@@ -125,7 +125,7 @@ describe('Send NFT', function () {
               await contractRegistry?.getContractAddress(smartContract);
             const testDapp = new TestDapp(driver);
             const homePage = new HomePage(driver);
-            const activityTab = new ActivityTab(driver);
+            const activityListPage = new ActivityListPage(driver);
 
             // Mint NFT first
             await testDapp.openTestDappPage({ contractAddress, url: DAPP_URL });
@@ -144,19 +144,17 @@ describe('Send NFT', function () {
               WINDOW_TITLES.ExtensionInFullScreenView,
             );
             await homePage.goToActivityList();
-            await activityTab.checkConfirmedTxNumberDisplayedInActivity(1);
+            await activityListPage.checkConfirmedTxNumberDisplayedInActivity(1);
 
             await homePage.goToNftTab();
-            await new NftsTab(driver).clickNFTIconOnActivityList();
+            await new NFTListPage(driver).clickNFTIconOnActivityList();
 
             // Send the NFT
             const nftDetailsPage = new NFTDetailsPage(driver);
             await nftDetailsPage.clickNFTSendButton();
 
             const sendPage = new SendPage(driver);
-            await sendPage.fillRecipient({
-              recipientAddress: DEFAULT_RECIPIENT,
-            });
+            await sendPage.fillRecipient(DEFAULT_RECIPIENT);
             await sendPage.pressContinueButton();
 
             const tokenTransferConfirmation =
@@ -166,7 +164,7 @@ describe('Send NFT', function () {
             await tokenTransferConfirmation.clickFooterConfirmButton();
 
             await homePage.goToActivityList();
-            await activityTab.checkConfirmedTxNumberDisplayedInActivity(2);
+            await activityListPage.checkConfirmedTxNumberDisplayedInActivity(2);
           },
           erc721Mocks,
           smartContract,
@@ -194,7 +192,7 @@ describe('Send NFT', function () {
               await contractRegistry?.getContractAddress(smartContract);
             const testDapp = new TestDapp(driver);
             const homePage = new HomePage(driver);
-            const activityTab = new ActivityTab(driver);
+            const activityListPage = new ActivityListPage(driver);
 
             // Mint NFT first
             await testDapp.openTestDappPage({ contractAddress, url: DAPP_URL });
@@ -224,7 +222,7 @@ describe('Send NFT', function () {
               WINDOW_TITLES.ExtensionInFullScreenView,
             );
             await homePage.goToActivityList();
-            await activityTab.checkConfirmedTxNumberDisplayedInActivity(2);
+            await activityListPage.checkConfirmedTxNumberDisplayedInActivity(2);
           },
           erc721Mocks,
           smartContract,
@@ -256,7 +254,7 @@ describe('Send NFT', function () {
               await contractRegistry?.getContractAddress(smartContract);
             const testDapp = new TestDapp(driver);
             const homePage = new HomePage(driver);
-            const activityTab = new ActivityTab(driver);
+            const activityListPage = new ActivityListPage(driver);
 
             // Mint ERC1155
             await testDapp.openTestDappPage({ contractAddress, url: DAPP_URL });
@@ -285,15 +283,13 @@ describe('Send NFT', function () {
               WINDOW_TITLES.ExtensionInFullScreenView,
             );
             await homePage.goToNftTab();
-            await new NftsTab(driver).clickNFTIconOnActivityList();
+            await new NFTListPage(driver).clickNFTIconOnActivityList();
 
             const nftDetailsPage = new NFTDetailsPage(driver);
             await nftDetailsPage.clickNFTSendButton();
 
             const sendPage = new SendPage(driver);
-            await sendPage.fillRecipient({
-              recipientAddress: DEFAULT_RECIPIENT,
-            });
+            await sendPage.fillRecipient(DEFAULT_RECIPIENT);
             await sendPage.fillAmount('1');
             await sendPage.pressContinueButton();
 
@@ -304,7 +300,7 @@ describe('Send NFT', function () {
             await tokenTransferConfirmation.clickFooterConfirmButton();
 
             await homePage.goToActivityList();
-            await activityTab.checkConfirmedTxNumberDisplayedInActivity(2);
+            await activityListPage.checkConfirmedTxNumberDisplayedInActivity(2);
           },
           erc1155Mocks,
           smartContract,

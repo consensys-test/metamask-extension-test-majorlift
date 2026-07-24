@@ -1,6 +1,6 @@
 import { Env as SubscriptionEnv } from '@metamask/subscription-controller';
 import { Env as ClaimsEnv } from '@metamask/claims-controller';
-import { ENVIRONMENT } from '../../constants/build';
+import { ENVIRONMENT } from '../../../development/build/constants';
 import { ShieldEnvConfig } from './type';
 
 const ENV = {

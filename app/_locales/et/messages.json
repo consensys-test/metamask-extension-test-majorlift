@@ -26,6 +26,9 @@
   "accountSelectionRequired": {
     "message": "Peate valima konto!"
   },
+  "addAcquiredTokens": {
+    "message": "Lisage load, mis olete MetaMaskiga saanud"
+  },
   "addAlias": {
     "message": "Lisage alias"
   },
@@ -74,6 +77,9 @@
   },
   "autoLockTimeLimit": {
     "message": "Automaatse väljalogimise taimer (minutites)"
+  },
+  "autoLockTimeLimitDescription": {
+    "message": "Seadistage jõudeolek minutites, enne kui MetaMask automaatselt välja logib"
   },
   "average": {
     "message": "Keskmine"
@@ -175,11 +181,23 @@
   "createPassword": {
     "message": "Loo parool"
   },
+  "currencyConversion": {
+    "message": "Valuuta teisendamine"
+  },
+  "currentLanguage": {
+    "message": "Praegune keel"
+  },
   "custom": {
     "message": "Täpsemad"
   },
+  "customToken": {
+    "message": "Kohandatud luba"
+  },
   "decimal": {
     "message": "Täpsuse kümnendkohad"
+  },
+  "decimalsMustZerotoTen": {
+    "message": "Kümnendkohad peavad olema vähemalt 0 ja mitte üle 36."
   },
   "delete": {
     "message": "Kustuta"
@@ -189,6 +207,9 @@
   },
   "done": {
     "message": "Valmis"
+  },
+  "downloadGoogleChrome": {
+    "message": "Laadige alla Google Chrome"
   },
   "downloadStateLogs": {
     "message": "Olekulogide allalaadimine"
@@ -247,6 +268,9 @@
   },
   "hardwareWallets": {
     "message": "Ühendage riistvara rahakott"
+  },
+  "hardwareWalletsMsg": {
+    "message": "Valige riistvara rahakott, mida soovite MetaMaskis kasutada"
   },
   "here": {
     "message": "siin",
@@ -315,6 +339,12 @@
   "likeToImportTokens": {
     "message": "Kas soovite need load lisada?"
   },
+  "lineaGoerli": {
+    "message": "Linea Goerli testvõrk"
+  },
+  "links": {
+    "message": "Lingid"
+  },
   "loading": {
     "message": "Laadimine..."
   },
@@ -333,6 +363,9 @@
   "metamaskVersion": {
     "message": "MetaMaski versioon"
   },
+  "mustSelectOne": {
+    "message": "Peate valima vähemalt 1 loa."
+  },
   "needImportFile": {
     "message": "Peate importimiseks faili valima.",
     "description": "User is important an account and needs to add a file to continue"
@@ -342,6 +375,12 @@
   },
   "networks": {
     "message": "Võrgud"
+  },
+  "nevermind": {
+    "message": "Unusta"
+  },
+  "newAccount": {
+    "message": "Uus konto"
   },
   "newAccountNumberName": {
     "message": "Konto $1",
@@ -361,6 +400,9 @@
   },
   "noWebcamFoundTitle": {
     "message": "Veebikaamerat ei leitud"
+  },
+  "notEnoughGas": {
+    "message": "Ei ole piisavalt gaasi"
   },
   "ofTextNofM": {
     "message": "/"
@@ -445,6 +487,9 @@
   "restore": {
     "message": "Taasta"
   },
+  "revealSeedWords": {
+    "message": "Kuva seemnesõnu"
+  },
   "revealSeedWordsWarning": {
     "message": "Neid sõnu saab kasutada kõigi teie kontode tühjendamiseks.",
     "description": "$1 is bolded text using the message from 'revealSeedWordsWarning2'"
@@ -491,6 +536,9 @@
   "showFiatConversionInTestnets": {
     "message": "Kuva teisendus Testnetsis"
   },
+  "showFiatConversionInTestnetsDescription": {
+    "message": "Valige see, et kuvada Testnetsis fiati teisendus"
+  },
   "showHexData": {
     "message": "Kuva Hex-andmed"
   },
@@ -499,6 +547,9 @@
   },
   "sign": {
     "message": "Allkirjasta"
+  },
+  "signatureRequest": {
+    "message": "Allkirja taotlus"
   },
   "signed": {
     "message": "Allkirjastatud"
@@ -517,6 +568,9 @@
   },
   "stateLogs": {
     "message": "Olekulogid"
+  },
+  "stateLogsDescription": {
+    "message": "Olekulogid sisaldavad teie avalikke konto aadresse ja saadetud tehinguid."
   },
   "submitted": {
     "message": "Edastatud"

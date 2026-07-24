@@ -18,7 +18,7 @@ import { DAPP_URL, ACCOUNT_1 } from './constants';
 import transformOpenRPCDocument from './api-specs/transform';
 import { login } from './page-objects/flows/login.flow';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 const mockServer = require('@open-rpc/mock-server/build/index').default;
 
 async function main() {

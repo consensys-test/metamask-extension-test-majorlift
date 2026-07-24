@@ -9,7 +9,6 @@ import {
   WINDOW_TITLES,
 } from '../../../constants';
 import { login } from '../../../page-objects/flows/login.flow';
-import { SIGN_TYPED_DATA_EXPECTED } from './sign-typed-data-expected';
 
 const signatureRequestType = {
   signTypedData: 'Sign Typed Data',
@@ -134,23 +133,17 @@ async function triggerSignatureRequest(driver: Driver, type: string) {
     case signatureRequestType.signTypedData:
       await testDapp.clickSignTypedData();
       await driver.switchToWindowWithTitle(WINDOW_TITLES.Dialog);
-      await confirmation.verifySignatureHeadingTitle(
-        SIGN_TYPED_DATA_EXPECTED.heading,
-      );
+      await confirmation.verifyConfirmationHeadingTitle();
       break;
     case signatureRequestType.signTypedDataV3:
       await testDapp.clickSignTypedDatav3();
       await driver.switchToWindowWithTitle(WINDOW_TITLES.Dialog);
-      await confirmation.verifySignatureHeadingTitle(
-        SIGN_TYPED_DATA_EXPECTED.heading,
-      );
+      await confirmation.verifyConfirmationHeadingTitle();
       break;
     case signatureRequestType.signTypedDataV4:
       await testDapp.clickSignTypedDatav4();
       await driver.switchToWindowWithTitle(WINDOW_TITLES.Dialog);
-      await confirmation.verifySignatureHeadingTitle(
-        SIGN_TYPED_DATA_EXPECTED.heading,
-      );
+      await confirmation.verifyConfirmationHeadingTitle();
       break;
     default:
       throw new Error(`Unsupported signature type: ${type}`);
@@ -208,20 +201,16 @@ async function verifyAndAssertRedesignedSignTypedData(
   type: string,
 ) {
   const confirmation = new SignTypedData(driver);
-  await confirmation.verifySignatureHeadingTitle(
-    SIGN_TYPED_DATA_EXPECTED.heading,
-  );
-  await confirmation.verifyOrigin(SIGN_TYPED_DATA_EXPECTED.origin);
+  await confirmation.verifyConfirmationHeadingTitle();
+  await confirmation.verifyOrigin();
 
   switch (type) {
     case signatureRequestType.signTypedData:
-      await confirmation.verifySignTypedDataMessage(
-        SIGN_TYPED_DATA_EXPECTED.v1Message,
-      );
+      await confirmation.verifySignTypedDataMessage();
       break;
     case signatureRequestType.signTypedDataV3:
     case signatureRequestType.signTypedDataV4:
-      await confirmation.verifyContents(SIGN_TYPED_DATA_EXPECTED.contents);
+      await confirmation.verifyContents();
       break;
     default:
       throw new Error(`Unsupported signature type: ${type}`);

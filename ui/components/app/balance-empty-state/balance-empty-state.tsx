@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Box,
@@ -17,13 +17,13 @@ import {
   twMerge,
 } from '@metamask/design-system-react';
 import { useI18nContext } from '../../../hooks/useI18nContext';
-import { useAnalytics } from '../../../hooks/useAnalytics';
 import { getCurrentChainId } from '../../../../shared/lib/selectors/networks';
 import { getMultichainCurrentNetwork } from '../../../selectors/multichain';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 
 import { ORIGIN_METAMASK } from '../../../../shared/constants/app';
 import { getCurrentLocale } from '../../../ducks/locale/locale';
@@ -45,12 +45,12 @@ export type BalanceEmptyStateProps = {
   onClickReceive?: () => void;
 };
 
-export const BalanceEmptyState = ({
+export const BalanceEmptyState: React.FC<BalanceEmptyStateProps> = ({
   onClickReceive,
   ...props
-}: BalanceEmptyStateProps) => {
+}) => {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const currentLocale = useSelector(getCurrentLocale);
   const chainId = useSelector(getCurrentChainId);
   const { nickname } = useSelector(getMultichainCurrentNetwork);
@@ -59,32 +59,30 @@ export const BalanceEmptyState = ({
 
   // Track when component is displayed
   useEffect(() => {
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.EmptyBuyBannerDisplayed)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          locale: currentLocale,
-          network: nickname,
-          referrer: ORIGIN_METAMASK,
-          location: 'balance_empty_state',
-        })
-        .build(),
-    );
+    trackEvent({
+      event: MetaMetricsEventName.EmptyBuyBannerDisplayed,
+      category: MetaMetricsEventCategory.Navigation,
+      properties: {
+        locale: currentLocale,
+        network: nickname,
+        referrer: ORIGIN_METAMASK,
+        location: 'balance_empty_state',
+      },
+    });
   }, [currentLocale, chainId, nickname, trackEvent]);
 
   // Handle action button click
   const handleAction = useCallback(() => {
     // Track button click events
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.NavBuyButtonClicked)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          location: 'balance_empty_state',
-          text: 'Add funds',
-          chainId,
-        })
-        .build(),
-    );
+    trackEvent({
+      event: MetaMetricsEventName.NavBuyButtonClicked,
+      category: MetaMetricsEventCategory.Navigation,
+      properties: {
+        location: 'balance_empty_state',
+        text: 'Add funds',
+        chainId,
+      },
+    });
 
     setIsModalOpen(true);
   }, [chainId, trackEvent]);

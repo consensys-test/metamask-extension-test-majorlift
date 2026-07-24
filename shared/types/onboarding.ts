@@ -7,6 +7,5 @@ export type OnboardingControllerState = {
   seedPhraseBackedUp: boolean | null;
   firstTimeFlowType: FirstTimeFlowType | null;
   completedOnboarding: boolean;
-  hasSeenOnboardingCompletionPage: boolean;
   onboardingTabs?: Record<string, string>;
 };

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * Mock implementation of PerpsController for UI development
  *
@@ -183,6 +184,7 @@ class MockPerpsController {
    * @param options0
    * @param options0.callback
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   subscribeToAccount({
     callback,
   }: {

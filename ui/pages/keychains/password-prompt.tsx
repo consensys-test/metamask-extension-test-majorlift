@@ -26,6 +26,8 @@ type PasswordPromptProps = {
   onTogglePasswordVisibility: (event: React.MouseEvent) => void;
   onSubmit: (event: React.MouseEvent | React.FormEvent) => void;
   onContinueClick: (event: React.MouseEvent) => void;
+  isMalicious?: boolean;
+  dangerAcknowledged?: boolean;
 };
 
 export function PasswordPrompt({
@@ -36,6 +38,8 @@ export function PasswordPrompt({
   onTogglePasswordVisibility,
   onSubmit,
   onContinueClick,
+  isMalicious = false,
+  dangerAcknowledged = false,
 }: Readonly<PasswordPromptProps>) {
   const t = useI18nContext();
   return (
@@ -43,7 +47,7 @@ export function PasswordPrompt({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (password === '') {
+          if (password === '' || (isMalicious && !dangerAcknowledged)) {
             return;
           }
           onSubmit(event);
@@ -93,7 +97,8 @@ export function PasswordPrompt({
         <Button
           size={ButtonSize.Lg}
           onClick={onContinueClick}
-          disabled={password === ''}
+          isDanger={isMalicious}
+          disabled={password === '' || (isMalicious && !dangerAcknowledged)}
           data-testid="reveal-seed-password-continue"
           className="w-full"
         >

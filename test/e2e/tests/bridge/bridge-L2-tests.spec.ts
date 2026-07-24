@@ -27,7 +27,6 @@ describe('Bridge tests', function (this: Suite) {
           },
           expectedTransactionsCount: 1,
           expectedDestAmount: '0.991',
-          expectedActivityAmount: '+0.9909',
         });
 
         await bridgeTransaction({
@@ -41,7 +40,6 @@ describe('Bridge tests', function (this: Suite) {
           },
           expectedTransactionsCount: 2,
           expectedDestAmount: '0.991',
-          expectedActivityAmount: '+0.9911',
         });
 
         await bridgeTransaction({
@@ -55,7 +53,6 @@ describe('Bridge tests', function (this: Suite) {
           },
           expectedTransactionsCount: 4,
           expectedDestAmount: '9.905',
-          expectedActivityAmount: '+9.9046',
         });
 
         await bridgeTransaction({
@@ -69,7 +66,6 @@ describe('Bridge tests', function (this: Suite) {
           },
           expectedTransactionsCount: 6,
           expectedDestAmount: '9.67',
-          expectedActivityAmount: '+9.6698',
         });
       },
     );

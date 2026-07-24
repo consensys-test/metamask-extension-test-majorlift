@@ -26,7 +26,7 @@ export function getMetaMetricsDataDeletionControllerMessenger(
     });
   messenger.delegate({
     messenger: metaMetricsDataDeletionControllerMessenger,
-    actions: ['AnalyticsController:getState'],
+    actions: ['MetaMetricsController:getState'],
   });
   return metaMetricsDataDeletionControllerMessenger;
 }

@@ -1,50 +1,46 @@
-import {
-  getNativeAssetForChainId,
-  type QuoteResponse,
-  type QuoteMetadata,
-} from '@metamask/bridge-controller';
-
-export const OP_0_005_ETH_TO_ARB_METADATA = {
-  sentAmount: {
-    amount: '0.005',
-    valueInCurrency: '1000',
-    usd: '1000',
-  },
-  gasFee: {
-    effective: { amount: '12', valueInCurrency: '12', usd: '12' },
-    total: { amount: '12', valueInCurrency: '12', usd: '12' },
-    max: { amount: '12', valueInCurrency: '12', usd: '12' },
-  },
-  totalNetworkFee: {
-    amount: '12',
-    valueInCurrency: '12',
-    usd: '12',
-  },
-  toTokenAmount: {
-    amount: '12',
-    valueInCurrency: '12',
-    usd: '12',
-  },
-  adjustedReturn: {
-    valueInCurrency: '12',
-    usd: '12',
-  },
-  swapRate: '12',
-  cost: {
-    valueInCurrency: '12',
-    usd: '12',
-  },
-};
 export const DummyQuotesNoApproval = {
   OP_0_005_ETH_TO_ARB: [
     {
+      sentAmount: {
+        amount: '0.005',
+        valueInCurrency: '1000',
+        usd: '1000',
+      },
+      gasFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalMaxNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      toTokenAmount: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      adjustedReturn: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      swapRate: '12',
+      cost: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
       quote: {
         requestId: 'be448070-7849-4d14-bb35-8dcdaf7a4d69',
         srcChainId: 10,
         srcTokenAmount: '4956250000000000',
         srcAsset: {
           address: '0x0000000000000000000000000000000000000000',
-          assetId: getNativeAssetForChainId(10).assetId,
           chainId: 10,
           symbol: 'ETH',
           decimals: 18,
@@ -57,10 +53,8 @@ export const DummyQuotesNoApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '4927504629714929',
-        minDestTokenAmount: '4927504629714929',
         destAsset: {
           address: '0x0000000000000000000000000000000000000000',
-          assetId: getNativeAssetForChainId(42161).assetId,
           chainId: 42161,
           symbol: 'ETH',
           decimals: 18,
@@ -81,7 +75,6 @@ export const DummyQuotesNoApproval = {
               decimals: 18,
               name: 'ETH',
               coinKey: 'ETH',
-              assetId: getNativeAssetForChainId(10).assetId,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
               priceUSD: '2641.2',
@@ -108,7 +101,6 @@ export const DummyQuotesNoApproval = {
               decimals: 18,
               name: 'ETH',
               coinKey: 'ETH',
-              assetId: getNativeAssetForChainId(10).assetId,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
               priceUSD: '2641.2',
@@ -121,7 +113,6 @@ export const DummyQuotesNoApproval = {
               decimals: 18,
               name: 'ETH',
               coinKey: 'ETH',
-              assetId: getNativeAssetForChainId(42161).assetId,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
               priceUSD: '2641',
@@ -152,7 +143,6 @@ export const DummyQuotesNoApproval = {
           chainId: 10,
           symbol: 'ETH',
           decimals: 18,
-          assetId: getNativeAssetForChainId(10).assetId,
           name: 'ETH',
           coinKey: 'ETH',
           logoURI:
@@ -162,13 +152,11 @@ export const DummyQuotesNoApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '4955000000000000',
-        minDestTokenAmount: '4955000000000000',
         destAsset: {
           address: '0x0000000000000000000000000000000000000000',
           chainId: 42161,
           symbol: 'ETH',
           decimals: 18,
-          assetId: getNativeAssetForChainId(42161).assetId,
           name: 'ETH',
           coinKey: 'ETH',
           logoURI:
@@ -186,7 +174,6 @@ export const DummyQuotesNoApproval = {
               decimals: 18,
               name: 'ETH',
               coinKey: 'ETH',
-              assetId: getNativeAssetForChainId(10).assetId,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
               priceUSD: '2641.2',
@@ -213,7 +200,6 @@ export const DummyQuotesNoApproval = {
               decimals: 18,
               name: 'ETH',
               coinKey: 'ETH',
-              assetId: getNativeAssetForChainId(10).assetId,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
               priceUSD: '2641.2',
@@ -226,7 +212,6 @@ export const DummyQuotesNoApproval = {
               decimals: 18,
               name: 'ETH',
               coinKey: 'ETH',
-              assetId: getNativeAssetForChainId(42161).assetId,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
               priceUSD: '2641',
@@ -255,7 +240,6 @@ export const DummyQuotesNoApproval = {
         srcAsset: {
           address: '0x0000000000000000000000000000000000000000',
           chainId: 10,
-          assetId: getNativeAssetForChainId(10).assetId,
           symbol: 'ETH',
           decimals: 18,
           name: 'ETH',
@@ -267,11 +251,9 @@ export const DummyQuotesNoApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '4852705984263432',
-        minDestTokenAmount: '4852705984263432',
         destAsset: {
           address: '0x0000000000000000000000000000000000000000',
           chainId: 42161,
-          assetId: getNativeAssetForChainId(42161).assetId,
           symbol: 'ETH',
           decimals: 18,
           name: 'ETH',
@@ -287,7 +269,6 @@ export const DummyQuotesNoApproval = {
             asset: {
               address: '0x0000000000000000000000000000000000000000',
               chainId: 10,
-              assetId: getNativeAssetForChainId(10).assetId,
               symbol: 'ETH',
               decimals: 18,
               name: 'ETH',
@@ -318,7 +299,6 @@ export const DummyQuotesNoApproval = {
               decimals: 18,
               name: 'ETH',
               coinKey: 'ETH',
-              assetId: getNativeAssetForChainId(10).assetId,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
               priceUSD: '2641.2',
@@ -331,7 +311,6 @@ export const DummyQuotesNoApproval = {
               decimals: 18,
               name: 'ETH',
               coinKey: 'ETH',
-              assetId: getNativeAssetForChainId(42161).assetId,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png',
               priceUSD: '2641',
@@ -359,7 +338,6 @@ export const DummyQuotesNoApproval = {
         srcAsset: {
           chainId: 10,
           address: '0x0000000000000000000000000000000000000000',
-          assetId: getNativeAssetForChainId(10).assetId,
           symbol: 'ETH',
           name: 'Ethereum',
           decimals: 18,
@@ -372,7 +350,6 @@ export const DummyQuotesNoApproval = {
         destAsset: {
           chainId: 42161,
           address: '0x0000000000000000000000000000000000000000',
-          assetId: getNativeAssetForChainId(42161).assetId,
           symbol: 'ETH',
           name: 'Ethereum',
           decimals: 18,
@@ -381,14 +358,12 @@ export const DummyQuotesNoApproval = {
           chainAgnosticId: null,
         },
         destTokenAmount: '4852928026153929',
-        minDestTokenAmount: '4852928026153929',
         feeData: {
           metabridge: {
             amount: '43750000000000',
             asset: {
               chainId: 10,
               address: '0x0000000000000000000000000000000000000000',
-              assetId: getNativeAssetForChainId(10).assetId,
               symbol: 'ETH',
               name: 'Ethereum',
               decimals: 18,
@@ -419,7 +394,6 @@ export const DummyQuotesNoApproval = {
               icon: 'https://assets.polygon.technology/tokenAssets/eth.svg',
               logoURI: 'https://assets.polygon.technology/tokenAssets/eth.svg',
               chainAgnosticId: null,
-              assetId: getNativeAssetForChainId(10).assetId,
             },
             destAsset: {
               chainId: 42161,
@@ -430,7 +404,6 @@ export const DummyQuotesNoApproval = {
               icon: 'https://assets.polygon.technology/tokenAssets/eth.svg',
               logoURI: 'https://assets.polygon.technology/tokenAssets/eth.svg',
               chainAgnosticId: null,
-              assetId: getNativeAssetForChainId(42161).assetId,
             },
             srcAmount: '4956250000000000',
             destAmount: '4852928026153929',
@@ -447,44 +420,46 @@ export const DummyQuotesNoApproval = {
       },
       estimatedProcessingTimeInSeconds: 60,
     },
-  ] as unknown as (QuoteResponse & QuoteMetadata)[],
-};
-
-export const ETH_11_USDC_TO_ARB_METADATA = {
-  sentAmount: {
-    amount: '1.0903750',
-    valueInCurrency: '1000',
-    usd: '1000',
-  },
-  gasFee: {
-    effective: { amount: '12', valueInCurrency: '12', usd: '12' },
-    max: { amount: '12', valueInCurrency: '12', usd: '12' },
-    total: { amount: '12', valueInCurrency: '12', usd: '12' },
-  },
-  totalNetworkFee: {
-    amount: '12',
-    valueInCurrency: '12',
-    usd: '12',
-  },
-  toTokenAmount: {
-    amount: '12',
-    valueInCurrency: '12',
-    usd: '12',
-  },
-  adjustedReturn: {
-    valueInCurrency: '12',
-    usd: '12',
-  },
-  swapRate: '12',
-  cost: {
-    valueInCurrency: '12',
-    usd: '12',
-  },
+  ],
 };
 
 export const DummyQuotesWithApproval = {
   ETH_11_USDC_TO_ARB: [
     {
+      sentAmount: {
+        amount: '1.0903750',
+        valueInCurrency: '1000',
+        usd: '1000',
+      },
+      gasFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalMaxNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      toTokenAmount: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      adjustedReturn: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      swapRate: '12',
+      cost: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
       quote: {
         requestId: '0cd5caf6-9844-465b-89ad-9c89b639f432',
         srcChainId: 1,
@@ -493,7 +468,6 @@ export const DummyQuotesWithApproval = {
           address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
           chainId: 1,
           symbol: 'USDC',
-          assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
@@ -504,12 +478,10 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '10876521',
-        minDestTokenAmount: '10876521',
         destAsset: {
           address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
           chainId: 42161,
           symbol: 'USDC',
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
@@ -522,7 +494,6 @@ export const DummyQuotesWithApproval = {
           metabridge: {
             amount: '96250',
             asset: {
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
               address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
               chainId: 1,
               symbol: 'USDC',
@@ -555,7 +526,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0002000400080016',
@@ -568,7 +538,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0002000400080016',
@@ -606,7 +575,6 @@ export const DummyQuotesWithApproval = {
           address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
           chainId: 1,
           symbol: 'USDC',
-          assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
@@ -617,13 +585,11 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '10803750',
-        minDestTokenAmount: '10803750',
         destAsset: {
           address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
           chainId: 42161,
           symbol: 'USDC',
           decimals: 6,
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           name: 'USD Coin',
           coinKey: 'USDC',
           logoURI:
@@ -638,7 +604,6 @@ export const DummyQuotesWithApproval = {
               address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
               chainId: 1,
               symbol: 'USDC',
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
@@ -668,7 +633,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0002000400080016',
@@ -681,7 +645,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0002000400080016',
@@ -719,7 +682,6 @@ export const DummyQuotesWithApproval = {
           address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
           chainId: 1,
           symbol: 'USDC',
-          assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
@@ -730,12 +692,10 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '10903640',
-        minDestTokenAmount: '10903640',
         destAsset: {
           address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
           chainId: 42161,
           symbol: 'USDC',
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
@@ -751,7 +711,6 @@ export const DummyQuotesWithApproval = {
               address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
               chainId: 1,
               symbol: 'USDC',
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
@@ -781,7 +740,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0002000400080016',
@@ -794,7 +752,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0002000400080016',
@@ -832,7 +789,6 @@ export const DummyQuotesWithApproval = {
           address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
           symbol: 'USDC',
           name: 'USDCoin',
-          assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
           decimals: 6,
           icon: 'https://media.socket.tech/tokens/all/USDC',
           logoURI: 'https://media.socket.tech/tokens/all/USDC',
@@ -845,14 +801,12 @@ export const DummyQuotesWithApproval = {
           address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
           symbol: 'USDC',
           name: 'USD Coin',
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           decimals: 6,
           icon: 'https://media.socket.tech/tokens/all/USDC',
           logoURI: 'https://media.socket.tech/tokens/all/USDC',
           chainAgnosticId: null,
         },
         destTokenAmount: '10503750',
-        minDestTokenAmount: '10503750',
         feeData: {
           metabridge: {
             amount: '96250',
@@ -861,7 +815,6 @@ export const DummyQuotesWithApproval = {
               address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
               symbol: 'USDC',
               name: 'USDCoin',
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
               decimals: 6,
               icon: 'https://media.socket.tech/tokens/all/USDC',
               logoURI: 'https://media.socket.tech/tokens/all/USDC',
@@ -890,7 +843,6 @@ export const DummyQuotesWithApproval = {
               icon: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
               logoURI: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
               chainAgnosticId: 'USDC',
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
             },
             destAsset: {
               chainId: 42161,
@@ -901,7 +853,6 @@ export const DummyQuotesWithApproval = {
               icon: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
               logoURI: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
               chainAgnosticId: null,
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
             },
             srcAmount: '10903750',
             destAmount: '10503750',
@@ -926,9 +877,43 @@ export const DummyQuotesWithApproval = {
       },
       estimatedProcessingTimeInSeconds: 1020,
     },
-  ] as unknown as (QuoteResponse & QuoteMetadata)[],
+  ],
   ARB_11_USDC_TO_ETH: [
     {
+      sentAmount: {
+        amount: '1.0903750',
+        valueInCurrency: '1000',
+        usd: '1000',
+      },
+      gasFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalMaxNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      toTokenAmount: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      adjustedReturn: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      swapRate: '12',
+      cost: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
       quote: {
         requestId: 'edbef62a-d3e6-4b33-aad5-9cdb81f85f53',
         srcChainId: 42161,
@@ -937,7 +922,6 @@ export const DummyQuotesWithApproval = {
           address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
           symbol: 'USDC',
           name: 'USD Coin',
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           decimals: 6,
           icon: 'https://media.socket.tech/tokens/all/USDC',
           logoURI: 'https://media.socket.tech/tokens/all/USDC',
@@ -950,21 +934,18 @@ export const DummyQuotesWithApproval = {
           address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
           symbol: 'USDC',
           name: 'USDCoin',
-          assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
           decimals: 6,
           icon: 'https://media.socket.tech/tokens/all/USDC',
           logoURI: 'https://media.socket.tech/tokens/all/USDC',
           chainAgnosticId: 'USDC',
         },
         destTokenAmount: '7821920',
-        minDestTokenAmount: '7821920',
         feeData: {
           metabridge: {
             amount: '96250',
             asset: {
               chainId: 42161,
               address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               symbol: 'USDC',
               name: 'USD Coin',
               decimals: 6,
@@ -995,12 +976,10 @@ export const DummyQuotesWithApproval = {
               icon: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
               logoURI: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
               chainAgnosticId: null,
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
             },
             destAsset: {
               chainId: 1,
               address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-              assetId: `eip155:1/erc20:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`,
               symbol: 'USDC',
               name: 'USDCoin',
               decimals: 6,
@@ -1031,9 +1010,43 @@ export const DummyQuotesWithApproval = {
       },
       estimatedProcessingTimeInSeconds: 1140,
     },
-  ] as unknown as (QuoteResponse & QuoteMetadata)[],
+  ],
   ARB_11_USDC_TO_OP: [
     {
+      sentAmount: {
+        amount: '1.0903750',
+        valueInCurrency: '1000',
+        usd: '1000',
+      },
+      gasFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalMaxNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      toTokenAmount: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      adjustedReturn: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      swapRate: '12',
+      cost: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
       quote: {
         requestId: 'dc63e7e6-dc9b-4aa8-80bb-714192ecd801',
         srcChainId: 42161,
@@ -1042,7 +1055,6 @@ export const DummyQuotesWithApproval = {
           address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
           chainId: 42161,
           symbol: 'USDC',
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
@@ -1053,12 +1065,10 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 10,
         destTokenAmount: '10897534',
-        minDestTokenAmount: '10897534',
         destAsset: {
           address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
           chainId: 10,
           symbol: 'USDC',
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
@@ -1072,7 +1082,6 @@ export const DummyQuotesWithApproval = {
             amount: '96250',
             asset: {
               address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               chainId: 42161,
               symbol: 'USDC',
               decimals: 6,
@@ -1108,7 +1117,6 @@ export const DummyQuotesWithApproval = {
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0007004903432404',
               icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
             },
             destAsset: {
               address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
@@ -1121,7 +1129,6 @@ export const DummyQuotesWithApproval = {
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0007004903432404',
               icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
             },
             srcAmount: '10903750',
             destAmount: '10897534',
@@ -1158,7 +1165,6 @@ export const DummyQuotesWithApproval = {
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           logoURI:
             'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
           priceUSD: '1.0007004903432404',
@@ -1166,7 +1172,6 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 10,
         destTokenAmount: '10903640',
-        minDestTokenAmount: '10903640',
         destAsset: {
           address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
           chainId: 10,
@@ -1174,7 +1179,6 @@ export const DummyQuotesWithApproval = {
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           logoURI:
             'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
           priceUSD: '1.0007004903432404',
@@ -1190,7 +1194,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0007004903432404',
@@ -1217,7 +1220,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0007004903432404',
@@ -1230,7 +1232,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0007004903432404',
@@ -1267,7 +1268,6 @@ export const DummyQuotesWithApproval = {
         srcAsset: {
           address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
           chainId: 42161,
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           symbol: 'USDC',
           decimals: 6,
           name: 'USD Coin',
@@ -1279,11 +1279,9 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 10,
         destTokenAmount: '10803750',
-        minDestTokenAmount: '10803750',
         destAsset: {
           address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
           chainId: 10,
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           symbol: 'USDC',
           decimals: 6,
           name: 'USD Coin',
@@ -1298,7 +1296,6 @@ export const DummyQuotesWithApproval = {
             amount: '96250',
             asset: {
               address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               chainId: 42161,
               symbol: 'USDC',
               decimals: 6,
@@ -1329,7 +1326,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               decimals: 6,
               name: 'USD Coin',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               coinKey: 'USDC',
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
@@ -1342,7 +1338,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               decimals: 6,
               name: 'USD Coin',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               coinKey: 'USDC',
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
@@ -1382,7 +1377,6 @@ export const DummyQuotesWithApproval = {
           symbol: 'USDC',
           name: 'USD Coin',
           decimals: 6,
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           icon: 'https://media.socket.tech/tokens/all/USDC',
           logoURI: 'https://media.socket.tech/tokens/all/USDC',
           chainAgnosticId: null,
@@ -1395,20 +1389,17 @@ export const DummyQuotesWithApproval = {
           symbol: 'USDC',
           name: 'USD Coin',
           decimals: 6,
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           icon: 'https://media.socket.tech/tokens/all/USDC',
           logoURI: 'https://media.socket.tech/tokens/all/USDC',
           chainAgnosticId: null,
         },
         destTokenAmount: '10703750',
-        minDestTokenAmount: '10703750',
         feeData: {
           metabridge: {
             amount: '96250',
             asset: {
               chainId: 42161,
               address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               symbol: 'USDC',
               name: 'USD Coin',
               decimals: 6,
@@ -1435,7 +1426,6 @@ export const DummyQuotesWithApproval = {
               address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
               symbol: 'USDC',
               name: 'USD Coin',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               decimals: 6,
               icon: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
               logoURI: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
@@ -1446,7 +1436,6 @@ export const DummyQuotesWithApproval = {
               address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
               symbol: 'USDC',
               name: 'USD Coin',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               decimals: 6,
               icon: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
               logoURI: 'https://assets.polygon.technology/tokenAssets/usdc.svg',
@@ -1488,7 +1477,6 @@ export const DummyQuotesWithApproval = {
           symbol: 'USDC',
           address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
           chainId: 42161,
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           chain: {
             // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
             // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -1589,7 +1577,6 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 10,
         destTokenAmount: '10900626',
-        minDestTokenAmount: '10900626',
         destAsset: {
           // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
           // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -1598,7 +1585,6 @@ export const DummyQuotesWithApproval = {
           symbol: 'USDC',
           address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
           chainId: 10,
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           chain: {
             // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
             // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -1701,7 +1687,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
               chainId: 42161,
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -1823,7 +1808,6 @@ export const DummyQuotesWithApproval = {
               id: '42161_0xaf88d065e77c8cc2239327c5edb3a432268e5831',
               symbol: 'USDC',
               address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               chainId: 42161,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
@@ -1933,7 +1917,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.axl',
               address: '0xeb466342c4d449bc9f53a865d5cb90586f405215',
               chainId: 42161,
-              assetId: `eip155:42161/erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2050,7 +2033,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.axl',
               address: '0xeb466342c4d449bc9f53a865d5cb90586f405215',
               chainId: 42161,
-              assetId: `eip155:42161/erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2156,7 +2138,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.axl',
               address: '0xeb466342c4d449bc9f53a865d5cb90586f405215',
               chainId: 10,
-              assetId: `eip155:10/erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2270,7 +2251,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.axl',
               address: '0xeb466342c4d449bc9f53a865d5cb90586f405215',
               chainId: 10,
-              assetId: `eip155:10/erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2373,7 +2353,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.e',
               address: '0x7f5c764cbc14f9669b88837ca1490cca17c31607',
               chainId: 10,
-              assetId: `eip155:10/erc20:0x7f5c764cbc14f9669b88837ca1490cca17c31607`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2486,7 +2465,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.e',
               address: '0x7f5c764cbc14f9669b88837ca1490cca17c31607',
               chainId: 10,
-              assetId: `eip155:10/erc20:0x7f5c764cbc14f9669b88837ca1490cca17c31607`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2496,7 +2474,6 @@ export const DummyQuotesWithApproval = {
                 networkIdentifier: 'optimism',
                 chainName: 'Chain 10',
                 axelarChainName: 'optimism',
-
                 type: 'evm',
                 networkName: 'Optimism',
                 nativeCurrency: {
@@ -2589,7 +2566,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
               chainId: 10,
-              assetId: `eip155:10/erc20:0x0b2c639c533813f4aa9d7837caf62653d097ff85`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2706,9 +2682,43 @@ export const DummyQuotesWithApproval = {
       },
       estimatedProcessingTimeInSeconds: 20,
     },
-  ] as unknown as (QuoteResponse & QuoteMetadata)[],
+  ],
   OP_11_USDC_TO_ARB: [
     {
+      sentAmount: {
+        amount: '1.1000000',
+        valueInCurrency: '1000',
+        usd: '1000',
+      },
+      gasFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      totalMaxNetworkFee: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      toTokenAmount: {
+        amount: '12',
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      adjustedReturn: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
+      swapRate: '12',
+      cost: {
+        valueInCurrency: '12',
+        usd: '12',
+      },
       quote: {
         requestId: '01fa78fd-ed49-42b3-ab0e-94c7108feea9',
         srcChainId: 10,
@@ -2718,7 +2728,6 @@ export const DummyQuotesWithApproval = {
           chainId: 10,
           symbol: 'USDC',
           decimals: 6,
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           name: 'USD Coin',
           coinKey: 'USDC',
           logoURI:
@@ -2728,13 +2737,11 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '10950676',
-        minDestTokenAmount: '10950676',
         destAsset: {
           address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
           chainId: 42161,
           symbol: 'USDC',
           decimals: 6,
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           name: 'USD Coin',
           coinKey: 'USDC',
           logoURI:
@@ -2747,7 +2754,6 @@ export const DummyQuotesWithApproval = {
             amount: '0',
             asset: {
               address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               chainId: 10,
               symbol: 'USDC',
               decimals: 6,
@@ -2776,7 +2782,6 @@ export const DummyQuotesWithApproval = {
               address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
               chainId: 10,
               symbol: 'USDC',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
@@ -2789,7 +2794,6 @@ export const DummyQuotesWithApproval = {
               address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
               chainId: 42161,
               symbol: 'USDC',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
@@ -2831,7 +2835,6 @@ export const DummyQuotesWithApproval = {
           chainId: 10,
           symbol: 'USDC',
           decimals: 6,
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           name: 'USD Coin',
           coinKey: 'USDC',
           logoURI:
@@ -2841,7 +2844,6 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '10999889',
-        minDestTokenAmount: '10999889',
         destAsset: {
           address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
           chainId: 42161,
@@ -2849,7 +2851,6 @@ export const DummyQuotesWithApproval = {
           decimals: 6,
           name: 'USD Coin',
           coinKey: 'USDC',
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           logoURI:
             'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
           priceUSD: '1.0007004903432404',
@@ -2865,7 +2866,6 @@ export const DummyQuotesWithApproval = {
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
               priceUSD: '1.0007004903432404',
@@ -2889,7 +2889,6 @@ export const DummyQuotesWithApproval = {
               address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
               chainId: 10,
               symbol: 'USDC',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               decimals: 6,
               name: 'USD Coin',
               coinKey: 'USDC',
@@ -2904,7 +2903,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               decimals: 6,
               name: 'USD Coin',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               coinKey: 'USDC',
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
@@ -2945,7 +2943,6 @@ export const DummyQuotesWithApproval = {
           symbol: 'USDC',
           decimals: 6,
           name: 'USD Coin',
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           coinKey: 'USDC',
           logoURI:
             'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
@@ -2954,14 +2951,12 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '10900000',
-        minDestTokenAmount: '10900000',
         destAsset: {
           address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
           chainId: 42161,
           symbol: 'USDC',
           decimals: 6,
           name: 'USD Coin',
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           coinKey: 'USDC',
           logoURI:
             'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
@@ -2977,7 +2972,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               decimals: 6,
               name: 'USD Coin',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               coinKey: 'USDC',
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
@@ -3004,7 +2998,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               decimals: 6,
               name: 'USD Coin',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               coinKey: 'USDC',
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
@@ -3017,7 +3010,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               decimals: 6,
               name: 'USD Coin',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               coinKey: 'USDC',
               logoURI:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png',
@@ -3057,7 +3049,6 @@ export const DummyQuotesWithApproval = {
           symbol: 'USDC',
           name: 'USD Coin',
           decimals: 6,
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           icon: 'https://media.socket.tech/tokens/all/USDC',
           logoURI: 'https://media.socket.tech/tokens/all/USDC',
           chainAgnosticId: null,
@@ -3070,13 +3061,11 @@ export const DummyQuotesWithApproval = {
           symbol: 'USDC',
           name: 'USD Coin',
           decimals: 6,
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           icon: 'https://media.socket.tech/tokens/all/USDC',
           logoURI: 'https://media.socket.tech/tokens/all/USDC',
           chainAgnosticId: null,
         },
         destTokenAmount: '10600000',
-        minDestTokenAmount: '10600000',
         feeData: {
           metabridge: {
             amount: '0',
@@ -3086,7 +3075,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               name: 'USD Coin',
               decimals: 6,
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               icon: 'https://media.socket.tech/tokens/all/USDC',
               logoURI: 'https://media.socket.tech/tokens/all/USDC',
               chainAgnosticId: null,
@@ -3108,7 +3096,6 @@ export const DummyQuotesWithApproval = {
             srcAsset: {
               chainId: 10,
               address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               symbol: 'USDC',
               name: 'USD Coin',
               decimals: 6,
@@ -3119,7 +3106,6 @@ export const DummyQuotesWithApproval = {
             destAsset: {
               chainId: 42161,
               address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               symbol: 'USDC',
               name: 'USD Coin',
               decimals: 6,
@@ -3162,7 +3148,6 @@ export const DummyQuotesWithApproval = {
           id: '10_0x0b2c639c533813f4aa9d7837caf62653d097ff85',
           symbol: 'USDC',
           address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
-          assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
           chainId: 10,
           chain: {
             // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
@@ -3257,7 +3242,6 @@ export const DummyQuotesWithApproval = {
         },
         destChainId: 42161,
         destTokenAmount: '10996548',
-        minDestTokenAmount: '10996548',
         destAsset: {
           // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
           // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -3266,7 +3250,6 @@ export const DummyQuotesWithApproval = {
           symbol: 'USDC',
           address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
           chainId: 42161,
-          assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
           chain: {
             // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
             // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -3376,7 +3359,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
               chainId: 10,
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -3491,7 +3473,6 @@ export const DummyQuotesWithApproval = {
               id: '10_0x0b2c639c533813f4aa9d7837caf62653d097ff85',
               symbol: 'USDC',
               address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
-              assetId: `eip155:10/erc20:0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85`,
               chainId: 10,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
@@ -3594,7 +3575,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.e',
               address: '0x7f5c764cbc14f9669b88837ca1490cca17c31607',
               chainId: 10,
-              assetId: `eip155:10/erc20:0x7f5c764cbc14f9669b88837ca1490cca17c31607`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -3707,7 +3687,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.e',
               address: '0x7f5c764cbc14f9669b88837ca1490cca17c31607',
               chainId: 10,
-              assetId: `eip155:10/erc20:0x7f5c764cbc14f9669b88837ca1490cca17c31607`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -3809,7 +3788,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.axl',
               address: '0xeb466342c4d449bc9f53a865d5cb90586f405215',
               chainId: 10,
-              assetId: `eip155:10/erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -3922,7 +3900,6 @@ export const DummyQuotesWithApproval = {
               id: '10_0xeb466342c4d449bc9f53a865d5cb90586f405215',
               symbol: 'USDC.axl',
               address: '0xeb466342c4d449bc9f53a865d5cb90586f405215',
-              assetId: `eip155:10/erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215`,
               chainId: 10,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
@@ -4025,7 +4002,6 @@ export const DummyQuotesWithApproval = {
               id: '42161_0xeb466342c4d449bc9f53a865d5cb90586f405215',
               symbol: 'USDC.axl',
               address: '0xeb466342c4d449bc9f53a865d5cb90586f405215',
-              assetId: `eip155:42161/erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215`,
               chainId: 42161,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
@@ -4143,7 +4119,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC.axl',
               address: '0xeb466342c4d449bc9f53a865d5cb90586f405215',
               chainId: 42161,
-              assetId: `eip155:42161/erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -4249,7 +4224,6 @@ export const DummyQuotesWithApproval = {
               symbol: 'USDC',
               address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
               chainId: 42161,
-              assetId: `eip155:42161/erc20:0xaf88d065e77c8cC2239327C5EDb3A432268e5831`,
               chain: {
                 // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
                 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -4373,5 +4347,5 @@ export const DummyQuotesWithApproval = {
       },
       estimatedProcessingTimeInSeconds: 20,
     },
-  ] as unknown as (QuoteResponse & QuoteMetadata)[],
+  ],
 };

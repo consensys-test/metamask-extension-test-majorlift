@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { type AccountGroupId } from '@metamask/account-api';
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard';
-import { normalizeSafeAddress } from '../../../../shared/lib/multichain/address';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { normalizeSafeAddress } from '../../../../app/scripts/lib/multichain/address';
 import { getDefaultScopeAndAddressByAccountGroupId } from '../../../selectors/multichain-accounts/account-tree';
 import {
   getDefaultAddressScope,

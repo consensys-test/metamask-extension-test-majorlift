@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getHashMetricsProperties } from './hash';
 import { createBuilderRequest } from './test-utils';

@@ -31,15 +31,11 @@
       "unconnectedAccountAlertShownOrigins": {},
       "web3ShimUsageOrigins": {}
     },
-    "AnalyticsController": {
-      "analyticsId": null,
-      "optedIn": false
-    },
     "AnnouncementController": {
       "announcements": {}
     },
     "AppMetadataController": {
-      "currentMigrationVersion": 219,
+      "currentMigrationVersion": 208,
       "firstTimeInfo": {
         "date": 0,
         "version": "13.17.0"
@@ -69,7 +65,6 @@
       "outdatedBrowserWarningLastShown": null,
       "pendingShieldCohort": null,
       "pendingShieldCohortTxType": null,
-      "perpsTabBadgeSeen": false,
       "pna25Acknowledged": false,
       "productTour": "accountIcon",
       "recoveryPhraseReminderHasBeenShown": false,
@@ -94,11 +89,7 @@
     "AuthenticationController": {
       "isSignedIn": false
     },
-    "BridgeController": {
-      "inputPrimaryDenomination": "token_amount"
-    },
     "BridgeStatusController": {
-      "quoteUpdateStatusStore": {},
       "txHistory": {}
     },
     "ClaimsController": {
@@ -109,18 +100,6 @@
       },
       "drafts": []
     },
-    "ComplianceController": {
-      "lastCheckedAt": null,
-      "walletComplianceStatusMap": {}
-    },
-    "ConfigRegistryController": {
-      "configs": {
-        "networks": {}
-      },
-      "etag": null,
-      "lastFetched": null,
-      "version": null
-    },
     "CurrencyController": {
       "currencyRates": {
         "ETH": {
@@ -130,6 +109,9 @@
         }
       },
       "currentCurrency": "usd"
+    },
+    "DelegationController": {
+      "delegations": {}
     },
     "EnsController": {
       "ensEntries": {
@@ -194,7 +176,6 @@
       "logs": {}
     },
     "MetaMetricsController": {
-      "completedMetaMetricsOnboarding": false,
       "dataCollectionForMarketing": null,
       "eventsBeforeMetricsOptIn": [
         {
@@ -204,7 +185,11 @@
         }
       ],
       "fragments": {},
+      "latestNonAnonymousEventTimestamp": 0,
       "marketingCampaignCookieId": null,
+      "metaMetricsId": null,
+      "participateInMetaMetrics": null,
+      "segmentApiCalls": {},
       "tracesBeforeMetricsOptIn": [
         {
           "request": {
@@ -285,18 +270,6 @@
           "isEvm": false,
           "name": "Solana Devnet",
           "nativeCurrency": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1/slip44:501"
-        },
-        "stellar:pubnet": {
-          "chainId": "stellar:pubnet",
-          "isEvm": false,
-          "name": "Stellar",
-          "nativeCurrency": "stellar:pubnet/slip44:148"
-        },
-        "stellar:testnet": {
-          "chainId": "stellar:testnet",
-          "isEvm": false,
-          "name": "Stellar Testnet",
-          "nativeCurrency": "stellar:testnet/slip44:148"
         },
         "tron:2494104990": {
           "chainId": "tron:2494104990",
@@ -447,22 +420,6 @@
             }
           ]
         },
-        "0x8f": {
-          "blockExplorerUrls": ["https://monadscan.com"],
-          "chainId": "0x8f",
-          "defaultBlockExplorerUrlIndex": 0,
-          "defaultRpcEndpointIndex": 0,
-          "name": "Monad",
-          "nativeCurrency": "MON",
-          "rpcEndpoints": [
-            {
-              "failoverUrls": [],
-              "networkClientId": "monad-mainnet",
-              "type": "infura",
-              "url": "https://monad-mainnet.infura.io/v3/{infuraProjectId}"
-            }
-          ]
-        },
         "0xa": {
           "blockExplorerUrls": ["https://optimistic.etherscan.io"],
           "chainId": "0xa",
@@ -574,7 +531,6 @@
           "0x279f": false,
           "0x38": true,
           "0x89": true,
-          "0x8f": true,
           "0xa": true,
           "0xa4b1": true,
           "0xaa36a7": false,
@@ -585,10 +541,6 @@
           "solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z": false,
           "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": true,
           "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": false
-        },
-        "stellar": {
-          "stellar:pubnet": false,
-          "stellar:testnet": false
         },
         "tron": {
           "tron:2494104990": false,
@@ -602,7 +554,6 @@
         "eip155:10143": "eip155:10143/slip44:60",
         "eip155:11155111": "eip155:11155111/slip44:60",
         "eip155:137": "eip155:137/slip44:60",
-        "eip155:143": "eip155:143/slip44:60",
         "eip155:42161": "eip155:42161/slip44:60",
         "eip155:56": "eip155:56/slip44:60",
         "eip155:59141": "eip155:59141/slip44:1",
@@ -634,15 +585,14 @@
     "OnboardingController": {
       "completedOnboarding": false,
       "firstTimeFlowType": null,
-      "hasSeenOnboardingCompletionPage": false,
       "seedPhraseBackedUp": null
+    },
+    "PasskeyController": {
+      "passkeyRecord": null
     },
     "PPOMController": {
       "storageMetadata": [],
       "versionInfo": []
-    },
-    "PasskeyController": {
-      "passkeyRecord": null
     },
     "PermissionController": {
       "subjects": {
@@ -2046,6 +1996,7 @@
       "advancedGasFee": {},
       "currentLocale": "en",
       "dismissSeedBackUpReminder": false,
+      "enableMV3TimestampSave": true,
       "featureFlags": {},
       "forgottenPassword": false,
       "ipfsGateway": "dweb.link",
@@ -2061,9 +2012,7 @@
         "defaultAddressScope": "eip155",
         "dismissSmartAccountSuggestionEnabled": false,
         "featureNotificationsEnabled": false,
-        "gasSponsorshipOptOutByChainId": {},
         "hideZeroBalanceTokens": false,
-        "isBasicFunctionalityConsolidatedEnabled": false,
         "privacyMode": false,
         "showConfirmationAdvancedDetails": false,
         "showDefaultAddress": true,
@@ -2109,19 +2058,7 @@
     },
     "ProfileMetricsController": {
       "initialEnqueueCompleted": false,
-      "proofBackfillEnqueued": false,
       "syncQueue": {}
-    },
-    "RampsController": {
-      "userRegion": null,
-      "countries": {
-        "data": [],
-        "error": null,
-        "isLoading": false,
-        "selected": null
-      },
-      "orders": [],
-      "providerAutoSelected": false
     },
     "RemoteFeatureFlagController": {
       "cacheTimestamp": 0,
@@ -2136,12 +2073,10 @@
       "rewardsSeasonStatuses": {},
       "rewardsSeasons": {},
       "rewardsSubscriptionTokens": {},
-      "rewardsSubscriptions": {},
-      "rewardsVipPerpsFees": {}
+      "rewardsSubscriptions": {}
     },
     "SeedlessOnboardingController": {
       "isSeedlessOnboardingUserAuthenticated": false,
-      "migrationVersion": 0,
       "socialBackupsMetadata": []
     },
     "SelectedNetworkController": {
@@ -2316,6 +2251,6 @@
   },
   "meta": {
     "storageKind": "split",
-    "version": 219
+    "version": 208
   }
 }

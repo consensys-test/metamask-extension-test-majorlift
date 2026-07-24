@@ -3,7 +3,8 @@ import { useDispatch } from 'react-redux';
 import { TransactionType } from '@metamask/transaction-controller';
 
 import { ENVIRONMENT_TYPE_SIDEPANEL } from '../../../../shared/constants/app';
-import { getEnvironmentType } from '../../../../shared/lib/environment-type';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getEnvironmentType } from '../../../../app/scripts/lib/util';
 import { setTransactionActive } from '../../../store/actions';
 import { useWindowFocus } from '../../../hooks/useWindowFocus';
 import { useConfirmContext } from '../context/confirm';

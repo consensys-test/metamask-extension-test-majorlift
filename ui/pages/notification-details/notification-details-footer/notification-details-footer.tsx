@@ -10,7 +10,6 @@ import {
 import {
   NotificationComponentType,
   type NotificationComponent,
-  // eslint-disable-next-line import-x/no-restricted-paths -- TODO(ADR-0021): route-isolation backlog
 } from '../../notifications/notification-components/types/notifications/notifications';
 
 type NotificationDetailsFooterProps = {

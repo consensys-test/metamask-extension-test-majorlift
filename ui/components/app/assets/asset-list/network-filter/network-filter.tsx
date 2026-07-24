@@ -1,11 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
+import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
 import { setEnabledNetworks } from '../../../../../store/actions';
 import {
   getCurrentNetwork,
@@ -24,9 +18,14 @@ import { useI18nContext } from '../../../../../hooks/useI18nContext';
 import { SelectableListItem } from '../sort-control/sort-control';
 import { Text } from '../../../../component-library/text/text';
 import {
+  AlignItems,
+  BlockSize,
+  Display,
+  JustifyContent,
   TextColor,
   TextVariant,
 } from '../../../../../helpers/constants/design-system';
+import { Box } from '../../../../component-library/box/box';
 import {
   AvatarNetwork,
   AvatarNetworkSize,
@@ -93,34 +92,28 @@ const NetworkFilter = ({
       formattedTokensForAllNetworks,
     );
 
-  const handleFilter = useCallback(
-    (chainFilters: Record<string, boolean>) => {
-      if (handleFilterNetwork) {
-        handleFilterNetwork(chainFilters);
-      } else {
-        dispatch(setEnabledNetworks(chainId));
-      }
+  const handleFilter = (chainFilters: Record<string, boolean>) => {
+    if (handleFilterNetwork) {
+      handleFilterNetwork(chainFilters);
+    } else {
+      dispatch(setEnabledNetworks(chainId));
+    }
 
-      // TODO Add metrics
-      handleClose();
-    },
-    [chainId, dispatch, handleClose, handleFilterNetwork],
-  );
+    // TODO Add metrics
+    handleClose();
+  };
 
   const allOpts = useSelector(getIsAllNetworksFilterEnabled);
 
-  const allAddedPopularNetworks = useMemo(
-    () =>
-      FEATURED_NETWORK_CHAIN_IDS.filter((chain) => allOpts[chain]).map(
-        (chain) => allNetworks[chain].name,
-      ),
-    [allNetworks, allOpts],
-  );
+  const allAddedPopularNetworks = FEATURED_NETWORK_CHAIN_IDS.filter(
+    (chain) => allOpts[chain],
+  ).map((chain) => {
+    return allNetworks[chain].name;
+  });
 
-  const filter = useMemo(
-    () => networkFilter || enabledNetworksByNamespace,
-    [enabledNetworksByNamespace, networkFilter],
-  );
+  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  const filter = networkFilter || enabledNetworksByNamespace;
 
   return (
     <>
@@ -134,10 +127,10 @@ const NetworkFilter = ({
         testId="network-filter-all"
       >
         <Box
-          flexDirection={BoxFlexDirection.Row}
-          justifyContent={BoxJustifyContent.Between}
+          display={Display.Flex}
+          justifyContent={JustifyContent.spaceBetween}
+          width={BlockSize.Full}
           gap={3}
-          className="flex w-full"
         >
           <Box>
             <Text
@@ -163,11 +156,7 @@ const NetworkFilter = ({
               </Text>
             )}
           </Box>
-          <Box
-            flexDirection={BoxFlexDirection.Row}
-            alignItems={BoxAlignItems.Center}
-            className="flex"
-          >
+          <Box display={Display.Flex} alignItems={AlignItems.center}>
             <InfoTooltip
               position="bottom"
               contentText={allAddedPopularNetworks.join(', ')}
@@ -202,11 +191,11 @@ const NetworkFilter = ({
         testId="network-filter-current"
       >
         <Box
-          flexDirection={BoxFlexDirection.Row}
-          justifyContent={BoxJustifyContent.Between}
+          display={Display.Flex}
+          justifyContent={JustifyContent.spaceBetween}
           gap={3}
-          alignItems={BoxAlignItems.Center}
-          className="flex w-full"
+          alignItems={AlignItems.center}
+          width={BlockSize.Full}
         >
           <Box>
             <Text
@@ -233,6 +222,8 @@ const NetworkFilter = ({
           </Box>
           <AvatarNetwork
             size={AvatarNetworkSize.Sm}
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
             name={currentNetwork?.nickname || ''}
             src={currentNetwork?.rpcPrefs?.imageUrl}
           />

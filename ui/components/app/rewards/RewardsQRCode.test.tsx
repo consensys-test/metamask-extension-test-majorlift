@@ -2,15 +2,15 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import {
-  setRewardsModalOpen,
-  setOnboardingReferralCode,
-  setRewardsDeeplinkUrl,
-} from '../../../ducks/rewards';
-import { selectRewardsDeeplinkUrl } from '../../../ducks/rewards/selectors';
+import { setOnboardingModalOpen } from '../../../ducks/rewards';
+import { getSocialLoginType } from '../../../selectors/seedless-onboarding/social-sync';
 import { enLocale as messages } from '../../../../test/lib/i18n-helpers';
 import RewardsQRCode from './RewardsQRCode';
-import { REWARDS_DEEPLINK_BASE_URL } from './utils/constants';
+import {
+  GOOGLE_ONBOARDING_URL,
+  SRP_ONBOARDING_URL,
+  APPLE_ONBOARDING_URL,
+} from './utils/constants';
 
 // Mock react-redux hooks
 jest.mock('react-redux', () => ({
@@ -27,8 +27,8 @@ jest.mock('../../../hooks/useI18nContext', () => ({
     if (key === 'rewardsQRCodeDescription') {
       return 'Use your mobile app to complete onboarding.';
     }
-    if (key === 'done') {
-      return 'Done';
+    if (key === 'gotIt') {
+      return 'Got it';
     }
     return key;
   }),
@@ -69,10 +69,10 @@ describe('RewardsQRCode', () => {
 
   it('renders the container and logo image', () => {
     mockUseSelector.mockImplementation((selector) => {
-      if (selector === selectRewardsDeeplinkUrl) {
-        return null;
+      if (selector === getSocialLoginType) {
+        return undefined;
       }
-      return null;
+      return undefined;
     });
 
     render(<RewardsQRCode />);
@@ -81,46 +81,65 @@ describe('RewardsQRCode', () => {
       screen.getByTestId('rewards-onboarding-qrcode-container'),
     ).toBeInTheDocument();
     expect(screen.getByAltText('Logo')).toBeInTheDocument();
-    expect(mockUseSelector).toHaveBeenCalledWith(selectRewardsDeeplinkUrl);
+    expect(mockUseSelector).toHaveBeenCalledWith(getSocialLoginType);
   });
 
-  it('encodes the stored deeplink URL in the QR code when present', () => {
-    const deeplink = 'https://link.metamask.io/rewards?referral=ABC123';
+  it('encodes Google socialType in QR data when provided', () => {
     mockUseSelector.mockImplementation((selector) => {
-      if (selector === selectRewardsDeeplinkUrl) {
-        return deeplink;
+      if (selector === getSocialLoginType) {
+        return 'google';
       }
-      return null;
+      return undefined;
     });
 
     render(<RewardsQRCode />);
 
     const qrImageContainer = screen.getByTestId('qr-code-image');
-    expect(qrImageContainer.innerHTML).toContain(`data-qr="${deeplink}"`);
+    expect(qrImageContainer).toBeInTheDocument();
+    // The inner HTML is produced by our qr generator mock and includes data-qr
+    // InnerHTML encodes ampersands, so compare against encoded version
+    const encoded = GOOGLE_ONBOARDING_URL.replaceAll('&', '&amp;');
+    expect(qrImageContainer.innerHTML).toContain(`data-qr="${encoded}"`);
   });
 
-  it('falls back to REWARDS_DEEPLINK_BASE_URL when no deeplink is stored', () => {
+  it('encodes Apple socialType in QR data when provided', () => {
     mockUseSelector.mockImplementation((selector) => {
-      if (selector === selectRewardsDeeplinkUrl) {
-        return null;
+      if (selector === getSocialLoginType) {
+        return 'apple';
       }
-      return null;
+      return undefined;
     });
 
     render(<RewardsQRCode />);
 
     const qrImageContainer = screen.getByTestId('qr-code-image');
-    expect(qrImageContainer.innerHTML).toContain(
-      `data-qr="${REWARDS_DEEPLINK_BASE_URL}"`,
-    );
+    expect(qrImageContainer).toBeInTheDocument();
+    const encoded = APPLE_ONBOARDING_URL.replaceAll('&', '&amp;');
+    expect(qrImageContainer.innerHTML).toContain(`data-qr="${encoded}"`);
   });
 
-  it('dispatches close action when clicking Done', () => {
+  it('defaults to SRP flow in QR data when socialType is absent', () => {
     mockUseSelector.mockImplementation((selector) => {
-      if (selector === selectRewardsDeeplinkUrl) {
-        return null;
+      if (selector === getSocialLoginType) {
+        return undefined;
       }
-      return null;
+      return undefined;
+    });
+
+    render(<RewardsQRCode />);
+
+    const qrImageContainer = screen.getByTestId('qr-code-image');
+    expect(qrImageContainer).toBeInTheDocument();
+    const encoded = SRP_ONBOARDING_URL.replaceAll('&', '&amp;');
+    expect(qrImageContainer.innerHTML).toContain(`data-qr="${encoded}"`);
+  });
+
+  it('dispatches close action when clicking Got it', () => {
+    mockUseSelector.mockImplementation((selector) => {
+      if (selector === getSocialLoginType) {
+        return undefined;
+      }
+      return undefined;
     });
     const dispatchMock = jest.fn();
     mockUseDispatch.mockReturnValue(dispatchMock);
@@ -128,13 +147,11 @@ describe('RewardsQRCode', () => {
     render(<RewardsQRCode />);
 
     const closeButton = screen.getByRole('button', {
-      name: messages.done.message,
+      name: messages.gotIt.message,
     });
     expect(closeButton).toBeInTheDocument();
     fireEvent.click(closeButton);
 
-    expect(dispatchMock).toHaveBeenCalledWith(setRewardsModalOpen(false));
-    expect(dispatchMock).toHaveBeenCalledWith(setOnboardingReferralCode(null));
-    expect(dispatchMock).toHaveBeenCalledWith(setRewardsDeeplinkUrl(null));
+    expect(dispatchMock).toHaveBeenCalledWith(setOnboardingModalOpen(false));
   });
 });

@@ -1,18 +1,18 @@
-import React, { ReactNode, useCallback } from 'react';
+import React, { ReactNode, useCallback, useContext } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import classnames from 'clsx';
-import { Box, BoxBackgroundColor } from '@metamask/design-system-react';
-import { Text } from '../../../../component-library';
+import { Box, Text } from '../../../../component-library';
 import { SortOrder, SortingCallbacksT } from '../../util/sort';
 import {
   AlignItems,
   BackgroundColor,
   BlockSize,
+  BorderRadius,
   Display,
   TextVariant,
 } from '../../../../../helpers/constants/design-system';
 import { setTokenSortConfig } from '../../../../../store/actions';
-import { useAnalytics } from '../../../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -30,7 +30,6 @@ type SelectableListItemProps = {
   isSelected?: boolean;
   onClick?: React.MouseEventHandler<HTMLSpanElement>;
   testId?: string;
-  className?: string;
   children: ReactNode;
 };
 
@@ -38,20 +37,15 @@ export const SelectableListItem = ({
   isSelected,
   onClick,
   testId,
-  className,
   children,
 }: SelectableListItemProps) => {
   return (
     <Box className="selectable-list-item-wrapper" data-testid={testId}>
       <Text
         data-testid={`${testId}__button`}
-        className={classnames(
-          'selectable-list-item',
-          {
-            'selectable-list-item--selected': Boolean(isSelected),
-          },
-          className,
-        )}
+        className={classnames('selectable-list-item', {
+          'selectable-list-item--selected': Boolean(isSelected),
+        })}
         onClick={onClick}
         variant={TextVariant.bodySmMedium}
         as="button"
@@ -64,8 +58,9 @@ export const SelectableListItem = ({
       </Text>
       {isSelected && (
         <Box
-          className="selectable-list-item__selected-indicator rounded-full"
-          backgroundColor={BoxBackgroundColor.PrimaryDefault}
+          className="selectable-list-item__selected-indicator"
+          borderRadius={BorderRadius.pill}
+          backgroundColor={BackgroundColor.primaryDefault}
         />
       )}
     </Box>
@@ -78,7 +73,7 @@ type SortControlProps = {
 
 const SortControl = ({ handleClose }: SortControlProps) => {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const tokenSortConfig = useSelector(getTokenSortConfig);
   const currentCurrency = useSelector(getCurrentCurrency);
 
@@ -98,17 +93,16 @@ const SortControl = ({ handleClose }: SortControlProps) => {
           order,
         }),
       );
-      trackEvent(
-        createEventBuilder(MetaMetricsEventName.TokenSortPreference)
-          .addCategory(MetaMetricsEventCategory.Settings)
-          .addProperties({
-            [MetaMetricsUserTrait.TokenSortPreference]: key,
-          })
-          .build(),
-      );
+      trackEvent({
+        category: MetaMetricsEventCategory.Settings,
+        event: MetaMetricsEventName.TokenSortPreference,
+        properties: {
+          [MetaMetricsUserTrait.TokenSortPreference]: key,
+        },
+      });
       handleClose();
     },
-    [createEventBuilder, dispatch, handleClose, trackEvent],
+    [dispatch, handleClose, trackEvent],
   );
 
   return (

@@ -1,11 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hasProperty } from '@metamask/utils';
-import {
-  isOnChainNotification,
-  type INotification,
-} from '@metamask/notification-services-controller/notification-services';
-import { useAnalytics } from '../../hooks/useAnalytics';
+import type { INotification } from '@metamask/notification-services-controller/notification-services';
+import { MetaMetricsContext } from '../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -25,13 +22,15 @@ import {
   hasNotificationComponents,
 } from './notification-components';
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function NotificationsListItem({
   notification,
 }: {
   notification: INotification;
 }) {
   const navigate = useNavigate();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const { setNotificationTimeout } = useSnapNotificationTimeouts();
 
   const { markNotificationAsRead } = useMarkNotificationAsRead();
@@ -40,8 +39,8 @@ export function NotificationsListItem({
     const otherNotificationProperties = () => {
       if (
         'notification_type' in notification &&
-        isOnChainNotification(notification) &&
-        notification.payload.chain_id
+        notification.notification_type === 'on-chain' &&
+        notification.payload?.chain_id
       ) {
         // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
         // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -51,21 +50,20 @@ export function NotificationsListItem({
       return undefined;
     };
 
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.NotificationClicked)
-        .addCategory(MetaMetricsEventCategory.NotificationInteraction)
-        .addProperties({
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          /* eslint-disable @typescript-eslint/naming-convention */
-          notification_id: notification.id,
-          notification_type: notification.type,
-          ...otherNotificationProperties(),
-          previously_read: notification.isRead,
-          data: notification, // data blob for feature teams to analyse their notification shapes
-          /* eslint-enable @typescript-eslint/naming-convention */
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.NotificationInteraction,
+      event: MetaMetricsEventName.NotificationClicked,
+      properties: {
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        /* eslint-disable @typescript-eslint/naming-convention */
+        notification_id: notification.id,
+        notification_type: notification.type,
+        ...otherNotificationProperties(),
+        previously_read: notification.isRead,
+        data: notification, // data blob for feature teams to analyse their notification shapes
+        /* eslint-enable @typescript-eslint/naming-convention */
+      },
+    });
 
     markNotificationAsRead([
       {
@@ -91,7 +89,6 @@ export function NotificationsListItem({
       navigate(`${NOTIFICATIONS_ROUTE}/${notification.id}`);
     }
   }, [
-    createEventBuilder,
     trackEvent,
     notification,
     markNotificationAsRead,

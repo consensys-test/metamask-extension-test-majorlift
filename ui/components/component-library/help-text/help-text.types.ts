@@ -1,4 +1,4 @@
-import type React from 'react';
+import PropTypes from 'prop-types';
 import type { TextStyleUtilityProps } from '../text';
 import type { PolymorphicComponentPropWithRef } from '../box';
 import { Severity, TextColor } from '../../../helpers/constants/design-system';
@@ -22,7 +22,7 @@ export interface HelpTextStyleUtilityProps extends TextStyleUtilityProps {
   /**
    * The content of the help-text
    */
-  children: React.ReactNode;
+  children: string | PropTypes.ReactNodeLike;
   /**
    * Additional classNames to be added to the HelpText component
    */

@@ -1,5 +1,8 @@
 import React from 'react';
-import { FontWeight } from '../../../../../helpers/constants/design-system';
+import {
+  FontWeight,
+  TextVariant,
+} from '../../../../../helpers/constants/design-system';
 import { Text } from '../../../../component-library';
 import {
   TranslateFunction,
@@ -18,7 +21,7 @@ export const AssetCellTitle = ({ title }: AssetCellTitleProps) => {
   return (
     <Text
       fontWeight={FontWeight.Medium}
-      className="text-s-body-md @compact:text-s-body-sm"
+      variant={TextVariant.bodyMd}
       ellipsis
       data-testid="multichain-token-list-item-token-name"
     >

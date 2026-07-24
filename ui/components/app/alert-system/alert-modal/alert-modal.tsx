@@ -1,20 +1,17 @@
 import { ButtonVariant } from '@metamask/snaps-sdk';
 import React, { useCallback, useEffect } from 'react';
 import {
-  Box,
-  BoxAlignItems,
-  BoxBackgroundColor,
-  BoxFlexDirection,
-} from '@metamask/design-system-react';
-import {
   BlockaidReason,
   SecurityProvider,
 } from '../../../../../shared/constants/security-provider';
 import { Alert } from '../../../../ducks/confirm-alerts/confirm-alerts';
 import {
   AlignItems,
+  BackgroundColor,
   BlockSize,
+  BorderRadius,
   Display,
+  FlexDirection,
   IconColor,
   Severity,
   TextAlign,
@@ -25,6 +22,7 @@ import useAlerts from '../../../../hooks/useAlerts';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 import { useConfirmContext } from '../../../../pages/confirmations/context/confirm';
 import {
+  Box,
   Button,
   ButtonSize,
   Checkbox,
@@ -90,17 +88,17 @@ function getSeverityStyle(severity?: Severity) {
   switch (severity) {
     case Severity.Warning:
       return {
-        background: BoxBackgroundColor.WarningMuted,
+        background: BackgroundColor.warningMuted,
         icon: IconColor.warningDefault,
       };
     case Severity.Danger:
       return {
-        background: BoxBackgroundColor.ErrorMuted,
+        background: BackgroundColor.errorMuted,
         icon: IconColor.errorDefault,
       };
     default:
       return {
-        background: BoxBackgroundColor.BackgroundDefault,
+        background: BackgroundColor.backgroundDefault,
         icon: IconColor.infoDefault,
       };
   }
@@ -108,6 +106,8 @@ function getSeverityStyle(severity?: Severity) {
 
 function requiresAcknowledgement(alert: Alert) {
   return (
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     alert.severity === Severity.Danger &&
     !alert.isBlocking &&
     !alert.acknowledgeBypass
@@ -129,8 +129,9 @@ function AlertHeader({
   return (
     <Box
       gap={3}
-      className="block text-center"
-      alignItems={BoxAlignItems.Center}
+      display={Display.Block}
+      alignItems={AlignItems.center}
+      textAlign={TextAlign.Center}
     >
       <Icon
         name={
@@ -206,21 +207,17 @@ function AlertDetails({
 }) {
   const t = useI18nContext();
   const severityStyle = getSeverityStyle(selectedAlert.severity);
-  const customAlertBg = selectedAlert.alertDetailsBackgroundColor;
+  const alertDetailsBackgroundColor =
+    selectedAlert.alertDetailsBackgroundColor ?? severityStyle.background;
 
   return (
     <Box
       key={selectedAlert.key}
-      className="inline-block w-full rounded-sm"
+      display={Display.InlineBlock}
       padding={customDetails ? 0 : 2}
-      backgroundColor={
-        customDetails || customAlertBg ? undefined : severityStyle.background
-      }
-      style={
-        !customDetails && customAlertBg
-          ? { backgroundColor: `var(--color-${customAlertBg})` }
-          : undefined
-      }
+      width={BlockSize.Full}
+      backgroundColor={customDetails ? undefined : alertDetailsBackgroundColor}
+      borderRadius={BorderRadius.SM}
     >
       {customDetails ?? (
         <Box>
@@ -238,16 +235,12 @@ function AlertDetails({
               {t('alertModalDetails')}
             </Text>
           ) : null}
-          <Box asChild paddingLeft={6}>
-            <ul className="alert-modal__alert-details">
-              {selectedAlert.alertDetails?.map((detail, index) => (
-                <Box asChild key={`${selectedAlert.key}-detail-${index}`}>
-                  <li>
-                    <Text variant={TextVariant.bodyMd}>{detail}</Text>
-                  </li>
-                </Box>
-              ))}
-            </ul>
+          <Box as="ul" className="alert-modal__alert-details" paddingLeft={6}>
+            {selectedAlert.alertDetails?.map((detail, index) => (
+              <Box as="li" key={`${selectedAlert.key}-detail-${index}`}>
+                <Text variant={TextVariant.bodyMd}>{detail}</Text>
+              </Box>
+            ))}
           </Box>
         </Box>
       )}
@@ -255,6 +248,8 @@ function AlertDetails({
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function AcknowledgeCheckboxBase({
   selectedAlert,
   onCheckboxClick,
@@ -275,9 +270,11 @@ export function AcknowledgeCheckboxBase({
 
   return (
     <Box
-      className="flex w-full rounded-lg"
+      display={Display.Flex}
       padding={4}
+      width={BlockSize.Full}
       backgroundColor={severityStyle.background}
+      borderRadius={BorderRadius.LG}
       marginTop={4}
     >
       <Checkbox
@@ -368,6 +365,8 @@ function ActionButton({
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function AlertModal({
   ownerId,
   onAcknowledgeClick,
@@ -384,8 +383,8 @@ export function AlertModal({
   const { trackAlertRender } = useAlertMetrics();
 
   const handleClose = useCallback(
-    (request?: { recursive?: boolean } | void) => {
-      onClose(request ?? undefined);
+    (...args) => {
+      onClose(...args);
     },
     [onClose],
   );
@@ -454,10 +453,11 @@ export function AlertModal({
         </ModalBody>
         <ModalFooter>
           <Box
-            className="flex w-full"
-            flexDirection={BoxFlexDirection.Column}
+            display={Display.Flex}
+            flexDirection={FlexDirection.Column}
             gap={4}
             paddingTop={2}
+            width={BlockSize.Full}
           >
             {customAcknowledgeButton ?? (
               <>

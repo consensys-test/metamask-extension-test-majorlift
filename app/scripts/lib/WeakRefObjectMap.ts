@@ -135,6 +135,7 @@ export class WeakRefObjectMap<
 
     return this.createMapIterator(
       (): IteratorResult<[string, RecordType]> => {
+        // eslint-disable-next-line no-constant-condition
         while (true) {
           const n = it.next();
           if (n.done) {
@@ -161,6 +162,7 @@ export class WeakRefObjectMap<
 
     return this.createMapIterator(
       (): IteratorResult<string> => {
+        // eslint-disable-next-line no-constant-condition
         while (true) {
           const n = it.next();
           if (n.done) {
@@ -187,6 +189,7 @@ export class WeakRefObjectMap<
 
     return this.createMapIterator(
       (): IteratorResult<RecordType> => {
+        // eslint-disable-next-line no-constant-condition
         while (true) {
           const n = it.next();
           if (n.done) {

@@ -8,6 +8,7 @@ import LoginPage from '../../page-objects/pages/login-page';
 import SwapPage from '../../page-objects/pages/swap/swap-page';
 import HomePage from '../../page-objects/pages/home/homepage';
 import type { Anvil } from '../../seeder/anvil';
+import type { Ganache } from '../../seeder/ganache';
 import {
   bytesToB64,
   signDeepLink,
@@ -18,7 +19,7 @@ import {
 
 const isFirefox = process.env.SELENIUM_BROWSER === Browser.FIREFOX;
 
-type LocalNode = Anvil;
+type LocalNode = Ganache | Anvil;
 
 const TEST_PAGE = 'https://doesntexist.test/';
 

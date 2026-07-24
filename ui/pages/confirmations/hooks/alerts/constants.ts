@@ -1,5 +1,4 @@
 export enum AlertsName {
-  AddressPoisoning = 'address_poisoning',
   GasEstimateFailed = 'gasEstimateFailed',
   GasFeeLow = 'gasFeeLow',
   GasTooLow = 'gasTooLow',

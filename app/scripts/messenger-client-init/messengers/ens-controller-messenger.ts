@@ -1,11 +1,11 @@
-import {
-  Messenger,
-  MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { EnsControllerMessenger } from '@metamask/ens-controller';
+import { Messenger } from '@metamask/messenger';
+import { AllowedActions } from '@metamask/ens-controller';
 import { NetworkControllerNetworkDidChangeEvent } from '@metamask/network-controller';
 import { RootMessenger } from '../../lib/messenger';
+
+export type EnsControllerMessenger = ReturnType<
+  typeof getEnsControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the ENS
@@ -15,12 +15,14 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getEnsControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<EnsControllerMessenger>,
-    MessengerEvents<EnsControllerMessenger>
-  >,
+  messenger: RootMessenger<AllowedActions, never>,
 ) {
-  const controllerMessenger: EnsControllerMessenger = new Messenger({
+  const controllerMessenger = new Messenger<
+    'EnsController',
+    AllowedActions,
+    never,
+    typeof messenger
+  >({
     namespace: 'EnsController',
     parent: messenger,
   });

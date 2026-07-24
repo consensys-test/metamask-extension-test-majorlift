@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box } from '@metamask/design-system-react';
 import {
   BannerAlert,
+  Box,
   ButtonLink,
   ButtonLinkSize,
   Text,
@@ -83,21 +83,17 @@ function AlertDetails({
     <Box marginTop={1}>
       <Disclosure title={t('seeDetails')} variant={DisclosureVariant.Arrow}>
         {Array.isArray(details) ? (
-          <Box asChild paddingLeft={6}>
-            <ul className="alert-modal__alert-details">
-              {details.map((detail, index) => (
-                <Box asChild key={`disclosure-detail-${index}`}>
-                  <li>
-                    <Text
-                      variant={TextVariant.bodyMdMedium}
-                      fontWeight={FontWeight.Normal}
-                    >
-                      {detail}
-                    </Text>
-                  </li>
-                </Box>
-              ))}
-            </ul>
+          <Box as="ul" className="alert-modal__alert-details" paddingLeft={6}>
+            {details.map((detail, index) => (
+              <Box as="li" key={`disclosure-detail-${index}`}>
+                <Text
+                  variant={TextVariant.bodyMdMedium}
+                  fontWeight={FontWeight.Normal}
+                >
+                  {detail}
+                </Text>
+              </Box>
+            ))}
           </Box>
         ) : (
           <>{details}</>
@@ -112,6 +108,8 @@ function AlertDetails({
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 function GeneralAlert({
   description,
   details,

@@ -2,11 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { getSelectedInternalAccount } from '../../../../../shared/lib/selectors/accounts';
+import { getSelectedInternalAccount } from '../../../../selectors';
 import { CONFIRM_TRANSACTION_ROUTE } from '../../../../helpers/constants/routes';
 import { ConfirmationLoader } from '../../../../pages/confirmations/hooks/useConfirmationNavigation';
 import { createPerpsDepositTransaction } from './createPerpsDepositTransaction';
-import { usePerpsNetworkManagement } from './usePerpsNetworkManagement';
 
 export type PerpsDepositConfirmationResponse = {
   transactionId: string;
@@ -38,7 +37,6 @@ export function usePerpsDepositConfirmation(
   const navigate = useNavigate();
   const location = useLocation();
   const selectedAccount = useSelector(getSelectedInternalAccount);
-  const { ensureArbitrumNetworkExists } = usePerpsNetworkManagement();
   const [isLoading, setIsLoading] = useState(false);
 
   // Guard against accidental double-trigger in the same tick
@@ -58,11 +56,6 @@ export function usePerpsDepositConfirmation(
     setIsLoading(true);
 
     try {
-      // Hyperliquid deposits settle USDC on Arbitrum; the controller resolves
-      // the deposit tx against that network client and throws if it is missing.
-      // Add it first (no-op when already present) so the deposit can start.
-      await ensureArbitrumNetworkExists();
-
       const { transactionId } = await createPerpsDepositTransaction({});
 
       if (navigateOnCreate) {
@@ -75,13 +68,10 @@ export function usePerpsDepositConfirmation(
           params.set('goBackTo', goBackTo);
         }
 
-        navigate(
-          {
-            pathname: `${CONFIRM_TRANSACTION_ROUTE}/${transactionId}`,
-            search: params.toString(),
-          },
-          { replace: true },
-        );
+        navigate({
+          pathname: `${CONFIRM_TRANSACTION_ROUTE}/${transactionId}`,
+          search: params.toString(),
+        });
       }
 
       onCreated?.(transactionId);
@@ -95,7 +85,6 @@ export function usePerpsDepositConfirmation(
       setIsLoading(false);
     }
   }, [
-    ensureArbitrumNetworkExists,
     isLoading,
     location.pathname,
     location.search,

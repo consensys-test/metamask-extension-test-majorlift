@@ -1,10 +1,10 @@
-import {
-  EncryptionPublicKeyManager,
-  EncryptionPublicKeyManagerMessenger,
-} from '@metamask/message-manager';
+import { EncryptionPublicKeyManager } from '@metamask/message-manager';
 import { MessengerClientInitRequest } from '../types';
 import { buildControllerInitRequestMock } from '../test/utils';
-import { getEncryptionPublicKeyManagerMessenger } from '../messengers';
+import {
+  getEncryptionPublicKeyManagerMessenger,
+  EncryptionPublicKeyManagerMessenger,
+} from '../messengers';
 import { getRootMessenger } from '../../lib/messenger';
 import { EncryptionPublicKeyManagerInit } from './encryption-public-key-message-manager-init';
 

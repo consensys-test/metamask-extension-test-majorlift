@@ -21,10 +21,10 @@ import {
   TextButton,
   TextColor,
   TextVariant,
-  Skeleton,
 } from '@metamask/design-system-react';
 import { useDispatch, useSelector } from 'react-redux';
 import log from 'loglevel';
+import { Skeleton } from '../../../components/component-library/skeleton';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import {
   useShieldRewards,
@@ -33,7 +33,6 @@ import {
   useUserSubscriptionByProduct,
   useUserSubscriptions,
 } from '../../../hooks/subscription/useSubscription';
-// eslint-disable-next-line import-x/no-restricted-paths -- TODO(ADR-0021): route-isolation backlog
 import { getShortDateFormatterV2 } from '../../asset/util';
 import {
   DEFAULT_ROUTE,
@@ -48,7 +47,7 @@ import { useFormatters } from '../../../hooks/useFormatters';
 import LoadingScreen from '../../../components/ui/loading-screen';
 import AddFundsModal from '../../../components/app/modals/add-funds-modal/add-funds-modal';
 import { useSubscriptionPricing } from '../../../hooks/subscription/useSubscriptionPricing';
-import RewardsModal from '../../../components/app/rewards/onboarding/RewardsModal';
+import RewardsOnboardingModal from '../../../components/app/rewards/onboarding/OnboardingModal';
 import {
   getIsShieldSubscriptionEndingSoon,
   getIsShieldSubscriptionPaused,
@@ -65,7 +64,7 @@ import {
 import ApiErrorHandler from '../../../components/app/api-error-handler';
 import { useHandlePayment } from '../../../hooks/subscription/useHandlePayment';
 import { MetaMaskReduxDispatch } from '../../../store/store';
-import { setRewardsModalOpen } from '../../../ducks/rewards';
+import { setOnboardingModalOpen } from '../../../ducks/rewards';
 import { getIntlLocale } from '../../../ducks/locale/locale';
 import { linkRewardToShieldSubscription } from '../../../store/actions';
 import { isCardPaymentMethod, isCryptoPaymentMethod } from './types';
@@ -219,8 +218,8 @@ const TransactionShield = () => {
 
   const [isAddFundsModalOpen, setIsAddFundsModalOpen] = useState(false);
 
-  const openRewardsModal = useCallback(() => {
-    dispatch(setRewardsModalOpen(true));
+  const openRewardsOnboardingModal = useCallback(() => {
+    dispatch(setOnboardingModalOpen(true));
   }, [dispatch]);
 
   const claimedRewardsPoints = useMemo(() => {
@@ -386,7 +385,7 @@ const TransactionShield = () => {
             variant: TextVariant.BodySm,
           }}
           onClick={() => {
-            openRewardsModal();
+            openRewardsOnboardingModal();
           }}
         >
           {t('shieldTxMembershipBenefits3SignUp')}
@@ -425,7 +424,7 @@ const TransactionShield = () => {
     displayedShieldSubscription?.rewardAccountId,
     claimedRewardsPoints,
     t,
-    openRewardsModal,
+    openRewardsOnboardingModal,
     handleLinkRewardToShieldSubscription,
   ]);
 
@@ -695,7 +694,7 @@ const TransactionShield = () => {
             }
           />
         )}
-      <RewardsModal
+      <RewardsOnboardingModal
         rewardPoints={claimedRewardsPoints ?? undefined}
         shieldSubscriptionId={displayedShieldSubscription?.id}
       />

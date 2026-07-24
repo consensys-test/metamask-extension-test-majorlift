@@ -6,7 +6,7 @@ import {
   completeCreateNewWalletOnboardingFlow,
   createNewWalletOnboardingFlow,
 } from '../../page-objects/flows/onboarding.flow';
-import { MOCK_ANALYTICS_ID } from '../../constants';
+import { MOCK_META_METRICS_ID } from '../../constants';
 import HeaderNavbar from '../../page-objects/pages/header-navbar';
 import SettingsPage from '../../page-objects/pages/settings/settings-page';
 import PrivacySettings from '../../page-objects/pages/settings/privacy-settings';
@@ -78,7 +78,7 @@ describe('Segment User Traits', function () {
       {
         fixtures: new FixtureBuilderV2({ onboarding: true })
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
+            metaMetricsId: MOCK_META_METRICS_ID,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -87,8 +87,7 @@ describe('Segment User Traits', function () {
       async ({ driver, mockedEndpoint: mockedEndpoints }) => {
         await createNewWalletOnboardingFlow({
           driver,
-          completedMetaMetricsOnboarding: true,
-          optedIn: true,
+          participateInMetaMetrics: true,
           dataCollectionForMarketing: true,
         });
         await waitForExpectedTraits(driver, mockedEndpoints, {
@@ -96,8 +95,6 @@ describe('Segment User Traits', function () {
           is_metrics_opted_in: true,
           // eslint-disable-next-line @typescript-eslint/naming-convention
           has_marketing_consent: true,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          account_type: 'metamask',
         });
       },
     );
@@ -108,7 +105,7 @@ describe('Segment User Traits', function () {
       {
         fixtures: new FixtureBuilderV2({ onboarding: true })
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
+            metaMetricsId: MOCK_META_METRICS_ID,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -117,8 +114,7 @@ describe('Segment User Traits', function () {
       async ({ driver, mockedEndpoint: mockedEndpoints }) => {
         await createNewWalletOnboardingFlow({
           driver,
-          completedMetaMetricsOnboarding: true,
-          optedIn: true,
+          participateInMetaMetrics: true,
           dataCollectionForMarketing: false,
         });
         await waitForExpectedTraits(driver, mockedEndpoints, {
@@ -126,8 +122,6 @@ describe('Segment User Traits', function () {
           is_metrics_opted_in: true,
           // eslint-disable-next-line @typescript-eslint/naming-convention
           has_marketing_consent: false,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          account_type: 'metamask',
         });
       },
     );
@@ -138,7 +132,7 @@ describe('Segment User Traits', function () {
       {
         fixtures: new FixtureBuilderV2({ onboarding: true })
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
+            metaMetricsId: MOCK_META_METRICS_ID,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -147,8 +141,7 @@ describe('Segment User Traits', function () {
       async ({ driver, mockedEndpoint: mockedEndpoints }) => {
         await createNewWalletOnboardingFlow({
           driver,
-          completedMetaMetricsOnboarding: true,
-          optedIn: false,
+          participateInMetaMetrics: false,
           dataCollectionForMarketing: false,
         });
         const events = await getEventPayloads(driver, mockedEndpoints);
@@ -162,7 +155,7 @@ describe('Segment User Traits', function () {
       {
         fixtures: new FixtureBuilderV2({ onboarding: true })
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
+            metaMetricsId: MOCK_META_METRICS_ID,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -171,8 +164,7 @@ describe('Segment User Traits', function () {
       async ({ driver, mockedEndpoint: mockedEndpoints }) => {
         await completeCreateNewWalletOnboardingFlow({
           driver,
-          completedMetaMetricsOnboarding: true,
-          optedIn: false,
+          participateInMetaMetrics: false,
         });
         const events = await getEventPayloads(driver, mockedEndpoints);
         assert.equal(events.length, 0);
@@ -189,8 +181,6 @@ describe('Segment User Traits', function () {
           is_metrics_opted_in: true,
           // eslint-disable-next-line @typescript-eslint/naming-convention
           has_marketing_consent: false,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          account_type: 'metamask',
         });
       },
     );
@@ -201,7 +191,7 @@ describe('Segment User Traits', function () {
       {
         fixtures: new FixtureBuilderV2({ onboarding: true })
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
+            metaMetricsId: MOCK_META_METRICS_ID,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -210,8 +200,7 @@ describe('Segment User Traits', function () {
       async ({ driver, mockedEndpoint: mockedEndpoints }) => {
         await completeCreateNewWalletOnboardingFlow({
           driver,
-          completedMetaMetricsOnboarding: true,
-          optedIn: false,
+          participateInMetaMetrics: false,
         });
         const events = await getEventPayloads(driver, mockedEndpoints);
         assert.equal(events.length, 0);
@@ -229,8 +218,6 @@ describe('Segment User Traits', function () {
           is_metrics_opted_in: true,
           // eslint-disable-next-line @typescript-eslint/naming-convention
           has_marketing_consent: true,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          account_type: 'metamask',
         });
       },
     );

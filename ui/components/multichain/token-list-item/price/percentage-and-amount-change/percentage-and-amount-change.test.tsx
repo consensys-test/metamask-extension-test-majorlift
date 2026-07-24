@@ -10,10 +10,10 @@ import {
 } from '../../../../../selectors';
 import { getCurrentChainId } from '../../../../../../shared/lib/selectors/networks';
 import {
+  getConversionRate,
   getCurrentCurrency,
   getNativeCurrency,
 } from '../../../../../ducks/metamask/metamask';
-import { getConversionRate } from '../../../../../ducks/metamask/base-selectors';
 import { PercentageAndAmountChange } from './percentage-and-amount-change';
 
 jest.mock('react-redux', () => ({
@@ -35,11 +35,8 @@ jest.mock('../../../../../../shared/lib/selectors/networks', () => ({
 
 jest.mock('../../../../../ducks/metamask/metamask', () => ({
   getCurrentCurrency: jest.fn(),
-  getNativeCurrency: jest.fn(),
-}));
-
-jest.mock('../../../../../ducks/metamask/base-selectors', () => ({
   getConversionRate: jest.fn(),
+  getNativeCurrency: jest.fn(),
 }));
 
 const mockGetIntlLocale = jest.mocked(getIntlLocale);

@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Box, BoxAlignItems } from '@metamask/design-system-react';
 import Modal from '../../modal';
 import TextField from '../../../ui/text-field';
 import {
   TextVariant,
+  AlignItems,
   BlockSize,
+  Display,
 } from '../../../../helpers/constants/design-system';
 import withModalProps from '../../../../helpers/higher-order-components/with-modal-props';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 import ZENDESK_URLS from '../../../../helpers/constants/zendesk-url';
 import {
+  Box,
   ButtonIcon,
   ButtonIconSize,
   ButtonLink,
@@ -59,15 +61,15 @@ const CustomizeNonce = ({
           <ButtonIcon
             iconName={IconName.Close}
             className="customize-nonce-modal__close"
-            size={ButtonIconSize.Md}
+            size={ButtonIconSize.Sm}
             ariaLabel={t('close')}
             onClick={hideModal}
           />
         </div>
         <Box
           marginTop={2}
-          className="inline-flex"
-          alignItems={BoxAlignItems.Center}
+          display={Display.InlineFlex}
+          alignItems={AlignItems.center}
         >
           <Text variant={TextVariant.bodyMd} as="h6">
             {t('editNonceMessage')}
@@ -82,7 +84,7 @@ const CustomizeNonce = ({
           </Text>
         </Box>
         <Box marginTop={4}>
-          <Box className="flex" alignItems={BoxAlignItems.Center}>
+          <Box alignItems={AlignItems.center} display={Display.Flex}>
             <Text
               variant={TextVariant.bodyMdBold}
               as="h6"
@@ -90,7 +92,7 @@ const CustomizeNonce = ({
             >
               {t('editNonceField')}
             </Text>
-            <Box className="w-1/6">
+            <Box width={BlockSize.OneSixth}>
               <ButtonLink
                 className="customize-nonce-modal__reset"
                 data-testid="customize-nonce-reset"

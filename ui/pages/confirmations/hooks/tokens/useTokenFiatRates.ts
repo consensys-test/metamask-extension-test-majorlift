@@ -13,6 +13,7 @@ export type TokenFiatRateRequest = {
   currency?: string;
 };
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function useTokenFiatRates(
   requests: TokenFiatRateRequest[],
 ): (number | undefined)[] {
@@ -57,6 +58,7 @@ export function useTokenFiatRates(
   return useDeepMemo(() => result, [result]);
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function useTokenFiatRate(
   tokenAddress: Hex,
   chainId: Hex,

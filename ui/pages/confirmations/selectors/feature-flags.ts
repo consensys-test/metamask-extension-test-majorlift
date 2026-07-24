@@ -1,50 +1,11 @@
 import { createSelector } from 'reselect';
-import type { Hex } from '@metamask/utils';
 import {
   getEnforcedSimulationsSlippage,
   getIsEnforcedSimulationsEnabled,
 } from '../../../../shared/lib/transaction/enforced-simulations';
-import { getIsPayAmountPrefillEnabled } from '../../../../shared/lib/transaction/pay-prefill';
-import { getRemoteFeatureFlags } from '../../../../shared/lib/selectors/remote-feature-flags';
+import { getRemoteFeatureFlags } from '../../../selectors/remote-feature-flags';
 
 type ConfirmationsPayDappsFlag = {
-  enabled?: boolean;
-};
-
-export type PayPostQuoteConfig = {
-  enabled?: boolean;
-  tokens?: Record<Hex, Hex[]>;
-};
-
-type RawPayPostQuoteFlag = {
-  default?: PayPostQuoteConfig;
-  overrides?: Record<string, PayPostQuoteConfig>;
-  [transactionType: string]:
-    | PayPostQuoteConfig
-    | Record<string, PayPostQuoteConfig>
-    | undefined;
-};
-
-export type PreferredPayToken = {
-  address: Hex;
-  chainId: Hex;
-  name?: string;
-};
-
-type PreferredTokensConfig = {
-  default?: PreferredPayToken[] | Record<string, PreferredPayToken[]>;
-  overrides?: Record<string, PreferredPayToken[]>;
-  [transactionType: string]:
-    | PreferredPayToken[]
-    | Record<string, PreferredPayToken[]>
-    | undefined;
-};
-
-type RawPayTokensFlag = {
-  preferredTokens?: PreferredTokensConfig;
-};
-
-type HardwareWalletConfig = {
   enabled?: boolean;
 };
 
@@ -65,105 +26,6 @@ export const selectIsMetaMaskPayDappsEnabled = createSelector(
   (flag): boolean => flag?.enabled ?? false,
 );
 
-const selectPayPostQuoteFlag = createSelector(
-  getRemoteFeatureFlags,
-  (flags) =>
-    /* eslint-disable @typescript-eslint/naming-convention */
-    (
-      flags as unknown as {
-        confirmations_pay_post_quote?: RawPayPostQuoteFlag;
-      }
-    ).confirmations_pay_post_quote,
-  /* eslint-enable @typescript-eslint/naming-convention */
-);
-
-const selectPayTokensFlag = createSelector(
-  getRemoteFeatureFlags,
-  (flags) =>
-    /* eslint-disable @typescript-eslint/naming-convention */
-    (
-      flags as unknown as {
-        confirmations_pay_tokens?: RawPayTokensFlag;
-      }
-    ).confirmations_pay_tokens,
-  /* eslint-enable @typescript-eslint/naming-convention */
-);
-
-const selectPayHardwareFlag = createSelector(
-  getRemoteFeatureFlags,
-  /* eslint-disable @typescript-eslint/naming-convention */
-  (flags) =>
-    (
-      flags as unknown as {
-        confirmations_pay_hardware?: HardwareWalletConfig;
-      }
-    ).confirmations_pay_hardware,
-  /* eslint-enable @typescript-eslint/naming-convention */
-);
-
-/**
- * Resolves the effective post-quote config for a given transaction type.
- * Transaction-specific config may be supplied either as
- * `overrides[transactionType]` (mobile-compatible) or directly at
- * `[transactionType]` (for example, `perpsWithdraw.tokens`).
- * @param _state
- * @param transactionType
- */
-export const selectPayQuoteConfig = createSelector(
-  [
-    selectPayPostQuoteFlag,
-    (_state, transactionType?: string) => transactionType,
-  ],
-  (flag, transactionType): PayPostQuoteConfig => {
-    const defaultConfig: PayPostQuoteConfig = {
-      enabled: flag?.default?.enabled ?? false,
-      tokens: flag?.default?.tokens,
-    };
-
-    const transactionConfig = transactionType
-      ? (flag?.overrides?.[transactionType] ??
-        (flag?.[transactionType] as PayPostQuoteConfig | undefined))
-      : undefined;
-
-    if (!transactionConfig) {
-      return defaultConfig;
-    }
-
-    return {
-      enabled: transactionConfig.enabled ?? defaultConfig.enabled,
-      tokens: transactionConfig.tokens ?? defaultConfig.tokens,
-    };
-  },
-);
-
-/**
- * Resolves whether the amount field should be pre-filled with the max balance
- * for a given transaction type. Transaction-specific config may be supplied
- * either as `overrides[transactionType]` or directly at `[transactionType]`.
- * @param _state
- * @param transactionType
- */
-export const selectIsPayAmountPrefillEnabled = createSelector(
-  [
-    getRemoteFeatureFlags,
-    (_state, transactionType?: string) => transactionType,
-  ],
-  (remoteFeatureFlags, transactionType): boolean =>
-    getIsPayAmountPrefillEnabled({ remoteFeatureFlags }, transactionType),
-);
-
-export const selectPreferredPayToken = createSelector(
-  [selectPayTokensFlag, (_state, transactionType?: string) => transactionType],
-  (flag, transactionType): PreferredPayToken | undefined => {
-    const preferredTokens = getPreferredTokensForTransaction(
-      flag?.preferredTokens,
-      transactionType,
-    );
-
-    return preferredTokens?.[0];
-  },
-);
-
 export const selectIsEnforcedSimulationsEnabled = createSelector(
   getRemoteFeatureFlags,
   (remoteFeatureFlags): boolean =>
@@ -175,46 +37,3 @@ export const selectEnforcedSimulationsSlippage = createSelector(
   (remoteFeatureFlags): number =>
     getEnforcedSimulationsSlippage({ remoteFeatureFlags }),
 );
-
-export const selectIsPayHardwareEnabled = createSelector(
-  selectPayHardwareFlag,
-  (flag): boolean => flag?.enabled ?? false,
-);
-
-function getPreferredTokensForTransaction(
-  config?: PreferredTokensConfig,
-  transactionType?: string,
-): PreferredPayToken[] | undefined {
-  if (!config) {
-    return undefined;
-  }
-
-  const defaultTokens = normalizePreferredPayTokens(config.default);
-  const transactionTokens = transactionType
-    ? normalizePreferredPayTokens(
-        config.overrides?.[transactionType] ?? config[transactionType],
-      )
-    : undefined;
-
-  return transactionTokens ?? defaultTokens;
-}
-
-function normalizePreferredPayTokens(
-  value?: PreferredPayToken[] | Record<string, PreferredPayToken[]>,
-): PreferredPayToken[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const tokens = value.filter(isPreferredPayToken);
-  return tokens.length ? tokens : undefined;
-}
-
-function isPreferredPayToken(value: unknown): value is PreferredPayToken {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as PreferredPayToken).address === 'string' &&
-    typeof (value as PreferredPayToken).chainId === 'string'
-  );
-}

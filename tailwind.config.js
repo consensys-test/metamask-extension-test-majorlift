@@ -1,5 +1,4 @@
 const { brandColor } = require('@metamask/design-tokens');
-const plugin = require('tailwindcss/plugin');
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -15,7 +14,7 @@ module.exports = {
     './node_modules/@metamask/design-system-shared/**/*.{mjs,cjs}',
   ],
   theme: {
-    // Keep essential semantic colors, remove default palette colors. We want to rely on the colors provided by @metamask/design-system-tailwind-preset
+    // Keep essential semantic colors, remove default palette colors. We want to rely on the colors provided by @metamask-previews/design-system-tailwind-preset
     colors: {
       inherit: 'inherit',
       current: 'currentColor',
@@ -26,9 +25,5 @@ module.exports = {
     fontSize: {}, // This removes all default Tailwind font sizes. We want to rely on the design system font sizes and enforce use of the Text component
     extend: {},
   },
-  plugins: [
-    plugin(({ addVariant }) => {
-      addVariant('@compact', '@container list-item (max-width: 399px)');
-    }),
-  ],
+  plugins: [],
 };

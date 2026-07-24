@@ -11,8 +11,9 @@ import {
   Text,
   TextVariant,
   twMerge,
-  Skeleton,
 } from '@metamask/design-system-react';
+import { BorderRadius } from '../../../../helpers/constants/design-system';
+import { Skeleton } from '../../../../components/component-library/skeleton';
 
 type ButtonRowProps = {
   title: string;
@@ -100,7 +101,7 @@ const ButtonRow = ({
             <Skeleton
               width={40}
               height={40}
-              className="rounded-full"
+              borderRadius={BorderRadius.full}
               style={{ flexShrink: 0 }}
             />
           ) : (

@@ -8,7 +8,12 @@ import type {
   NotificationServicesPushControllerPushNotificationClickedEvent,
   NotificationServicesPushControllerMessenger,
 } from '@metamask/notification-services-controller/push-services';
+import { MetaMetricsControllerTrackEventAction } from '../../../controllers/metametrics-controller-method-action-types';
 import { RootMessenger } from '../../../lib/messenger';
+
+type Actions = MessengerActions<NotificationServicesPushControllerMessenger>;
+
+type Events = MessengerEvents<NotificationServicesPushControllerMessenger>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the
@@ -19,22 +24,25 @@ import { RootMessenger } from '../../../lib/messenger';
  * @returns The restricted messenger.
  */
 export function getNotificationServicesPushControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<NotificationServicesPushControllerMessenger>,
-    MessengerEvents<NotificationServicesPushControllerMessenger>
-  >,
+  messenger: RootMessenger<Actions, Events>,
 ) {
-  const controllerMessenger: NotificationServicesPushControllerMessenger =
-    new Messenger({
-      namespace: 'NotificationServicesPushController',
-      parent: messenger,
-    });
+  const controllerMessenger = new Messenger<
+    'NotificationServicesPushController',
+    Actions,
+    Events,
+    typeof messenger
+  >({
+    namespace: 'NotificationServicesPushController',
+    parent: messenger,
+  });
   messenger.delegate({
     messenger: controllerMessenger,
     actions: ['AuthenticationController:getBearerToken'],
   });
   return controllerMessenger;
 }
+
+type AllowedInitializationActions = MetaMetricsControllerTrackEventAction;
 
 type AllowedInitializationEvents =
   | NotificationServicesPushControllerOnNewNotificationEvent
@@ -53,11 +61,14 @@ export type NotificationServicesPushControllerInitMessenger = ReturnType<
  * @returns The restricted messenger.
  */
 export function getNotificationServicesPushControllerInitMessenger(
-  messenger: RootMessenger<never, AllowedInitializationEvents>,
+  messenger: RootMessenger<
+    AllowedInitializationActions,
+    AllowedInitializationEvents
+  >,
 ) {
   const controllerInitMessenger = new Messenger<
     'NotificationServicesPushControllerInit',
-    never,
+    AllowedInitializationActions,
     AllowedInitializationEvents,
     typeof messenger
   >({
@@ -66,6 +77,7 @@ export function getNotificationServicesPushControllerInitMessenger(
   });
   messenger.delegate({
     messenger: controllerInitMessenger,
+    actions: ['MetaMetricsController:trackEvent'],
     events: [
       'NotificationServicesPushController:onNewNotifications',
       'NotificationServicesPushController:pushNotificationClicked',

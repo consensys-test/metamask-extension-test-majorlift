@@ -29,11 +29,10 @@ describe('getPerpsControllerMessenger', () => {
           'AccountTreeController:getAccountsFromSelectedAccountGroup',
           'GeolocationController:getGeolocation',
           'AuthenticationController:getBearerToken',
+          'MetaMetricsController:trackEvent',
           'StorageService:getItem',
           'StorageService:setItem',
           'StorageService:removeItem',
-          'AuthenticatedUserStorageService:getNotificationPreferences',
-          'AuthenticatedUserStorageService:putNotificationPreferences',
         ]),
       }),
     );

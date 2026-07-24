@@ -40,6 +40,7 @@ describe('MetaMetricsControllerInit', () => {
       captureException: expect.any(Function),
       environment: 'test',
       extension: expect.any(Object),
+      segment: expect.any(Object),
       version: 'MOCK_VERSION',
     });
   });

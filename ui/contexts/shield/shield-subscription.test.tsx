@@ -7,34 +7,21 @@ import * as useSubscriptionMetrics from '../../hooks/shield/metrics/useSubscript
 import * as selectors from '../../selectors';
 import * as authSelectors from '../../selectors/identity/authentication';
 import * as subscriptionSelectors from '../../selectors/subscription';
-import * as metamaskBaseSelectors from '../../ducks/metamask/base-selectors';
+import * as metamaskDucks from '../../ducks/metamask/metamask';
 import * as environment from '../../../shared/lib/environment';
 import {
   ShieldSubscriptionProvider,
   useShieldSubscriptionContext,
-  resetEvaluatedShieldCohortsForTesting,
 } from './shield-subscription';
 
-jest.mock('react-redux', () => ({
-  ...jest.requireActual('react-redux'),
-  useDispatch: jest.fn(),
-  useSelector: jest.fn(),
-}));
 jest.mock('../../hooks/subscription/useSubscription');
 jest.mock('../../hooks/shield/metrics/useSubscriptionMetrics');
-jest.mock('../../hooks/usePolling', () => jest.fn());
-jest.mock('./subscriptionsPollingActions', () => ({
-  subscriptionsStartPolling: jest.fn(),
-  subscriptionsStopPolling: jest.fn(),
-}));
 jest.mock('../../store/actions', () => ({
   assignUserToCohort: jest.fn(),
   setPendingShieldCohort: jest.fn(),
   setShowShieldEntryModalOnce: jest.fn(),
+  subscriptionsStartPolling: jest.fn(),
 }));
-
-const mockUseDispatch = jest.mocked(redux.useDispatch);
-const mockUseSelector = jest.mocked(redux.useSelector);
 
 describe('ShieldSubscriptionProvider', () => {
   const mockDispatch = jest.fn();
@@ -43,14 +30,14 @@ describe('ShieldSubscriptionProvider', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    resetEvaluatedShieldCohortsForTesting();
 
-    mockUseDispatch.mockReturnValue(mockDispatch);
-    mockUseSelector.mockImplementation((selector) => {
+    // Mock Redux hooks
+    jest.spyOn(redux, 'useDispatch').mockReturnValue(mockDispatch);
+    jest.spyOn(redux, 'useSelector').mockImplementation((selector) => {
       if (selector === selectors.getUseExternalServices) {
         return true;
       }
-      if (selector === metamaskBaseSelectors.getIsUnlocked) {
+      if (selector === metamaskDucks.getIsUnlocked) {
         return true;
       }
       if (selector === authSelectors.selectIsSignedIn) {
@@ -249,11 +236,11 @@ describe('ShieldSubscriptionProvider', () => {
     it('accesses current values even with stable callback', async () => {
       let isBasicFunctionalityEnabled = false;
 
-      mockUseSelector.mockImplementation((selector) => {
+      jest.spyOn(redux, 'useSelector').mockImplementation((selector) => {
         if (selector === selectors.getUseExternalServices) {
           return isBasicFunctionalityEnabled;
         }
-        if (selector === metamaskBaseSelectors.getIsUnlocked) {
+        if (selector === metamaskDucks.getIsUnlocked) {
           return true;
         }
         if (selector === authSelectors.selectIsSignedIn) {

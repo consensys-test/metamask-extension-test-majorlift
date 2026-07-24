@@ -24,11 +24,7 @@ import {
   StorageServiceSetItemAction,
 } from '@metamask/storage-service';
 import { TransactionControllerAddTransactionAction } from '@metamask/transaction-controller';
-import type {
-  AuthenticatedUserStorageServiceGetNotificationPreferencesAction,
-  AuthenticatedUserStorageServicePutNotificationPreferencesAction,
-} from '@metamask/authenticated-user-storage';
-import { RewardsControllerGetPerpsDiscountForAccountAction } from '../../controllers/rewards/rewards-controller-method-action-types';
+import { MetaMetricsControllerTrackEventAction } from '../../controllers/metametrics-controller-method-action-types';
 import { RootMessenger } from '../../lib/messenger';
 
 type AllowedActions =
@@ -42,21 +38,17 @@ type AllowedActions =
   | AccountTreeControllerGetAccountsFromSelectedAccountGroupAction
   | GeolocationControllerGetGeolocationAction
   | AuthenticationController.AuthenticationControllerGetBearerTokenAction
+  | MetaMetricsControllerTrackEventAction
   | StorageServiceGetItemAction
   | StorageServiceSetItemAction
-  | StorageServiceRemoveItemAction
-  | RewardsControllerGetPerpsDiscountForAccountAction
-  | AuthenticatedUserStorageServiceGetNotificationPreferencesAction
-  | AuthenticatedUserStorageServicePutNotificationPreferencesAction;
+  | StorageServiceRemoveItemAction;
 
 type AllowedEvents =
   | RemoteFeatureFlagControllerStateChangeEvent
   | AccountTreeControllerSelectedAccountGroupChangeEvent;
 
-export type PerpsControllerMessenger = Messenger<
-  'PerpsController',
-  AllowedActions,
-  AllowedEvents
+export type PerpsControllerMessenger = ReturnType<
+  typeof getPerpsControllerMessenger
 >;
 
 /**
@@ -69,8 +61,13 @@ export type PerpsControllerMessenger = Messenger<
  */
 export function getPerpsControllerMessenger(
   messenger: RootMessenger<AllowedActions, AllowedEvents>,
-): PerpsControllerMessenger {
-  const perpsControllerMessenger: PerpsControllerMessenger = new Messenger({
+) {
+  const perpsControllerMessenger = new Messenger<
+    'PerpsController',
+    AllowedActions,
+    AllowedEvents,
+    typeof messenger
+  >({
     namespace: 'PerpsController',
     parent: messenger,
   });
@@ -78,8 +75,6 @@ export function getPerpsControllerMessenger(
   messenger.delegate({
     messenger: perpsControllerMessenger,
     actions: [
-      'AuthenticatedUserStorageService:getNotificationPreferences',
-      'AuthenticatedUserStorageService:putNotificationPreferences',
       'NetworkController:getState',
       'NetworkController:getNetworkClientById',
       'NetworkController:findNetworkClientIdByChainId',
@@ -90,10 +85,10 @@ export function getPerpsControllerMessenger(
       'AccountTreeController:getAccountsFromSelectedAccountGroup',
       'GeolocationController:getGeolocation',
       'AuthenticationController:getBearerToken',
+      'MetaMetricsController:trackEvent',
       'StorageService:getItem',
       'StorageService:setItem',
       'StorageService:removeItem',
-      'RewardsController:getPerpsDiscountForAccount',
     ],
     events: [
       'RemoteFeatureFlagController:stateChange',

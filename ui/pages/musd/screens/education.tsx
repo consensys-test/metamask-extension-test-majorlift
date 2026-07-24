@@ -5,10 +5,15 @@
  * Shown to users who haven't seen the education content before.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import type { CaipAssetType } from '@metamask/utils';
 import {
   Box,
   Text,
@@ -31,7 +36,7 @@ import {
   TextButton,
   TextButtonSize,
 } from '@metamask/design-system-react';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -50,9 +55,8 @@ import {
   useMusdConversionTokens,
   useCanBuyMusd,
 } from '../../../hooks/musd';
-import useRampsNavigation from '../../../hooks/ramps/useRampsNavigation/useRampsNavigation';
+import useRamps from '../../../hooks/ramps/useRamps/useRamps';
 import {
-  getMusdAssetIdForChain,
   MUSD_CONVERSION_APY,
   MUSD_CONVERSION_BONUS_TERMS_OF_USE,
   MUSD_CONVERSION_DEFAULT_CHAIN_ID,
@@ -74,13 +78,13 @@ const MUSD_EDUCATION_COIN_IMAGE_LIGHT =
  * - Central illustration (coin + MetaMask fox + bonus)
  * - "Get started" primary button and "Not now" link button
  */
-const MusdEducationScreen = () => {
+const MusdEducationScreen: React.FC = () => {
   const t = useI18nContext();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const theme = useTheme();
   const [searchParams] = useSearchParams();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   const isDeeplink = searchParams.get(MUSD_DEEPLINK_PARAM) === 'true';
 
@@ -92,25 +96,22 @@ const MusdEducationScreen = () => {
     }
     hasTrackedDisplayRef.current = true;
 
-    trackEvent(
-      createEventBuilder(
-        MetaMetricsEventName.MusdFullscreenAnnouncementDisplayed,
-      )
-        .addCategory(MetaMetricsEventCategory.MusdConversion)
-        .addProperties({
-          location:
-            MUSD_EVENTS_CONSTANTS.EVENT_LOCATIONS.CONVERSION_EDUCATION_SCREEN,
-        })
-        .build(),
-    );
-  }, [createEventBuilder, trackEvent]);
+    trackEvent({
+      event: MetaMetricsEventName.MusdFullscreenAnnouncementDisplayed,
+      category: MetaMetricsEventCategory.MusdConversion,
+      properties: {
+        location:
+          MUSD_EVENTS_CONSTANTS.EVENT_LOCATIONS.CONVERSION_EDUCATION_SCREEN,
+      },
+    });
+  }, [trackEvent]);
 
   const { startConversionFlow } = useMusdConversion();
   const { isBlocked: isGeoBlocked } = useMusdGeoBlocking();
   const { tokens: conversionTokens, defaultPaymentToken } =
     useMusdConversionTokens();
   const { canBuyMusdInRegion } = useCanBuyMusd();
-  const { goToBuy, isRampsEnabled } = useRampsNavigation();
+  const { openBuyCryptoInPdapp } = useRamps();
   const [isLoading, setIsLoading] = useState(false);
 
   const hasEligibleConversionTokens = conversionTokens.length > 0;
@@ -174,33 +175,17 @@ const MusdEducationScreen = () => {
     /* eslint-enable @typescript-eslint/naming-convention */
 
     // Track primary button click
-    trackEvent(
-      createEventBuilder(
-        MetaMetricsEventName.MusdFullscreenAnnouncementButtonClicked,
-      )
-        .addCategory(MetaMetricsEventCategory.MusdConversion)
-        .addProperties(eventProperties)
-        .build(),
-    );
+    trackEvent({
+      event: MetaMetricsEventName.MusdFullscreenAnnouncementButtonClicked,
+      category: MetaMetricsEventCategory.MusdConversion,
+      properties: eventProperties,
+    });
 
     dispatch(setMusdConversionEducationSeen(true));
 
     if (isDeeplinkNoTokensGoToBuy) {
-      await goToBuy({
-        // Pre-select mUSD (mainnet) so the in-app flow lands on build-quote
-        // instead of the token-selection page; chainId is only used for the
-        // flag-off Portfolio fallback.
-        assetId: getMusdAssetIdForChain(MUSD_CONVERSION_DEFAULT_CHAIN_ID) as
-          | CaipAssetType
-          | undefined,
-        chainId: MUSD_CONVERSION_DEFAULT_CHAIN_ID,
-      });
-      // Flag off opens Portfolio in a new tab, so send the user home; flag on
-      // navigates in-app (build-quote, or a blocking modal on the education
-      // screen), so leave routing to goToBuy.
-      if (!isRampsEnabled) {
-        navigate(DEFAULT_ROUTE);
-      }
+      openBuyCryptoInPdapp(MUSD_CONVERSION_DEFAULT_CHAIN_ID);
+      navigate(DEFAULT_ROUTE);
       return;
     }
 
@@ -241,11 +226,9 @@ const MusdEducationScreen = () => {
     isDeeplinkNoTokensContinueHome,
     isDeeplink,
     isGeoBlocked,
-    goToBuy,
-    isRampsEnabled,
+    openBuyCryptoInPdapp,
     startConversionFlow,
     defaultPaymentToken,
-    createEventBuilder,
     trackEvent,
     primaryButtonLabel,
     getRedirectDestination,
@@ -267,24 +250,15 @@ const MusdEducationScreen = () => {
     /* eslint-enable @typescript-eslint/naming-convention */
 
     // Track secondary button click
-    trackEvent(
-      createEventBuilder(
-        MetaMetricsEventName.MusdFullscreenAnnouncementButtonClicked,
-      )
-        .addCategory(MetaMetricsEventCategory.MusdConversion)
-        .addProperties(eventProperties)
-        .build(),
-    );
+    trackEvent({
+      event: MetaMetricsEventName.MusdFullscreenAnnouncementButtonClicked,
+      category: MetaMetricsEventCategory.MusdConversion,
+      properties: eventProperties,
+    });
 
     dispatch(setMusdConversionEducationSeen(true));
     navigate(DEFAULT_ROUTE);
-  }, [
-    dispatch,
-    navigate,
-    createEventBuilder,
-    trackEvent,
-    secondaryButtonLabel,
-  ]);
+  }, [dispatch, navigate, trackEvent, secondaryButtonLabel]);
 
   return (
     <Box
@@ -374,14 +348,11 @@ const MusdEducationScreen = () => {
                         url: MUSD_CONVERSION_BONUS_TERMS_OF_USE,
                       };
 
-                      trackEvent(
-                        createEventBuilder(
-                          MetaMetricsEventName.MusdBonusTermsOfUsePressed,
-                        )
-                          .addCategory(MetaMetricsEventCategory.MusdConversion)
-                          .addProperties(properties)
-                          .build(),
-                      );
+                      trackEvent({
+                        event: MetaMetricsEventName.MusdBonusTermsOfUsePressed,
+                        category: MetaMetricsEventCategory.MusdConversion,
+                        properties,
+                      });
                     }}
                   >
                     {t('musdTermsApply')}

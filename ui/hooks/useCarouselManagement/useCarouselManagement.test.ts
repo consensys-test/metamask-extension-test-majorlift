@@ -1,14 +1,15 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+/* eslint-disable @typescript-eslint/naming-convention */
+import { renderHook } from '@testing-library/react-hooks';
 import { waitFor } from '@testing-library/react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   getSelectedAccountCachedBalance,
+  getSelectedInternalAccount,
   getSlides,
   getUseExternalServices,
   getShowDownloadMobileAppSlide,
+  getRemoteFeatureFlags,
 } from '../../selectors';
-import { getRemoteFeatureFlags } from '../../../shared/lib/selectors/remote-feature-flags';
-import { getSelectedInternalAccount } from '../../../shared/lib/selectors/accounts';
 import { getCurrentLocale } from '../../ducks/locale/locale';
 import { updateSlides } from '../../store/actions';
 import type { CarouselSlide } from '../../../shared/constants/app-state';
@@ -62,8 +63,6 @@ const mockGetCurrentLocale = jest.fn().mockReturnValue('en-US');
 
 describe('useCarouselManagement (simple Contentful tests)', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-
     mockFetch.mockResolvedValue({
       prioritySlides: [],
       regularSlides: [slide('fund'), slide('downloadMobileApp')],
@@ -80,7 +79,7 @@ describe('useCarouselManagement (simple Contentful tests)', () => {
         if (selector === getSelectedAccountCachedBalance) {
           return mockGetSelectedAccountCachedBalance() as TSelected;
         }
-        if (selector === (getSelectedInternalAccount as MockSelector)) {
+        if (selector === getSelectedInternalAccount) {
           return mockGetSelectedInternalAccount() as TSelected;
         }
         if (selector === getUseExternalServices) {
@@ -107,6 +106,8 @@ describe('useCarouselManagement (simple Contentful tests)', () => {
       contentfulCarouselEnabled: true,
     });
     mockGetCurrentLocale.mockReturnValue('en');
+
+    jest.clearAllMocks();
   });
 
   const getDispatchedSlides = (): CarouselSlide[] => {
@@ -148,14 +149,7 @@ describe('useCarouselManagement (simple Contentful tests)', () => {
 
     const { rerender } = renderHook(() => useCarouselManagement());
 
-    // Flush async state updates from getUserProfileLineageAction() (React 18 requires act()).
-    await act(async () => {
-      await mockGetUserProfileLineage.mock.results[0]?.value;
-    });
-    await act(async () => {
-      await mockFetch.mock.results[0]?.value;
-    });
-    expect(mockUpdateSlides).toHaveBeenCalled();
+    await waitFor(() => expect(mockUpdateSlides).toHaveBeenCalled());
 
     mockGetUserProfileLineage.mockClear();
     mockUpdateSlides.mockClear();

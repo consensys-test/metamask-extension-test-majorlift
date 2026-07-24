@@ -5,10 +5,12 @@ import React, {
   useMemo,
   useReducer,
   useState,
+  useContext,
 } from 'react';
 import PropTypes from 'prop-types';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
+import { isEqual } from 'lodash';
 import { produce } from 'immer';
 import log from 'loglevel';
 import {
@@ -32,7 +34,7 @@ import ConfirmationWarningModal from '../components/confirmation-warning-modal';
 import { DEFAULT_ROUTE } from '../../../helpers/constants/routes';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { useHideToasts } from '../../../hooks/useHideToasts';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   getUnapprovedTemplatedConfirmations,
   getUnapprovedTxCount,
@@ -49,7 +51,11 @@ import { Box } from '../../../components/component-library';
 import Loading from '../../../components/ui/loading-screen';
 import SnapAuthorshipHeader from '../../../components/app/snaps/snap-authorship-header';
 import { SnapUIRenderer } from '../../../components/app/snaps/snap-ui-renderer';
-import { SNAP_MANAGE_ACCOUNTS_CONFIRMATION_TYPES } from '../../../../shared/constants/app';
+import {
+  SNAP_MANAGE_ACCOUNTS_CONFIRMATION_TYPES,
+  SMART_TRANSACTION_CONFIRMATION_TYPES,
+} from '../../../../shared/constants/app';
+import { getExtensionSkipTransactionStatusPage } from '../../../../shared/lib/selectors/smart-transactions';
 import { DAY } from '../../../../shared/constants/time';
 import { Nav } from '../components/confirm/nav';
 import { ConfirmContextProvider } from '../context/confirm';
@@ -232,12 +238,12 @@ export default function ConfirmationPage({
   useHideToasts();
 
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const pendingConfirmations = useSelector(getUnapprovedTemplatedConfirmations);
   const unapprovedTxsCount = useSelector(getUnapprovedTxCount);
-  const approvalFlows = useSelector(getApprovalFlows);
+  const approvalFlows = useSelector(getApprovalFlows, isEqual);
   const totalUnapprovedCount = useSelector(getTotalUnapprovedCount);
   const isHardwareWalletErrorModalVisible = useSelector(
     getIsHardwareWalletErrorModalVisible,
@@ -247,6 +253,9 @@ export default function ConfirmationPage({
   );
   const networkConfigurationsByChainId = useSelector(
     getNetworkConfigurationsByChainId,
+  );
+  const skipSmartTransactionStatusPage = useSelector(
+    getExtensionSkipTransactionStatusPage,
   );
   const [approvalFlowLoadingText, setApprovalFlowLoadingText] = useState(null);
 
@@ -307,6 +316,10 @@ export default function ConfirmationPage({
   // When pendingConfirmation is undefined, this will also be undefined
   const snapName = isSnapDialog && name;
 
+  const isSmartTransactionStatus =
+    pendingConfirmation?.type ===
+    SMART_TRANSACTION_CONFIRMATION_TYPES.showSmartTransactionStatusPage;
+
   const hasHeaderMaybe = isSnapDialog;
   const hasHeader =
     isSnapCustomUIDialog ||
@@ -337,7 +350,7 @@ export default function ConfirmationPage({
           },
           // Passing `t` in the contexts object is a bit redundant but since it's a
           // context too, it makes sense (for completeness)
-          { t, trackEvent, createEventBuilder },
+          { t, trackEvent },
         )
       : {};
   }, [
@@ -348,7 +361,6 @@ export default function ConfirmationPage({
     matchedChain,
     currencySymbolWarning,
     trackEvent,
-    createEventBuilder,
     isSnapDialog,
     snapName,
     networkConfigurationsByChainId,
@@ -473,6 +485,10 @@ export default function ConfirmationPage({
     return null;
   }
 
+  if (isSmartTransactionStatus && skipSmartTransactionStatusPage) {
+    return null;
+  }
+
   const hasInputState = (type) => {
     return INPUT_STATE_CONFIRMATIONS.includes(type);
   };
@@ -516,22 +532,21 @@ export default function ConfirmationPage({
       const isCustomNetwork =
         !isBuiltInNetwork && !isFeaturedRpc && !isMultichainProviderConfig;
 
-      trackEvent(
-        createEventBuilder(MetaMetricsEventName.NavNetworkSwitched)
-          .addCategory(MetaMetricsEventCategory.Network)
-          .addProperties({
-            location: 'Switch Modal',
-            from_network:
-              pendingConfirmation.requestData.fromNetworkConfiguration.chainId,
-            to_network:
-              pendingConfirmation.requestData.toNetworkConfiguration.chainId,
-            custom_network: isCustomNetwork,
-            referrer: {
-              url: window.location.origin,
-            },
-          })
-          .build(),
-      );
+      trackEvent({
+        category: MetaMetricsEventCategory.Network,
+        event: MetaMetricsEventName.NavNetworkSwitched,
+        properties: {
+          location: 'Switch Modal',
+          from_network:
+            pendingConfirmation.requestData.fromNetworkConfiguration.chainId,
+          to_network:
+            pendingConfirmation.requestData.toNetworkConfiguration.chainId,
+          custom_network: isCustomNetwork,
+          referrer: {
+            url: window.location.origin,
+          },
+        },
+      });
     }
 
     if (templateState[pendingConfirmation.id]?.useWarningModal) {

@@ -26,6 +26,9 @@
   "accountSelectionRequired": {
     "message": "نیاز به انتخاب یک حساب دارید!"
   },
+  "addAcquiredTokens": {
+    "message": "رمزیاب های را که با استفاده از MetaMask بدست آورده اید، اضافه کنید"
+  },
   "addAlias": {
     "message": "نام مستعار اضافه کنید"
   },
@@ -74,6 +77,9 @@
   },
   "autoLockTimeLimit": {
     "message": "زمان سنج خروج-خودکار (دقایق)"
+  },
+  "autoLockTimeLimitDescription": {
+    "message": "زمان های بیکار را به شکل دقیقه قبل از خروج MetaMask تنظیم کنید"
   },
   "average": {
     "message": "اوسط"
@@ -175,11 +181,23 @@
   "createPassword": {
     "message": "ایجاد رمز عبور"
   },
+  "currencyConversion": {
+    "message": "تبادل واحد پول"
+  },
+  "currentLanguage": {
+    "message": "زبان فعلی"
+  },
   "custom": {
     "message": "پیشرفته"
   },
+  "customToken": {
+    "message": "رمزیاب دلخواه"
+  },
   "decimal": {
     "message": "اعشاریه های دقت"
+  },
+  "decimalsMustZerotoTen": {
+    "message": "اعشاریه ها باید حد اقل 0، و بیشتر از 36 نباشند."
   },
   "delete": {
     "message": "حذف"
@@ -189,6 +207,9 @@
   },
   "done": {
     "message": "تمام"
+  },
+  "downloadGoogleChrome": {
+    "message": "دانلود گوگل کروم"
   },
   "downloadStateLogs": {
     "message": "دانلود دفترچه وضعیت"
@@ -247,6 +268,9 @@
   },
   "hardwareWallets": {
     "message": "به کیف سخت افزار وصل کنید"
+  },
+  "hardwareWalletsMsg": {
+    "message": "یک کیف سخت افزار را که میخواهید با MetaMast استفاده نمایید، انتخاب کنید"
   },
   "here": {
     "message": "اینجا",
@@ -315,6 +339,12 @@
   "likeToImportTokens": {
     "message": "آیا میخواهید این رمزیاب ها را اضافه نمایید؟"
   },
+  "lineaGoerli": {
+    "message": "شبکه آزمایشی Linea Goerli"
+  },
+  "links": {
+    "message": "لینک ها"
+  },
   "loading": {
     "message": "در حال بارکردن…"
   },
@@ -339,6 +369,9 @@
   "metamaskVersion": {
     "message": "نسخه MetaMask"
   },
+  "mustSelectOne": {
+    "message": "باید حداقل 1 رمزیاب را انتخاب کنید."
+  },
   "needImportFile": {
     "message": "شما باید یک فایل برای وارد کردن را انتخاب کنید.",
     "description": "User is important an account and needs to add a file to continue"
@@ -348,6 +381,12 @@
   },
   "networks": {
     "message": "شبکه ها"
+  },
+  "nevermind": {
+    "message": "توجه نکنید"
+  },
+  "newAccount": {
+    "message": "حساب جدید"
   },
   "newAccountNumberName": {
     "message": "حساب $1",
@@ -367,6 +406,9 @@
   },
   "noWebcamFoundTitle": {
     "message": "وب کام پیدا نشد"
+  },
+  "notEnoughGas": {
+    "message": "گاز ناکافی است"
   },
   "ofTextNofM": {
     "message": "به"
@@ -451,6 +493,9 @@
   "restore": {
     "message": "بازیابی"
   },
+  "revealSeedWords": {
+    "message": "کلمات بازیاب را آشکار کنید"
+  },
   "revealSeedWordsWarning": {
     "message": "این کلمات را میتوان جهت سرقت همه حساب های تان استفاده نمود.",
     "description": "$1 is bolded text using the message from 'revealSeedWordsWarning2'"
@@ -497,6 +542,9 @@
   "showFiatConversionInTestnets": {
     "message": "نمایش تغییرات Testnets"
   },
+  "showFiatConversionInTestnetsDescription": {
+    "message": "این را جهت تبادل فیات بر تیست نیت ها انتخاب نمایید"
+  },
   "showHexData": {
     "message": "نمایش اطلاعات Hex"
   },
@@ -505,6 +553,9 @@
   },
   "sign": {
     "message": "علامت"
+  },
+  "signatureRequest": {
+    "message": "درخواست امضاء"
   },
   "signed": {
     "message": "وارد شد"
@@ -523,6 +574,9 @@
   },
   "stateLogs": {
     "message": "دفترچه وضعیت"
+  },
+  "stateLogsDescription": {
+    "message": "دفترچه وضعیت شامل آدرس های حساب عمومی و معاملات فرستاده شده تان میباشد."
   },
   "submitted": {
     "message": "ارائه شد"

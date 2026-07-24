@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { getSwapBridgeMetricsProperties } from './swap-bridge';
 import { createBuilderRequest } from './test-utils';
 

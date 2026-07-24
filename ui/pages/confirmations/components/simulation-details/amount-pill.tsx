@@ -16,11 +16,8 @@ import Tooltip from '../../../../components/ui/tooltip';
 import { getIntlLocale } from '../../../../ducks/locale/locale';
 import { shortenString as shortenAssetId } from '../../../../helpers/utils/util';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
-import {
-  formatAmount,
-  formatAmountMaxPrecision,
-} from '../../../../../shared/lib/format-amount';
 import { AssetIdentifier } from './types';
+import { formatAmount, formatAmountMaxPrecision } from './formatAmount';
 
 /**
  * Displays a pill with an amount and a background color indicating whether the amount
@@ -33,19 +30,13 @@ import { AssetIdentifier } from './types';
  * @param props.isAllApproval
  * @param props.isUnlimitedApproval
  */
-export const AmountPill = ({
-  asset,
-  amount,
-  isApproval,
-  isAllApproval,
-  isUnlimitedApproval,
-}: {
+export const AmountPill: React.FC<{
   asset: AssetIdentifier;
   amount: BigNumber;
   isApproval?: boolean;
   isAllApproval?: boolean;
   isUnlimitedApproval?: boolean;
-}) => {
+}> = ({ asset, amount, isApproval, isAllApproval, isUnlimitedApproval }) => {
   const t = useI18nContext();
   const locale = useSelector(getIntlLocale);
   const color = getColor({ amount, isApproval });

@@ -36,6 +36,7 @@ export type ReceiveRowProps = {
  * @param options0.inputAmountUsd
  * @param options0.variant
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function ReceiveRow({
   inputAmountUsd,
   variant = ConfirmInfoRowSize.Default,

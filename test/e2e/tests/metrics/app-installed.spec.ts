@@ -5,7 +5,7 @@ import { getEventPayloads, withFixtures } from '../../helpers';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import OnboardingMetricsPage from '../../page-objects/pages/onboarding/onboarding-metrics-page';
 import StartOnboardingPage from '../../page-objects/pages/onboarding/start-onboarding-page';
-import { MOCK_ANALYTICS_ID, WALLET_PASSWORD } from '../../constants';
+import { MOCK_META_METRICS_ID, WALLET_PASSWORD } from '../../constants';
 import OnboardingPasswordPage from '../../page-objects/pages/onboarding/onboarding-password-page';
 import SecureWalletPage from '../../page-objects/pages/onboarding/secure-wallet-page';
 import { skipPasskeySetup } from '../../page-objects/flows/onboarding.flow';
@@ -49,9 +49,8 @@ describe('App Installed Events', function () {
       {
         fixtures: new FixtureBuilderV2({ onboarding: true })
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: MOCK_META_METRICS_ID,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -106,7 +105,7 @@ describe('App Installed Events', function () {
       {
         fixtures: new FixtureBuilderV2({ onboarding: true })
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
+            metaMetricsId: MOCK_META_METRICS_ID,
           })
           .build(),
         title: this.test?.fullTitle(),

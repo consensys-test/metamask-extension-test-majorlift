@@ -1,12 +1,10 @@
 import React from 'react';
 import { useDispatch } from 'react-redux';
 import {
-  Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
-import {
+  Display,
+  FlexDirection,
+  AlignItems,
+  JustifyContent,
   TextVariant,
   BlockSize,
   IconColor,
@@ -18,6 +16,7 @@ import {
   ModalContent,
   ModalHeader,
   Modal,
+  Box,
   Text,
   ModalFooter,
   Button,
@@ -29,6 +28,8 @@ import {
 } from '../../component-library';
 import { hideDataDeletionErrorModal } from '../../../ducks/app/app';
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function DataDeletionErrorModal() {
   const t = useI18nContext();
   const dispatch = useDispatch();
@@ -42,8 +43,8 @@ export default function DataDeletionErrorModal() {
       <ModalOverlay />
       <ModalContent
         modalDialogProps={{
-          display: 'flex',
-          flexDirection: 'column',
+          display: Display.Flex,
+          flexDirection: FlexDirection.Column,
         }}
       >
         <ModalHeader
@@ -53,10 +54,10 @@ export default function DataDeletionErrorModal() {
           onClose={closeModal}
         >
           <Box
-            className="flex"
-            flexDirection={BoxFlexDirection.Column}
-            alignItems={BoxAlignItems.Center}
-            justifyContent={BoxJustifyContent.Center}
+            display={Display.Flex}
+            flexDirection={FlexDirection.Column}
+            alignItems={AlignItems.center}
+            justifyContent={JustifyContent.center}
             gap={4}
           >
             <Icon
@@ -73,9 +74,9 @@ export default function DataDeletionErrorModal() {
         <Box
           paddingLeft={6}
           paddingRight={6}
-          className="flex"
+          display={Display.Flex}
           gap={4}
-          flexDirection={BoxFlexDirection.Column}
+          flexDirection={FlexDirection.Column}
         >
           <Text variant={TextVariant.bodySm} textAlign={TextAlign.Justify}>
             {t('deleteMetaMetricsDataErrorDesc')}
@@ -83,7 +84,7 @@ export default function DataDeletionErrorModal() {
         </Box>
 
         <ModalFooter>
-          <Box className="flex" gap={4}>
+          <Box display={Display.Flex} gap={4}>
             <Button
               size={ButtonSize.Lg}
               width={BlockSize.Full}

@@ -1,9 +1,7 @@
-import {
-  AnnouncementController,
-  AnnouncementControllerMessenger,
-} from '@metamask/announcement-controller';
+import { AnnouncementController } from '@metamask/announcement-controller';
 import { UI_NOTIFICATIONS } from '../../../shared/notifications';
 import { MessengerClientInitFunction } from './types';
+import { AnnouncementControllerMessenger } from './messengers';
 
 /**
  * Initialize the announcement controller.

@@ -24,13 +24,6 @@ import { isEqual } from 'lodash';
 import { AccountGroupObject } from '@metamask/account-tree-controller';
 
 import { Tooltip } from 'react-tippy';
-import {
-  Box,
-  BoxAlignItems,
-  BoxBackgroundColor,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { getPermissions } from '../../../selectors';
 import { getAllNetworkConfigurationsByCaipChainId } from '../../../../shared/lib/selectors/networks';
@@ -39,6 +32,7 @@ import {
   AvatarBaseSize,
   AvatarFavicon,
   AvatarFaviconSize,
+  Box,
   Button,
   ButtonLink,
   ButtonSize,
@@ -57,7 +51,10 @@ import {
 import {
   AlignItems,
   BackgroundColor,
+  BlockSize,
+  BorderRadius,
   Display,
+  FlexDirection,
   IconColor,
   JustifyContent,
   TextColor,
@@ -74,7 +71,7 @@ import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import { EvmAndMultichainNetworkConfigurationsWithCaipChainId } from '../../../selectors/selectors.types';
 import { mergeCaip25CaveatValues } from '../../../../shared/lib/caip25-caveat-merger';
 import { MultichainAccountCell } from '../../../components/multichain-accounts/multichain-account-cell';
@@ -83,7 +80,7 @@ import { useAccountGroupsForPermissions } from '../../../hooks/useAccountGroupsF
 import {
   PermissionsRequest,
   getCaip25CaveatValueFromPermissions,
-} from '../../../helpers/utils/caip25-permissions';
+} from '../../permissions-connect/connect-page/utils';
 import { MultichainSiteCell } from '../../../components/multichain-accounts/multichain-site-cell/multichain-site-cell';
 import { MultichainEditAccountsPage } from '../../../components/multichain-accounts/permissions/multichain-edit-accounts-page/multichain-edit-accounts-page';
 import { getCaip25AccountIdsFromAccountGroupAndScope } from '../../../../shared/lib/multichain/scope-utils';
@@ -123,15 +120,17 @@ export enum MultichainAccountsConnectPageMode {
   EditAccounts = 'edit-accounts',
 }
 
-export const MultichainAccountsConnectPage = ({
+export const MultichainAccountsConnectPage: React.FC<
+  MultichainConnectPageProps
+> = ({
   request,
   permissionsRequestId,
   rejectPermissionsRequest,
   approveConnection,
   targetSubjectMetadata,
-}: MultichainConnectPageProps) => {
+}) => {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const [pageMode, setPageMode] = useState<MultichainAccountsConnectPageMode>(
     MultichainAccountsConnectPageMode.Summary,
   );
@@ -479,17 +478,16 @@ export const MultichainAccountsConnectPage = ({
   ]);
 
   const setModeToEditAccounts = useCallback(() => {
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.ViewPermissionedAccounts)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          location:
-            'Connect view (accounts tab), Permissions toast, Permissions (dapp)',
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.ViewPermissionedAccounts,
+      properties: {
+        location:
+          'Connect view (accounts tab), Permissions toast, Permissions (dapp)',
+      },
+    });
     setPageMode(MultichainAccountsConnectPageMode.EditAccounts);
-  }, [trackEvent, createEventBuilder]);
+  }, [trackEvent]);
 
   const handleCancelConnection = useCallback(() => {
     rejectPermissionsRequest(permissionsRequestId);
@@ -554,8 +552,8 @@ export const MultichainAccountsConnectPage = ({
     >
       <Header paddingTop={8} paddingBottom={4}>
         <Box
-          className="flex"
-          justifyContent={BoxJustifyContent.Center}
+          display={Display.Flex}
+          justifyContent={JustifyContent.center}
           marginBottom={8}
         >
           {targetSubjectMetadata.iconUrl ? (
@@ -580,9 +578,9 @@ export const MultichainAccountsConnectPage = ({
           )}
         </Box>
         <Box
-          className="flex"
-          alignItems={BoxAlignItems.Center}
-          justifyContent={BoxJustifyContent.Center}
+          display={Display.Flex}
+          alignItems={AlignItems.center}
+          justifyContent={JustifyContent.center}
           gap={2}
           marginBottom={1}
         >
@@ -622,7 +620,7 @@ export const MultichainAccountsConnectPage = ({
             </Tooltip>
           )}
         </Box>
-        <Box className="flex" justifyContent={BoxJustifyContent.Center}>
+        <Box display={Display.Flex} justifyContent={JustifyContent.center}>
           <Text color={TextColor.textAlternative}>
             {t('connectionDescription')}
           </Text>
@@ -642,16 +640,18 @@ export const MultichainAccountsConnectPage = ({
           >
             <Box marginTop={4}>
               <Box
-                backgroundColor={BoxBackgroundColor.BackgroundDefault}
-                className="rounded-xl"
+                backgroundColor={BackgroundColor.backgroundDefault}
+                borderRadius={BorderRadius.XL}
               >
                 {selectedAccountGroupIds.map(renderAccountCell)}
               </Box>
               {selectedAccountGroupIds.length === 0 && (
                 <Box
-                  className="flex multichain-connect-page__accounts-empty rounded-xl"
-                  justifyContent={BoxJustifyContent.Start}
-                  alignItems={BoxAlignItems.Center}
+                  className="connect-page__accounts-empty"
+                  display={Display.Flex}
+                  justifyContent={JustifyContent.flexStart}
+                  alignItems={AlignItems.center}
+                  borderRadius={BorderRadius.XL}
                 >
                   <ButtonLink
                     onClick={setModeToEditAccounts}
@@ -663,17 +663,19 @@ export const MultichainAccountsConnectPage = ({
               )}
               {selectedAccountGroupIds.length > 0 && (
                 <Box
-                  className="flex"
                   marginTop={4}
-                  justifyContent={BoxJustifyContent.Start}
+                  display={Display.Flex}
+                  justifyContent={JustifyContent.flexStart}
                   padding={4}
                 >
                   <Box
-                    className="flex multichain-connect-page__edit-icon rounded-md"
+                    className="connect-page__edit-icon"
                     marginRight={4}
-                    alignItems={BoxAlignItems.Center}
-                    justifyContent={BoxJustifyContent.Center}
-                    backgroundColor={BoxBackgroundColor.InfoMuted}
+                    display={Display.Flex}
+                    alignItems={AlignItems.center}
+                    justifyContent={JustifyContent.center}
+                    backgroundColor={BackgroundColor.infoMuted}
+                    borderRadius={BorderRadius.MD}
                     padding={2}
                   >
                     <Icon
@@ -717,11 +719,12 @@ export const MultichainAccountsConnectPage = ({
       </Content>
       <Footer>
         <Box
-          flexDirection={BoxFlexDirection.Column}
+          display={Display.Flex}
+          flexDirection={FlexDirection.Column}
           gap={4}
-          className="flex w-full"
+          width={BlockSize.Full}
         >
-          <Box gap={4} className="flex w-full">
+          <Box display={Display.Flex} gap={4} width={BlockSize.Full}>
             <Button
               block
               variant={ButtonVariant.Secondary}

@@ -33,7 +33,7 @@ import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 
 type HardwareAccount = {
@@ -83,7 +83,7 @@ const AccountList = ({
   hdPaths,
 }: AccountListProps) => {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const [pathValue, setPathValue] = useState<string | null>(null);
   const trackEventRef = useRef(trackEvent);
   const initialDeviceRef = useRef(device);
@@ -93,16 +93,13 @@ const AccountList = ({
   }, [trackEvent]);
 
   useEffect(() => {
-    trackEventRef.current(
-      createEventBuilder(
-        MetaMetricsEventName.ConnectHardwareWalletAccountSelectorViewed,
-      )
-        .addProperties({
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          device_type: upperFirst(initialDeviceRef.current),
-        })
-        .build(),
-    );
+    trackEventRef.current({
+      event: MetaMetricsEventName.ConnectHardwareWalletAccountSelectorViewed,
+      properties: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        device_type: upperFirst(initialDeviceRef.current),
+      },
+    });
   }, []);
 
   const goToNextPage = useCallback(() => {
@@ -163,6 +160,13 @@ const AccountList = ({
         <h3>{t('selectAnAccount')}</h3>
       </Text>
       {shouldShowHDPaths ? renderHdPathSelector() : null}
+      <Text
+        asChild
+        variant={TextVariant.HeadingSm}
+        className="hw-connect__hdPath__title"
+      >
+        <h3>{t('selectAnAccount')}</h3>
+      </Text>
     </Box>
   );
 
@@ -245,18 +249,17 @@ const AccountList = ({
             <ButtonIcon
               className="hw-account-list__item__link"
               onClick={() => {
-                trackEvent(
-                  createEventBuilder('Clicked Block Explorer Link')
-                    .addCategory(MetaMetricsEventCategory.Accounts)
-                    .addProperties({
-                      actions: 'Hardware Connect',
-                      // eslint-disable-next-line @typescript-eslint/naming-convention
-                      link_type: 'Account Tracker',
-                      // eslint-disable-next-line @typescript-eslint/naming-convention
-                      block_explorer_domain: blockExplorerDomain,
-                    })
-                    .build(),
-                );
+                trackEvent({
+                  category: MetaMetricsEventCategory.Accounts,
+                  event: 'Clicked Block Explorer Link',
+                  properties: {
+                    actions: 'Hardware Connect',
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    link_type: 'Account Tracker',
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    block_explorer_domain: blockExplorerDomain,
+                  },
+                });
                 global.platform.openTab({
                   url: accountLink,
                 });

@@ -1,11 +1,17 @@
 import { PRIVACY_POLICY_DATE } from '../../../helpers/constants/privacy-policy';
 import { MetaMaskReduxState } from '../../../store/store';
-import { StorageWriteErrorType } from '../../../../shared/constants/app-state';
+import {
+  ClaimSubmitToastType,
+  StorageWriteErrorType,
+} from '../../../../shared/constants/app-state';
 import { getIsPrivacyToastRecent } from './utils';
 
 type State = {
   appState: Partial<
-    Pick<MetaMaskReduxState['appState'], 'showInfuraSwitchToast'>
+    Pick<
+      MetaMaskReduxState['appState'],
+      'showClaimSubmitToast' | 'showInfuraSwitchToast'
+    >
   >;
   metamask: Partial<
     Pick<
@@ -15,8 +21,7 @@ type State = {
       | 'onboardingDate'
       | 'shieldEndingToastLastClickedOrClosed'
       | 'shieldPausedToastLastClickedOrClosed'
-      | 'completedMetaMetricsOnboarding'
-      | 'optedIn'
+      | 'participateInMetaMetrics'
       | 'remoteFeatureFlags'
       | 'pna25Acknowledged'
       | 'completedOnboarding'
@@ -27,45 +32,45 @@ type State = {
 };
 
 /**
- * Determines if the privacy policy toast should be shown based on the current
- * date and whether the new privacy policy toast was clicked or closed.
- *
- * Returns a primitive boolean so React-Redux's default `===` comparison
- * prevents unnecessary re-renders without custom memoization.
+ * Determines if the privacy policy toast should be shown based on the current date and whether the new privacy policy toast was clicked or closed.
  *
  * @param state - The application state containing the privacy policy data.
- * @returns True if the toast should be shown.
+ * @returns Boolean is True if the toast should be shown, and the number is the date the toast was last shown.
  */
-export function selectShowPrivacyPolicyToast(
-  state: Pick<State, 'metamask'>,
-): boolean {
+export function selectShowPrivacyPolicyToast(state: Pick<State, 'metamask'>): {
+  showPrivacyPolicyToast: boolean;
+  newPrivacyPolicyToastShownDate?: number | null;
+} {
   const {
     newPrivacyPolicyToastClickedOrClosed,
     newPrivacyPolicyToastShownDate,
     onboardingDate,
   } = state.metamask || {};
-
   const newPrivacyPolicyDate = new Date(PRIVACY_POLICY_DATE);
   const currentDate = new Date(Date.now());
 
-  return (
+  const showPrivacyPolicyToast =
     !newPrivacyPolicyToastClickedOrClosed &&
     currentDate >= newPrivacyPolicyDate &&
     getIsPrivacyToastRecent(newPrivacyPolicyToastShownDate) &&
-    (!onboardingDate || onboardingDate < newPrivacyPolicyDate.valueOf())
-  );
+    // users who onboarded before the privacy policy date should see the notice
+    // and
+    // old users who don't have onboardingDate set should see the notice
+    (!onboardingDate || onboardingDate < newPrivacyPolicyDate.valueOf());
+
+  return { showPrivacyPolicyToast, newPrivacyPolicyToastShownDate };
 }
 
 /**
- * Reads the date the privacy policy toast was last shown from state.
+ * Retrieves the state for the "Claim Submit" toast
  *
- * @param state - The application state.
- * @returns The timestamp, or null/undefined if never shown.
+ * @param state - Redux state object.
+ * @returns ClaimSubmitToastType or null
  */
-export function selectNewPrivacyPolicyToastShownDate(
-  state: Pick<State, 'metamask'>,
-): number | null | undefined {
-  return state.metamask?.newPrivacyPolicyToastShownDate;
+export function selectClaimSubmitToast(
+  state: Pick<State, 'appState'>,
+): ClaimSubmitToastType | null {
+  return state.appState.showClaimSubmitToast || null;
 }
 
 /**
@@ -154,7 +159,7 @@ export function selectShowSidePanelMigrationToast(
 /**
  * Determines if the PNA25 banner should be shown based on:
  * - User has completed onboarding (completedOnboarding === true)
- * - User has opted into analytics (`optedIn === true`)
+ * - User has opted into metrics (participateInMetaMetrics === true)
  * - User hasn't acknowledged the banner yet (pna25Acknowledged === false)
  *
  * Regular new users: Go through metametrics page → pna25Acknowledged = true → don't see banner
@@ -165,20 +170,16 @@ export function selectShowSidePanelMigrationToast(
  * @returns Boolean indicating whether to show the banner
  */
 export function selectShowPna25Modal(state: Pick<State, 'metamask'>): boolean {
-  const {
-    completedOnboarding,
-    completedMetaMetricsOnboarding,
-    optedIn,
-    pna25Acknowledged,
-  } = state.metamask || {};
+  const { completedOnboarding, participateInMetaMetrics, pna25Acknowledged } =
+    state.metamask || {};
 
   // Only show to users who have completed onboarding
   if (!completedOnboarding) {
     return false; // User hasn't completed onboarding yet
   }
 
-  if (completedMetaMetricsOnboarding !== true || optedIn !== true) {
-    return false; // User hasn't opted into analytics
+  if (participateInMetaMetrics !== true) {
+    return false; // User hasn't opted into metrics
   }
 
   if (pna25Acknowledged === true) {

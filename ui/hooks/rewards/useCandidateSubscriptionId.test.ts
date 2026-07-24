@@ -908,6 +908,7 @@ describe('useCandidateSubscriptionId', () => {
 
       // Resolve the promise
       await act(async () => {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         resolvePromise?.('delayed-sub-id');
       });
     });

@@ -7,7 +7,6 @@ const {
   getEventPayloads,
   assertInAnyOrder,
 } = require('../../helpers');
-const { MOCK_PROFILE_IDENTITY_EVENT_PROPERTIES } = require('../../constants');
 const { login } = require('../../page-objects/flows/login.flow');
 const {
   buildQuote,
@@ -30,7 +29,7 @@ const {
   TRADES_API_MOCK_RESULT,
   NETWORKS_2_API_MOCK_RESULT,
 } = require('../../../data/mock-data');
-const { MOCK_ANALYTICS_ID } = require('../../constants');
+const { MOCK_META_METRICS_ID } = require('../../constants');
 
 const numberOfSegmentRequests = 19;
 
@@ -99,9 +98,8 @@ describe.skip('Swap Eth for another Token', function () {
       {
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: MOCK_META_METRICS_ID,
+            participateInMetaMetrics: true,
           })
           .build(),
         localNodeOptions: {
@@ -191,14 +189,13 @@ async function assertNavSwapButtonClickedEvent(reqs) {
     location: 'Main View',
     text: 'Swap',
     token_symbol: 'ETH',
-    ...MOCK_PROFILE_IDENTITY_EVENT_PROPERTIES,
   });
 }
 
 async function assertPrepareSwapPageLoadedEvents(reqs) {
   const assertionsReq1 = [
     (req) => req.event === MetaMetricsEventName.PrepareSwapPageLoaded,
-    (req) => Object.keys(req.properties).length === 10,
+    (req) => Object.keys(req.properties).length === 8,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -212,7 +209,7 @@ async function assertPrepareSwapPageLoadedEvents(reqs) {
 
   const assertionsReq2 = [
     (req) => req.event === MetaMetricsEventName.PrepareSwapPageLoaded,
-    (req) => Object.keys(req.properties).length === 6,
+    (req) => Object.keys(req.properties).length === 4,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -229,7 +226,7 @@ async function assertPrepareSwapPageLoadedEvents(reqs) {
 async function assertQuotesRequestedEvents(reqs) {
   const assertionsReq3 = [
     (req) => req.event === MetaMetricsEventName.QuotesRequested,
-    (req) => Object.keys(req.properties).length === 18,
+    (req) => Object.keys(req.properties).length === 16,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -251,7 +248,7 @@ async function assertQuotesRequestedEvents(reqs) {
 
   const assertionsReq4 = [
     (req) => req.event === MetaMetricsEventName.QuotesRequested,
-    (req) => Object.keys(req.properties).length === 7,
+    (req) => Object.keys(req.properties).length === 5,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -269,7 +266,7 @@ async function assertQuotesRequestedEvents(reqs) {
 async function assertQuotesReceivedAndBestQuoteReviewedEvents(reqs) {
   const assertionsReq5 = [
     (req) => req.event === MetaMetricsEventName.QuotesReceived,
-    (req) => Object.keys(req.properties).length === 22,
+    (req) => Object.keys(req.properties).length === 20,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -295,7 +292,7 @@ async function assertQuotesReceivedAndBestQuoteReviewedEvents(reqs) {
 
   const assertionsReq6 = [
     (req) => req.event === MetaMetricsEventName.QuotesReceived,
-    (req) => Object.keys(req.properties).length === 7,
+    (req) => Object.keys(req.properties).length === 5,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -306,7 +303,7 @@ async function assertQuotesReceivedAndBestQuoteReviewedEvents(reqs) {
 
   const assertionsReq7 = [
     (req) => req.event === MetaMetricsEventName.BestQuoteReviewed,
-    (req) => Object.keys(req.properties).length === 20,
+    (req) => Object.keys(req.properties).length === 18,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -329,7 +326,7 @@ async function assertQuotesReceivedAndBestQuoteReviewedEvents(reqs) {
 
   const assertionsReq8 = [
     (req) => req.event === MetaMetricsEventName.BestQuoteReviewed,
-    (req) => Object.keys(req.properties).length === 6,
+    (req) => Object.keys(req.properties).length === 4,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -353,7 +350,7 @@ async function assertQuotesReceivedAndBestQuoteReviewedEvents(reqs) {
 async function assertAllAvailableQuotesOpenedEvents(reqs) {
   const assertionsReq9 = [
     (req) => req.event === MetaMetricsEventName.AllAvailableQuotesOpened,
-    (req) => Object.keys(req.properties).length === 21,
+    (req) => Object.keys(req.properties).length === 19,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -379,7 +376,7 @@ async function assertAllAvailableQuotesOpenedEvents(reqs) {
 
   const assertionsReq10 = [
     (req) => req.event === MetaMetricsEventName.AllAvailableQuotesOpened,
-    (req) => Object.keys(req.properties).length === 6,
+    (req) => Object.keys(req.properties).length === 4,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -396,7 +393,7 @@ async function assertAllAvailableQuotesOpenedEvents(reqs) {
 async function assertSwapStartedEvents(reqs) {
   const assertionsReq11 = [
     (req) => req.event === MetaMetricsEventName.SwapStarted,
-    (req) => Object.keys(req.properties).length === 28,
+    (req) => Object.keys(req.properties).length === 26,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -427,7 +424,7 @@ async function assertSwapStartedEvents(reqs) {
 
   const assertionsReq12 = [
     (req) => req.event === MetaMetricsEventName.SwapStarted,
-    (req) => Object.keys(req.properties).length === 7,
+    (req) => Object.keys(req.properties).length === 5,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -445,7 +442,7 @@ async function assertSwapStartedEvents(reqs) {
 async function assertSwapCompletedEvents(reqs) {
   const assertionsReq13 = [
     (req) => req.event === MetaMetricsEventName.SwapCompleted,
-    (req) => Object.keys(req.properties).length === 34,
+    (req) => Object.keys(req.properties).length === 32,
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
     (req) => req.properties?.environment_type === 'background',
@@ -482,7 +479,7 @@ async function assertSwapCompletedEvents(reqs) {
 
   const assertionsReq14 = [
     (req) => req.event === MetaMetricsEventName.SwapCompleted,
-    (req) => Object.keys(req.properties).length === 7,
+    (req) => Object.keys(req.properties).length === 5,
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
     (req) => req.properties?.environment_type === 'background',
@@ -499,7 +496,7 @@ async function assertSwapCompletedEvents(reqs) {
 async function assertExitedSwapsEvents(reqs) {
   const assertionsReq15 = [
     (req) => req.event === MetaMetricsEventName.ExitedSwaps,
-    (req) => Object.keys(req.properties).length === 16,
+    (req) => Object.keys(req.properties).length === 14,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -519,7 +516,7 @@ async function assertExitedSwapsEvents(reqs) {
 
   const assertionsReq16 = [
     (req) => req.event === MetaMetricsEventName.ExitedSwaps,
-    (req) => Object.keys(req.properties).length === 7,
+    (req) => Object.keys(req.properties).length === 5,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -535,7 +532,7 @@ async function assertExitedSwapsEvents(reqs) {
 
   const assertionsReq17 = [
     (req) => req.event === MetaMetricsEventName.ExitedSwaps,
-    (req) => Object.keys(req.properties).length === 13,
+    (req) => Object.keys(req.properties).length === 11,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),
@@ -552,7 +549,7 @@ async function assertExitedSwapsEvents(reqs) {
 
   const assertionsReq18 = [
     (req) => req.event === MetaMetricsEventName.ExitedSwaps,
-    (req) => Object.keys(req.properties).length === 7,
+    (req) => Object.keys(req.properties).length === 5,
 
     (req) => req.properties?.category === MetaMetricsEventCategory.Swaps,
     (req) => req.properties?.chain_id === toHex(1337),

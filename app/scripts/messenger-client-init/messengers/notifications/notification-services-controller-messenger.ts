@@ -6,17 +6,22 @@ import {
 import { type NotificationServicesControllerMessenger } from '@metamask/notification-services-controller/notification-services';
 import { RootMessenger } from '../../../lib/messenger';
 
+type Actions = MessengerActions<NotificationServicesControllerMessenger>;
+
+type Events = MessengerEvents<NotificationServicesControllerMessenger>;
+
 export function getNotificationServicesControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<NotificationServicesControllerMessenger>,
-    MessengerEvents<NotificationServicesControllerMessenger>
-  >,
+  messenger: RootMessenger<Actions, Events>,
 ): NotificationServicesControllerMessenger {
-  const controllerMessenger: NotificationServicesControllerMessenger =
-    new Messenger({
-      namespace: 'NotificationServicesController',
-      parent: messenger,
-    });
+  const controllerMessenger = new Messenger<
+    'NotificationServicesController',
+    Actions,
+    Events,
+    typeof messenger
+  >({
+    namespace: 'NotificationServicesController',
+    parent: messenger,
+  });
   messenger.delegate({
     messenger: controllerMessenger,
     actions: [
@@ -26,9 +31,6 @@ export function getNotificationServicesControllerMessenger(
       'AuthenticationController:getBearerToken',
       'AuthenticationController:isSignedIn',
       'AuthenticationController:performSignIn',
-      // Authenticated User Storage Actions
-      'AuthenticatedUserStorageService:getNotificationPreferences',
-      'AuthenticatedUserStorageService:putNotificationPreferences',
       // Push Actions
       'NotificationServicesPushController:addPushNotificationLinks',
       'NotificationServicesPushController:enablePushNotifications',

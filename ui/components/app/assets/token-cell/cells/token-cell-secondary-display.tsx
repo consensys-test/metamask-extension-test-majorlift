@@ -1,12 +1,11 @@
 import React, { CSSProperties } from 'react';
 import { useSelector } from 'react-redux';
-import cn from 'clsx';
-import { Skeleton } from '@metamask/design-system-react';
 import {
   BackgroundColor,
   FontWeight,
   IconColor,
   TextAlign,
+  TextVariant,
 } from '../../../../../helpers/constants/design-system';
 import {
   ButtonIcon,
@@ -23,6 +22,7 @@ import { TokenFiatDisplayInfo } from '../../types';
 import { useIsOriginalNativeTokenSymbol } from '../../../../../hooks/useIsOriginalNativeTokenSymbol';
 import { getProviderConfig } from '../../../../../../shared/lib/selectors/networks';
 import { isEvmChainId } from '../../../../../../shared/lib/asset-utils';
+import { Skeleton } from '../../../../component-library/skeleton';
 import { isZeroAmount } from '../../../../../helpers/utils/number-utils';
 
 type TokenCellSecondaryDisplayProps = {
@@ -86,21 +86,16 @@ export const TokenCellSecondaryDisplay = React.memo(
     // secondary display text
     return (
       <Skeleton
-        hideChildren={
-          token.isFiatLoading ||
-          (!anyEnabledNetworksAreAvailable &&
-            isZeroAmount(secondaryDisplayText) &&
-            secondaryDisplayText !== '—')
+        isLoading={
+          !anyEnabledNetworksAreAvailable &&
+          isZeroAmount(secondaryDisplayText) &&
+          secondaryDisplayText !== '—'
         }
-        className="h-3.5"
-        data-testid="multichain-token-list-item-secondary-value-skeleton"
+        marginBottom={1}
       >
         <SensitiveText
           fontWeight={token.secondary ? FontWeight.Medium : FontWeight.Normal}
-          className={cn(
-            token.secondary ? 'text-s-body-md' : 'text-s-body-sm',
-            '@compact:text-s-body-sm',
-          )}
+          variant={token.secondary ? TextVariant.bodyMd : TextVariant.bodySm}
           textAlign={TextAlign.End}
           data-testid="multichain-token-list-item-secondary-value"
           ellipsis={token.isStakeable}
@@ -115,6 +110,5 @@ export const TokenCellSecondaryDisplay = React.memo(
   },
   (prevProps, nextProps) =>
     prevProps.token.secondary === nextProps.token.secondary &&
-    prevProps.token.isFiatLoading === nextProps.token.isFiatLoading &&
     prevProps.privacyMode === nextProps.privacyMode,
 );

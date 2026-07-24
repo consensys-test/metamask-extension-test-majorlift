@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Box,
@@ -26,7 +26,6 @@ import {
 import { TextVariant as LegacyTextVariant } from '../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import {
-  ACCOUNT_LIST_PAGE_ROUTE,
   CONNECT_HARDWARE_ROUTE,
   IMPORT_SRP_ROUTE,
   ADD_WALLET_PAGE_ROUTE,
@@ -48,7 +47,7 @@ import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   ACCOUNT_WATCHER_NAME,
   ACCOUNT_WATCHER_SNAP_ID,
@@ -60,8 +59,7 @@ import type { WalletTypeOption } from './choose-new-wallet-type-page.types';
 export const ChooseNewWalletTypePage = () => {
   const t = useI18nContext();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   const institutionalWalletsEnabled = useSelector(
     getManageInstitutionalWallets,
@@ -71,49 +69,27 @@ export const ChooseNewWalletTypePage = () => {
     getIsWatchEthereumAccountEnabled,
   );
 
-  // When opened in a fresh tab (e.g. redirected from side panel/popup),
-  // there is no browser history to go back to. Navigate to account list
-  // with replace and propagate fromFreshTab so upstream pages also use
-  // explicit routing instead of history-based back navigation.
-  const isFreshTab =
-    location.key === 'default' ||
-    (location.state as { fromFreshTab?: boolean } | null)?.fromFreshTab ===
-      true;
-
-  const handleBack = useCallback(() => {
-    if (isFreshTab) {
-      navigate(ACCOUNT_LIST_PAGE_ROUTE, {
-        replace: true,
-        state: { fromFreshTab: true },
-      });
-    } else {
-      navigate(PREVIOUS_ROUTE);
-    }
-  }, [isFreshTab, navigate]);
-
   const handleImportWallet = useCallback(() => {
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.ImportSecretRecoveryPhrase)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          status: 'started',
-          location: 'Add Wallet Modal',
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.ImportSecretRecoveryPhrase,
+      properties: {
+        status: 'started',
+        location: 'Add Wallet Modal',
+      },
+    });
     navigate(IMPORT_SRP_ROUTE);
-  }, [trackEvent, createEventBuilder, navigate]);
+  }, [trackEvent, navigate]);
 
   const handleImportAccount = useCallback(() => {
     navigate(ADD_WALLET_PAGE_ROUTE);
   }, [navigate]);
 
   const handleConnectHardwareWallet = useCallback(() => {
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.AddHardwareWalletClicked)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .build(),
-    );
+    trackEvent({
+      event: MetaMetricsEventName.AddHardwareWalletClicked,
+      category: MetaMetricsEventCategory.Navigation,
+    });
 
     if (
       getEnvironmentType() === ENVIRONMENT_TYPE_POPUP ||
@@ -129,55 +105,53 @@ export const ChooseNewWalletTypePage = () => {
     } else {
       navigate(CONNECT_HARDWARE_ROUTE);
     }
-  }, [trackEvent, createEventBuilder, navigate]);
+  }, [trackEvent, navigate]);
 
   const handleManageInstitutionalWallets = useCallback(() => {
     navigate(getSnapRoute(INSTITUTIONAL_WALLET_SNAP_ID));
   }, [navigate]);
 
   const handleAddSnapAccount = useCallback(() => {
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.AccountAddSelected)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          account_type: MetaMetricsEventAccountType.Snap,
-          location: 'Main Menu',
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          hd_entropy_index: null,
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.AccountAddSelected,
+      properties: {
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        account_type: MetaMetricsEventAccountType.Snap,
+        location: 'Main Menu',
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        hd_entropy_index: null,
+      },
+    });
     globalThis.platform.openTab({
       url: process.env.ACCOUNT_SNAPS_DIRECTORY_URL as string,
     });
-  }, [trackEvent, createEventBuilder]);
+  }, [trackEvent]);
 
   const handleAddWatchAccount = useCallback(() => {
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.AccountAddSelected)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          account_type: MetaMetricsEventAccountType.Snap,
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          snap_id: ACCOUNT_WATCHER_SNAP_ID,
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          snap_name: ACCOUNT_WATCHER_NAME,
-          location: 'Main Menu',
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          hd_entropy_index: null,
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.AccountAddSelected,
+      properties: {
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        account_type: MetaMetricsEventAccountType.Snap,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        snap_id: ACCOUNT_WATCHER_SNAP_ID,
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        snap_name: ACCOUNT_WATCHER_NAME,
+        location: 'Main Menu',
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        hd_entropy_index: null,
+      },
+    });
     navigate(getSnapRoute(ACCOUNT_WATCHER_SNAP_ID));
-  }, [trackEvent, createEventBuilder, navigate]);
+  }, [trackEvent, navigate]);
 
   const walletOptions: WalletTypeOption[] = useMemo(
     () => [
@@ -257,7 +231,7 @@ export const ChooseNewWalletTypePage = () => {
             size={ButtonIconSize.Md}
             ariaLabel={t('back')}
             iconName={IconName.ArrowLeft}
-            onClick={handleBack}
+            onClick={() => navigate(PREVIOUS_ROUTE)}
             data-testid="back-button"
           />
         }

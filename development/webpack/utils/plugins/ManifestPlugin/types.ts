@@ -18,11 +18,13 @@ export type BundleSizeStatsOptions = {
    * Whether to emit a sibling debug artifact with the raw classified entrypoint graph.
    */
   debug?: boolean;
-};
 
-export type HtmlEntrypointOptions = {
-  directory: string;
-  category: BundleSizeCategory;
+  /**
+   * Classifies a webpack entrypoint by runtime surface for bundle-size reporting.
+   *
+   * Return `null` to omit.
+   */
+  classifyEntrypoint: (name: string) => BundleSizeCategory | null;
 };
 
 export type BaseManifestPluginOptions<Zip extends boolean> = {
@@ -105,11 +107,6 @@ export type BaseManifestPluginOptions<Zip extends boolean> = {
    * Optional bundle-size reporting configuration.
    */
   stats?: BundleSizeStatsOptions | false;
-
-  /**
-   * HTML entrypoint directories to collect and classify for bundle-size stats.
-   */
-  html?: readonly HtmlEntrypointOptions[];
 };
 
 export type ZipOptions = {

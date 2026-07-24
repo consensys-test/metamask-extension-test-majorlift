@@ -20,6 +20,7 @@ jest.mock('./capabilities/factory', () => ({
     stateSnapshot: {
       getState: jest.fn().mockResolvedValue({ screen: 'home' }),
     },
+    mockServer: undefined,
     config: {
       environment: 'e2e',
       extensionName: 'MetaMask',
@@ -34,6 +35,7 @@ jest.mock('./capabilities/factory', () => ({
     stateSnapshot: {
       getState: jest.fn().mockResolvedValue({ screen: 'home' }),
     },
+    mockServer: undefined,
     config: {
       environment: 'prod',
       extensionName: 'MetaMask',
@@ -54,6 +56,7 @@ jest.mock('@metamask/client-mcp-core', () => ({
   knowledgeStore: {
     writeSessionMetadata: jest.fn().mockResolvedValue(undefined),
   },
+  MockServerCapability: class {},
 }));
 
 describe('MetaMaskSessionManager', () => {

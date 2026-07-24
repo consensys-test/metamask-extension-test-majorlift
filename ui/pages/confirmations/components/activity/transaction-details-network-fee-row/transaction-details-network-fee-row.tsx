@@ -6,6 +6,7 @@ import { useFiatFormatter } from '../../../../../hooks/useFiatFormatter';
 import { TransactionDetailsRow } from '../transaction-details-row';
 import { useTransactionDetails } from '../transaction-details-context';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function TransactionDetailsNetworkFeeRow() {
   const t = useI18nContext();
   const { transactionMeta } = useTransactionDetails();

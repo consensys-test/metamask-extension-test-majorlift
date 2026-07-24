@@ -42,8 +42,7 @@ describe('createSegmentMock', () => {
   it('uses a noop callback when track is called without one', async () => {
     const client = createSegmentMock(MANUAL_FLUSH_AT);
     client.track({ event: 'solo' });
-
-    await expect(client.flush()).resolves.toBeUndefined();
+    await client.flush();
     expect(client.queue).toHaveLength(0);
   });
 
@@ -63,14 +62,10 @@ describe('createSegmentMock', () => {
     expect(client.queue).toHaveLength(1);
   });
 
-  it('exposes noop page and identify (with optional callback) for spying', () => {
+  it('exposes noop page and identify for spying', () => {
     const client = createSegmentMock(MANUAL_FLUSH_AT);
-    const pageCb = jest.fn();
-    const identifyCb = jest.fn();
-    expect(() => client.page({ name: 'n' }, pageCb)).not.toThrow();
-    expect(() => client.identify({ userId: 'u' }, identifyCb)).not.toThrow();
-    expect(pageCb).toHaveBeenCalledTimes(1);
-    expect(identifyCb).toHaveBeenCalledTimes(1);
+    expect(() => client.page({ name: 'n' })).not.toThrow();
+    expect(() => client.identify({ userId: 'u' })).not.toThrow();
   });
 });
 
@@ -143,7 +138,7 @@ describe('segment module export', () => {
     });
   });
 
-  it('forwards track / identify / page payloads to the Analytics instance', async () => {
+  it('clones track payloads before forwarding so frozen context objects work', async () => {
     jest.resetModules();
     process.env.SEGMENT_WRITE_KEY = 'key';
     process.env.METAMASK_ENVIRONMENT = 'development';
@@ -151,17 +146,31 @@ describe('segment module export', () => {
       Analytics: analyticsConstructor,
     }));
     const { segment: client } = await importSegmentIndexModule();
-
-    client.track({ event: 'e' });
-    client.identify({ userId: 'u' });
-    client.page({ name: 'n' });
-
-    expect(analyticsInstance.track).toHaveBeenCalledTimes(1);
-    expect(analyticsInstance.identify).toHaveBeenCalledTimes(1);
-    expect(analyticsInstance.page).toHaveBeenCalledTimes(1);
+    const payload = {
+      event: 'evt',
+      context: Object.freeze({ app: Object.freeze({ name: 'x' }) }),
+    };
+    client.track(payload);
+    const [forwarded] = analyticsInstance.track.mock.calls[0] ?? [];
+    expect(forwarded).toBeDefined();
+    expect(forwarded).not.toBe(payload);
+    if (
+      forwarded &&
+      typeof forwarded === 'object' &&
+      'context' in forwarded &&
+      forwarded.context &&
+      typeof forwarded.context === 'object'
+    ) {
+      Reflect.set(forwarded.context, 'library', { name: 'lib' });
+    }
+    expect(
+      payload.context &&
+        typeof payload.context === 'object' &&
+        'library' in payload.context,
+    ).toBe(false);
   });
 
-  it('clones payloads before forwarding them to the Analytics instance', async () => {
+  it('clones identify and page payloads before forwarding', async () => {
     jest.resetModules();
     process.env.SEGMENT_WRITE_KEY = 'key';
     process.env.METAMASK_ENVIRONMENT = 'development';
@@ -169,46 +178,33 @@ describe('segment module export', () => {
       Analytics: analyticsConstructor,
     }));
     const { segment: client } = await importSegmentIndexModule();
-
-    const properties = Object.freeze({ chainId: '0x1' });
-    const context = Object.freeze({
-      app: Object.freeze({ name: 'MetaMask Extension' }),
-    });
-    const traits = Object.freeze({ plan: 'pro' });
-
-    client.track({
-      event: 'e',
-      properties,
-      context,
-    });
-    client.identify({
+    const identifyPayload = {
       userId: 'u',
-      traits,
-      context,
-    });
-    client.page({
-      name: 'n',
-      properties,
-      context,
-    });
+      traits: Object.freeze({ plan: 'free' }),
+    };
+    client.identify(identifyPayload);
+    const [idArg] = analyticsInstance.identify.mock.calls[0] ?? [];
+    expect(idArg).not.toBe(identifyPayload);
 
-    const [trackCall] = analyticsInstance.track.mock.calls[0] ?? [];
-    expect(trackCall.properties).toEqual(properties);
-    expect(trackCall.properties).not.toBe(properties);
-    expect(trackCall.context).toEqual(context);
-    expect(trackCall.context).not.toBe(context);
+    const pagePayload = {
+      name: 'home',
+      properties: Object.freeze({ path: '/' }),
+    };
+    client.page(pagePayload);
+    const [pageArg] = analyticsInstance.page.mock.calls[0] ?? [];
+    expect(pageArg).not.toBe(pagePayload);
+  });
 
-    const [identifyCall] = analyticsInstance.identify.mock.calls[0] ?? [];
-    expect(identifyCall.traits).toEqual(traits);
-    expect(identifyCall.traits).not.toBe(traits);
-    expect(identifyCall.context).toEqual(context);
-    expect(identifyCall.context).not.toBe(context);
-
-    const [pageCall] = analyticsInstance.page.mock.calls[0] ?? [];
-    expect(pageCall.properties).toEqual(properties);
-    expect(pageCall.properties).not.toBe(properties);
-    expect(pageCall.context).toEqual(context);
-    expect(pageCall.context).not.toBe(context);
+  it('delegates flush to the Analytics instance', async () => {
+    jest.resetModules();
+    process.env.SEGMENT_WRITE_KEY = 'key';
+    process.env.METAMASK_ENVIRONMENT = 'development';
+    jest.doMock('@segment/analytics-node', () => ({
+      Analytics: analyticsConstructor,
+    }));
+    const { segment: client } = await importSegmentIndexModule();
+    await client.flush();
+    expect(analyticsInstance.flush).toHaveBeenCalledTimes(1);
   });
 
   it('forwards the optional callback to track, identify, and page', async () => {
@@ -237,17 +233,5 @@ describe('segment module export', () => {
       expect.anything(),
       onPage,
     );
-  });
-
-  it('delegates flush to the Analytics instance', async () => {
-    jest.resetModules();
-    process.env.SEGMENT_WRITE_KEY = 'key';
-    process.env.METAMASK_ENVIRONMENT = 'development';
-    jest.doMock('@segment/analytics-node', () => ({
-      Analytics: analyticsConstructor,
-    }));
-    const { segment: client } = await importSegmentIndexModule();
-    await client.flush();
-    expect(analyticsInstance.flush).toHaveBeenCalledTimes(1);
   });
 });

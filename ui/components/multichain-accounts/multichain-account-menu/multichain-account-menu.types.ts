@@ -1,5 +1,5 @@
 import { AccountGroupId } from '@metamask/account-api';
-import { BoxBackgroundColor } from '@metamask/design-system-shared';
+import { BackgroundColor } from '../../../helpers/constants/design-system';
 
 export type MultichainAccountMenuProps = {
   /**
@@ -14,9 +14,9 @@ export type MultichainAccountMenuProps = {
 
   /**
    * Optional background color for the menu button.
-   * If not provided, falls back to BoxBackgroundColor.BackgroundMuted
+   * If not provided, falls back to BackgroundColor.backgroundMuted
    */
-  buttonBackgroundColor?: BoxBackgroundColor;
+  buttonBackgroundColor?: BackgroundColor;
 
   /**
    * Optional callback for account rename action.

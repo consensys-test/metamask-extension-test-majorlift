@@ -1,36 +1,24 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
+import { getExtensionSkipTransactionStatusPage } from '../../../../shared/lib/selectors/smart-transactions';
 import { isInteractiveUI } from '../../../../shared/lib/environment-type';
-import { getIsUnlocked } from '../../../ducks/metamask/base-selectors';
-import {
-  useMusdConversionConfirmTrace,
-  useMusdConversionToastStatus,
-} from '../../../hooks/musd';
-import { useMerklClaimStatus } from '../../../hooks/musd/useMerklClaimStatus';
-import { PerpsDepositToast } from '../perps/perps-deposit-toast';
-import { TransactionEventToastListener } from './transaction-event-toast-listener';
+import { useSmartTransactionToasts } from './useSmartTransactionToasts';
 
-// Carried over from custom mUSD toasts. Should move telemetry out of toasts into a more appropriate location.
-const MusdTelemetry = () => {
-  const { activeTransactionId } = useMusdConversionToastStatus();
-  useMusdConversionConfirmTrace(activeTransactionId ?? '');
-  useMerklClaimStatus();
+const ToastListenerInner = () => {
+  useSmartTransactionToasts();
+
   return null;
 };
 
 export function ToastListener() {
-  const isUnlocked = useSelector(getIsUnlocked);
+  const transactionToastEnabled = useSelector(
+    getExtensionSkipTransactionStatusPage,
+  );
   const isInteractive = isInteractiveUI();
 
-  if (!isInteractive) {
+  if (!transactionToastEnabled || !isInteractive) {
     return null;
   }
 
-  return (
-    <>
-      {isUnlocked ? <PerpsDepositToast /> : null}
-      <MusdTelemetry />
-      <TransactionEventToastListener />
-    </>
-  );
+  return <ToastListenerInner />;
 }

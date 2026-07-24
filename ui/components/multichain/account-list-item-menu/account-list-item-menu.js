@@ -4,7 +4,6 @@ import PropTypes from 'prop-types';
 
 import { IconName, Text, TextVariant } from '@metamask/design-system-react';
 import { useI18nContext } from '../../../hooks/useI18nContext';
-import { useEventListener } from '../../../hooks/useEventListener';
 import {
   getPinnedAccountsList,
   getHiddenAccountsList,
@@ -80,7 +79,13 @@ export const AccountListItemMenu = ({
     [onClose],
   );
 
-  useEventListener('mousedown', handleClickOutside);
+  useEffect(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [handleClickOutside]);
 
   const handlePinning = (address) => {
     const updatedPinnedAccountList = [...pinnedAccountList, address];

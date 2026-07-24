@@ -1,6 +1,8 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getEnvironmentType } from '../../../../../../shared/lib/environment-type';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getEnvironmentType } from '../../../../../../app/scripts/lib/util';
 import { ENVIRONMENT_TYPE_FULLSCREEN } from '../../../../../../shared/constants/app';
 import {
   HardwareTransportStates,
@@ -20,7 +22,7 @@ import {
   getLedgerWebHidConnectedStatus,
   setLedgerWebHidConnectedStatus,
 } from '../../../../../ducks/app/app';
-import { getLedgerTransportType } from '../../../../../ducks/metamask/base-selectors';
+import { getLedgerTransportType } from '../../../../../ducks/metamask/metamask';
 import {
   FontWeight,
   TextAlign,
@@ -29,7 +31,7 @@ import {
 import { useI18nContext } from '../../../../../hooks/useI18nContext';
 import useLedgerConnection from '../../../hooks/useLedgerConnection';
 
-const LedgerInfo = () => {
+const LedgerInfo: React.FC = () => {
   const { isLedgerWallet } = useLedgerConnection();
   const t = useI18nContext();
   const dispatch = useDispatch();
@@ -76,6 +78,8 @@ const LedgerInfo = () => {
           variant={ButtonVariant.Link}
           textAlign={TextAlign.Left}
           fontWeight={FontWeight.Normal}
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+          // eslint-disable-next-line @typescript-eslint/no-misused-promises
           onClick={async () => {
             if (environmentTypeIsFullScreen) {
               window.location.reload();
@@ -93,6 +97,8 @@ const LedgerInfo = () => {
             variant={ButtonVariant.Link}
             textAlign={TextAlign.Left}
             fontWeight={FontWeight.Normal}
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             onClick={async () => {
               if (environmentTypeIsFullScreen) {
                 let connectedDevices: HIDDevice[] = [];

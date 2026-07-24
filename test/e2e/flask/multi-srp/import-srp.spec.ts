@@ -9,7 +9,6 @@ import { login } from '../../page-objects/flows/login.flow';
 import {
   importAdditionalSecretRecoveryPhrase,
   SECOND_TEST_E2E_SRP,
-  verifyAccountBelongsToSrp,
 } from '../../page-objects/flows/multi-srp.flow';
 import HeaderNavbar from '../../page-objects/pages/header-navbar';
 import AccountListPage from '../../page-objects/pages/account-list-page';
@@ -44,10 +43,8 @@ describe('Multi SRP - Import SRP', function (this: Suite) {
       async ({ driver }) => {
         await login(driver);
         await importAdditionalSecretRecoveryPhrase(driver);
-        await verifyAccountBelongsToSrp(driver, {
-          accountName: 'Account 1',
-          srpIndex: 2,
-        });
+        const accountListPage = new AccountListPage(driver);
+        await accountListPage.checkAccountBelongsToSrp('Account 1', 2);
       },
     );
   });

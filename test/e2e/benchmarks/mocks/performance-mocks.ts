@@ -9,10 +9,6 @@ import {
   setPassThroughInterceptor,
   type PassThroughInterceptor,
 } from '../../mock-e2e-pass-through';
-import {
-  mockTokensV2SupportedNetworks,
-  mockTokensV3Assets,
-} from '../../tests/btc/mocks/tokens-api';
 import { POWER_USER_PRICES } from './price-data';
 import { buildSseResponseBody } from './swap-mocks';
 import bridgeNetworkTokens from './bridge-network-tokens.json';
@@ -603,9 +599,6 @@ export async function mockBenchmarkEndpoints(
       .always()
       .thenCallback(delayedResponse(250, { statusCode: 200, json: [] })),
   );
-
-  endpoints.push(await mockTokensV2SupportedNetworks(server));
-  endpoints.push(await mockTokensV3Assets(server));
 
   endpoints.push(
     await server

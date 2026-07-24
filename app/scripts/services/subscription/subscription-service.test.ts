@@ -17,7 +17,7 @@ import {
 import browser from 'webextension-polyfill';
 import { TransactionType } from '@metamask/transaction-controller';
 import ExtensionPlatform from '../../platforms/extension';
-import { ENVIRONMENT } from '../../../../shared/constants/build';
+import { ENVIRONMENT } from '../../../../development/build/constants';
 import { WebAuthenticator } from '../oauth/types';
 import { createSwapsMockStore } from '../../../../test/jest';
 import getFetchWithTimeout from '../../../../shared/lib/fetch-with-timeout';
@@ -25,12 +25,6 @@ import { DAY } from '../../../../shared/constants/time';
 import { SHIELD_ERROR } from '../../../../shared/lib/shield';
 import { SubscriptionService } from './subscription-service';
 import { SubscriptionServiceMessenger } from './types';
-
-jest.mock('../../controllers/analytics', () => ({
-  createEventBuilder: jest.requireActual('../../controllers/analytics')
-    .createEventBuilder,
-  trackEvent: jest.fn(),
-}));
 
 type Actions = MessengerActions<SubscriptionServiceMessenger>;
 
@@ -93,6 +87,7 @@ const mockGetSubscriptions = jest.fn();
 const mockGetNetworkControllerState = jest.fn();
 const mockGetRemoteFeatureFlagState = jest.fn();
 const mockGetAppStateControllerState = jest.fn();
+const mockGetMetaMetricsControllerState = jest.fn();
 const mockGetSubscriptionControllerState = jest.fn();
 const mockGetKeyringControllerState = jest.fn();
 const mockGetRewardSeasonMetadata = jest.fn();
@@ -145,6 +140,10 @@ rootMessenger.registerActionHandler(
 rootMessenger.registerActionHandler(
   'AppStateController:getState',
   mockGetAppStateControllerState,
+);
+rootMessenger.registerActionHandler(
+  'MetaMetricsController:trackEvent',
+  mockGetMetaMetricsControllerState,
 );
 rootMessenger.registerActionHandler(
   'SubscriptionController:getState',
@@ -205,6 +204,7 @@ rootMessenger.delegate({
     'AppStateController:getState',
     'AppStateController:setPendingRedirectRoute',
     'AppStateController:setShieldSubscriptionError',
+    'MetaMetricsController:trackEvent',
     'SubscriptionController:getState',
     'KeyringController:getState',
     'RewardsController:getHasAccountOptedIn',

@@ -5,6 +5,7 @@ import { MetaMaskFixtureCapability } from './fixture';
 import { MetaMaskChainCapability, NoOpChainCapability } from './chain';
 import { MetaMaskContractSeedingCapability } from './seeding';
 import { MetaMaskStateSnapshotCapability } from './state-snapshot';
+import { MetaMaskMockServerCapability } from './mock-server';
 
 describe('Capability Factory', () => {
   describe('createMetaMaskE2EContext', () => {
@@ -19,6 +20,32 @@ describe('Capability Factory', () => {
       expect(context.stateSnapshot).toBeInstanceOf(
         MetaMaskStateSnapshotCapability,
       );
+      expect(context.mockServer).toBeInstanceOf(MetaMaskMockServerCapability);
+    });
+
+    it('keeps mock server disabled by default', () => {
+      const context = createMetaMaskE2EContext();
+      const mockServerCapability = context.mockServer as unknown as {
+        enabled: boolean;
+      };
+
+      expect(mockServerCapability.enabled).toBe(false);
+    });
+
+    it('enables mock server when e2e mockServer.enabled is true', () => {
+      const context = createMetaMaskE2EContext({
+        mockServer: {
+          enabled: true,
+          port: 18000,
+        },
+      });
+      const mockServerCapability = context.mockServer as unknown as {
+        enabled: boolean;
+        port: number | undefined;
+      };
+
+      expect(mockServerCapability.enabled).toBe(true);
+      expect(mockServerCapability.port).toBe(18000);
     });
 
     it('creates config with E2E environment', () => {
@@ -133,6 +160,7 @@ describe('Capability Factory', () => {
       expect(context.fixture).toBeUndefined();
       expect(context.chain).toBeUndefined();
       expect(context.contractSeeding).toBeUndefined();
+      expect((context as { mockServer?: unknown }).mockServer).toBeUndefined();
     });
 
     it('creates config with prod environment', () => {
@@ -279,15 +307,21 @@ describe('Capability Factory', () => {
         const originalContext = metaMaskSessionManager.getWorkflowContext();
 
         metaMaskSessionManager.setContext('e2e', {
-          config: {
-            extensionName: 'CustomWallet',
+          mockServer: {
+            enabled: true,
+            port: 18000,
           },
         });
 
         const updatedContext = metaMaskSessionManager.getWorkflowContext();
+        const mockServerCapability = updatedContext?.mockServer as unknown as {
+          enabled: boolean;
+          port: number | undefined;
+        };
 
         expect(updatedContext).not.toBe(originalContext);
-        expect(updatedContext?.config.extensionName).toBe('CustomWallet');
+        expect(mockServerCapability.enabled).toBe(true);
+        expect(mockServerCapability.port).toBe(18000);
       });
 
       it('passes prod context options when switching to prod', () => {

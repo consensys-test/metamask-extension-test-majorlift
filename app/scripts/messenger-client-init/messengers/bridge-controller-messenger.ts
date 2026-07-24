@@ -4,6 +4,7 @@ import {
   MessengerEvents,
 } from '@metamask/messenger';
 import { BridgeControllerMessenger } from '@metamask/bridge-controller';
+import { MetaMetricsControllerTrackEventAction } from '../../controllers/metametrics-controller-method-action-types';
 import { RootMessenger } from '../../lib/messenger';
 
 /**
@@ -42,7 +43,7 @@ export function getBridgeControllerMessenger(
   return controllerMessenger;
 }
 
-type AllowedInitializationActions = never;
+type AllowedInitializationActions = MetaMetricsControllerTrackEventAction;
 
 export type BridgeControllerInitMessenger = ReturnType<
   typeof getBridgeControllerInitMessenger
@@ -69,7 +70,7 @@ export function getBridgeControllerInitMessenger(
   });
   messenger.delegate({
     messenger: controllerInitMessenger,
-    actions: [],
+    actions: ['MetaMetricsController:trackEvent'],
   });
   return controllerInitMessenger;
 }

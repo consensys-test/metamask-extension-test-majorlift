@@ -34,9 +34,6 @@ jest.mock('../../../store/actions', () => ({
     mockCreateCancelTransaction(txId, customGasSettings),
   createSpeedUpTransaction: (txId: string, customGasSettings: MockCallArgs) =>
     mockCreateSpeedUpTransaction(txId, customGasSettings),
-}));
-
-jest.mock('../../../store/actions/update-transaction-gas-fees', () => ({
   updateTransactionGasFees: (txId: string, txGasFees: MockCallArgs) =>
     mockUpdateTransactionGasFees(txId, txGasFees),
 }));

@@ -1,3 +1,4 @@
+/* eslint-disable jest/require-top-level-describe */
 import React from 'react';
 import { renderWithProvider } from '../../../../test/lib/render-helpers-navigate';
 import configureStore from '../../../store/store';

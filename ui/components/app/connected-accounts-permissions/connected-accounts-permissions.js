@@ -5,11 +5,6 @@ import { flatten } from 'lodash';
 import { useSelector } from 'react-redux';
 import {
   Box,
-  BoxBackgroundColor,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
-import {
   ButtonIcon,
   ButtonIconSize,
   Checkbox,
@@ -19,7 +14,11 @@ import {
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { getPermissionDescription } from '../../../helpers/utils/permission';
 import {
+  BackgroundColor,
   BlockSize,
+  Display,
+  FlexDirection,
+  JustifyContent,
   TextVariant,
 } from '../../../helpers/constants/design-system';
 import { getSnapName } from '../../../helpers/utils/util';
@@ -34,7 +33,7 @@ const ConnectedAccountsPermissions = ({ permissions }) => {
     setExpanded((_expanded) => !_expanded);
   };
 
-  if (!permissions?.length) {
+  if (!permissions.length) {
     return null;
   }
 
@@ -52,25 +51,29 @@ const ConnectedAccountsPermissions = ({ permissions }) => {
   return (
     <Box className="connected-accounts-permissions" width={BlockSize.Full}>
       <Box
-        className="flex connected-accounts-permissions__header"
-        flexDirection={BoxFlexDirection.Row}
-        asChild
+        display={Display.Flex}
+        flexDirection={FlexDirection.Row}
+        as="button"
+        onClick={toggleExpanded}
         width={BlockSize.Full}
-        justifyContent={BoxJustifyContent.Between}
+        justifyContent={JustifyContent.spaceBetween}
+        className="connected-accounts-permissions__header"
         padding={0}
-        backgroundColor={BoxBackgroundColor.BackgroundDefault}
+        backgroundColor={BackgroundColor.backgroundDefault}
       >
-        <button onClick={toggleExpanded}>
-          <Text as="h6" variant={TextVariant.bodyMdMedium}>
-            {t('permissions')}
-          </Text>
+        <Text
+          onClick={toggleExpanded}
+          as="h6"
+          variant={TextVariant.bodyMdMedium}
+        >
+          {t('permissions')}
+        </Text>
 
-          <ButtonIcon
-            size={ButtonIconSize.Sm}
-            iconName={expanded ? IconName.ArrowUp : IconName.ArrowDown}
-            ariaLabel={t('showPermissions')}
-          />
-        </button>
+        <ButtonIcon
+          size={ButtonIconSize.Sm}
+          iconName={expanded ? IconName.ArrowUp : IconName.ArrowDown}
+          ariaLabel={t('showPermissions')}
+        />
       </Box>
       {expanded ? (
         <Box
@@ -78,7 +81,6 @@ const ConnectedAccountsPermissions = ({ permissions }) => {
             'connected-accounts-permissions__list-container-expanded',
           )}
           marginTop={4}
-          data-testid="connected-accounts-permissions-list"
         >
           <Text as="h6" variant={TextVariant.bodySm}>
             {t('authorizedPermissions')}:
@@ -110,6 +112,10 @@ ConnectedAccountsPermissions.propTypes = {
       key: PropTypes.string.isRequired,
     }),
   ),
+};
+
+ConnectedAccountsPermissions.defaultProps = {
+  permissions: [],
 };
 
 ConnectedAccountsPermissions.displayName = 'ConnectedAccountsPermissions';

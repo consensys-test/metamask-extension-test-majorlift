@@ -3,42 +3,23 @@ import { render } from '@testing-library/react';
 import { ToastListener } from './toast-listener';
 
 const mockUseSelector = jest.fn();
-const mockPerpsDepositToast = jest.fn(() => null);
-const mockUseMusdConversionToastStatus = jest.fn(() => ({
-  activeTransactionId: undefined,
-}));
-const mockUseMusdConversionConfirmTrace = jest.fn();
-const mockUseMerklClaimStatus = jest.fn();
+const mockUseSmartTransactionToasts = jest.fn();
 const mockIsInteractiveUI = jest.fn();
 
 jest.mock('react-redux', () => ({
   useSelector: (selector: unknown) => mockUseSelector(selector),
 }));
 
-jest.mock('../../../ducks/metamask/base-selectors', () => ({
-  getIsUnlocked: jest.fn(),
+jest.mock('../../../../shared/lib/selectors/smart-transactions', () => ({
+  getExtensionSkipTransactionStatusPage: jest.fn(),
 }));
 
 jest.mock('../../../../shared/lib/environment-type', () => ({
   isInteractiveUI: () => mockIsInteractiveUI(),
 }));
 
-jest.mock('../perps/perps-deposit-toast', () => ({
-  PerpsDepositToast: () => mockPerpsDepositToast(),
-}));
-
-jest.mock('../../../hooks/musd', () => ({
-  useMusdConversionToastStatus: () => mockUseMusdConversionToastStatus(),
-  useMusdConversionConfirmTrace: (...args: unknown[]) =>
-    mockUseMusdConversionConfirmTrace(...args),
-}));
-
-jest.mock('../../../hooks/musd/useMerklClaimStatus', () => ({
-  useMerklClaimStatus: () => mockUseMerklClaimStatus(),
-}));
-
-jest.mock('./transaction-event-toast-listener', () => ({
-  TransactionEventToastListener: () => null,
+jest.mock('./useSmartTransactionToasts', () => ({
+  useSmartTransactionToasts: () => mockUseSmartTransactionToasts(),
 }));
 
 describe('ToastListener', () => {
@@ -47,31 +28,41 @@ describe('ToastListener', () => {
   });
 
   function renderToastListener({
+    transactionToastEnabled,
     isInteractive,
-    isUnlocked = true,
   }: {
+    transactionToastEnabled: boolean;
     isInteractive: boolean;
-    isUnlocked?: boolean;
   }) {
-    mockUseSelector.mockReturnValueOnce(isUnlocked);
+    mockUseSelector.mockReturnValue(transactionToastEnabled);
     mockIsInteractiveUI.mockReturnValue(isInteractive);
     render(<ToastListener />);
   }
 
-  it('mounts toast hooks in interactive UI', () => {
-    renderToastListener({ isInteractive: true });
+  it('mounts the smart transaction toast hook when enabled in interactive UI', () => {
+    renderToastListener({
+      transactionToastEnabled: true,
+      isInteractive: true,
+    });
 
-    expect(mockUseMusdConversionToastStatus).toHaveBeenCalledTimes(1);
-    expect(mockUseMusdConversionConfirmTrace).toHaveBeenCalledWith('');
-    expect(mockUseMerklClaimStatus).toHaveBeenCalledTimes(1);
+    expect(mockUseSmartTransactionToasts).toHaveBeenCalledTimes(1);
   });
 
-  it('does not mount toast listeners in non-interactive UI', () => {
-    renderToastListener({ isInteractive: false });
+  it('does not mount the smart transaction toast hook when the flag is disabled', () => {
+    renderToastListener({
+      transactionToastEnabled: false,
+      isInteractive: true,
+    });
 
-    expect(mockPerpsDepositToast).not.toHaveBeenCalled();
-    expect(mockUseMusdConversionToastStatus).not.toHaveBeenCalled();
-    expect(mockUseMusdConversionConfirmTrace).not.toHaveBeenCalled();
-    expect(mockUseMerklClaimStatus).not.toHaveBeenCalled();
+    expect(mockUseSmartTransactionToasts).not.toHaveBeenCalled();
+  });
+
+  it('does not mount the smart transaction toast hook in non-interactive UI', () => {
+    renderToastListener({
+      transactionToastEnabled: true,
+      isInteractive: false,
+    });
+
+    expect(mockUseSmartTransactionToasts).not.toHaveBeenCalled();
   });
 });

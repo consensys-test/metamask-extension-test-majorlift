@@ -5,9 +5,7 @@ import {
   type MessengerActions,
   type MessengerEvents,
 } from '@metamask/messenger';
-import { DefaultActions, DefaultEvents } from '@metamask/wallet';
 import { captureException } from '../../../shared/lib/sentry';
-import { wrapMessengerWithTracing } from '../../../shared/lib/messenger-tracing';
 import type { MESSENGER_FACTORIES } from '../messenger-client-init/messengers';
 
 export const ROOT_MESSENGER_NAMESPACE = 'Root';
@@ -18,15 +16,11 @@ type ChildMessengers = ReturnType<
 
 // We export this separately from RootMessenger because we can't get it from
 // RootMessenger like we can with other kinds of messengers.
-export type RootMessengerActions =
-  | MessengerActions<ChildMessengers>
-  | DefaultActions;
+export type RootMessengerActions = MessengerActions<ChildMessengers>;
 
 // We export this separately from RootMessenger because we can't get it from
 // RootMessenger like we can with other kinds of messengers.
-export type RootMessengerEvents =
-  | MessengerEvents<ChildMessengers>
-  | DefaultEvents;
+export type RootMessengerEvents = MessengerEvents<ChildMessengers>;
 
 export type RootMessenger<
   AllowedActions extends ActionConstraint = ActionConstraint,
@@ -37,10 +31,8 @@ export function getRootMessenger<
   AllowedActions extends ActionConstraint = RootMessengerActions,
   AllowedEvents extends EventConstraint = RootMessengerEvents,
 >(): RootMessenger<AllowedActions, AllowedEvents> {
-  const messenger = new Messenger({
+  return new Messenger({
     namespace: ROOT_MESSENGER_NAMESPACE,
     captureException,
   });
-
-  return wrapMessengerWithTracing(messenger);
 }

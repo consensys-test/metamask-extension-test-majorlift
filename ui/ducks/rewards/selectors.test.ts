@@ -1,5 +1,6 @@
 import {
-  selectRewardsModalOpen,
+  selectOnboardingModalOpen,
+  selectOnboardingActiveStep,
   selectOnboardingReferralCode,
   selectOptinAllowedForGeo,
   selectOptinAllowedForGeoLoading,
@@ -12,6 +13,7 @@ import {
   selectRewardsEnabled,
   selectRewardsBadgeHidden,
 } from './selectors';
+import { OnboardingStep } from './types';
 import { initialState as rewardsInitialState } from '.';
 
 describe('rewards selectors', () => {
@@ -40,11 +42,18 @@ describe('rewards selectors', () => {
   };
 
   describe('simple state selectors', () => {
-    it('selectRewardsModalOpen returns modal open state', () => {
+    it('selectOnboardingModalOpen returns modal open state', () => {
       const state = buildState({
-        rewards: { rewardsModalOpen: true },
+        rewards: { onboardingModalOpen: true },
       });
-      expect(selectRewardsModalOpen(state)).toBe(true);
+      expect(selectOnboardingModalOpen(state)).toBe(true);
+    });
+
+    it('selectOnboardingActiveStep returns active step', () => {
+      const state = buildState({
+        rewards: { onboardingActiveStep: OnboardingStep.STEP1 },
+      });
+      expect(selectOnboardingActiveStep(state)).toBe(OnboardingStep.STEP1);
     });
 
     it('selectOnboardingReferralCode returns referral code', () => {

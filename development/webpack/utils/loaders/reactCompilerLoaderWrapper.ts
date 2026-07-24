@@ -38,6 +38,7 @@ const REACT_COMPILER_STATUS_KEY = '__reactCompilerStatus__';
 type ReactCompilerStatus = 'compiled' | 'skipped' | 'error' | 'unsupported';
 
 type LoaderOptions = {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   __verbose?: boolean;
   logger?: unknown;
   [key: string]: unknown;

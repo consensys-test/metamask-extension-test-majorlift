@@ -4,7 +4,6 @@ import {
 } from '../../controllers/encryption-public-key';
 import { MessengerClientInitFunction } from '../types';
 import { EncryptionPublicKeyControllerInitMessenger } from '../messengers';
-import { createEventBuilder, trackEvent } from '../../controllers/analytics';
 
 /**
  * Initialize the encryption public key controller.
@@ -42,14 +41,10 @@ export const EncryptionPublicKeyControllerInit: MessengerClientInitFunction<
         address,
       );
     },
-    metricsEvent: (payload) => {
-      trackEvent(
-        createEventBuilder(payload.event)
-          .addCategory(payload.category)
-          .addProperties(payload.properties ?? {})
-          .build(),
-      );
-    },
+    metricsEvent: initMessenger.call.bind(
+      initMessenger,
+      'MetaMetricsController:trackEvent',
+    ),
   });
 
   return {

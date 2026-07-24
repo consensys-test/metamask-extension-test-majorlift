@@ -9,8 +9,7 @@ import CreateContractModal from '../../../page-objects/pages/dialog/create-contr
 import WatchAssetConfirmation from '../../../page-objects/pages/confirmations/watch-asset-confirmation';
 import HomePage from '../../../page-objects/pages/home/homepage';
 import TokenTransferTransactionConfirmation from '../../../page-objects/pages/confirmations/token-transfer-confirmation';
-import ActivityTab from '../../../page-objects/pages/home/activity-tab';
-import TokensTab from '../../../page-objects/pages/home/tokens-tab';
+import ActivityListPage from '../../../page-objects/pages/home/activity-list';
 import TransactionConfirmation from '../../../page-objects/pages/confirmations/transaction-confirmation';
 import { SMART_CONTRACTS } from '../../../seeder/smart-contracts';
 
@@ -60,8 +59,7 @@ describe('Trezor Hardware', function (this: Suite) {
         );
         const homePage = new HomePage(driver);
         await homePage.goToTokensTab();
-        const tokensTab = new TokensTab(driver);
-        await tokensTab.checkExpectedTokenBalanceIsDisplayed('10', symbol);
+        await homePage.checkExpectedTokenBalanceIsDisplayed('10', symbol);
       },
     );
   });
@@ -123,9 +121,9 @@ describe('Trezor Hardware', function (this: Suite) {
         const homePage = new HomePage(driver);
         await homePage.checkPageIsLoaded();
         await homePage.goToActivityList();
-        const activityTab = new ActivityTab(driver);
-        await activityTab.checkTxAction({ action: `Sent ${symbol}` });
-        await activityTab.checkTxAmountInActivity(`-1.5 ${symbol}`);
+        const activityListPage = new ActivityListPage(driver);
+        await activityListPage.checkTxAction({ action: `Sent ${symbol}` });
+        await activityListPage.checkTxAmountInActivity(`-1.5 ${symbol}`);
       },
     );
   });
@@ -151,6 +149,7 @@ describe('Trezor Hardware', function (this: Suite) {
         ],
       },
       async ({ driver, localNodes, contractRegistry }) => {
+        const symbol = 'TST';
         (await localNodes?.[0]?.setAccountBalance(
           KNOWN_PUBLIC_KEY_ADDRESSES[0].address,
           '0x100000000000000000000',
@@ -177,11 +176,11 @@ describe('Trezor Hardware', function (this: Suite) {
 
         const homePage = new HomePage(driver);
         await homePage.goToActivityList();
-        const activityTab = new ActivityTab(driver);
-        await activityTab.checkTransactionActivityByText(
-          'Approved spending cap',
+        const activityListPage = new ActivityListPage(driver);
+        await activityListPage.checkTransactionActivityByText(
+          `Approve ${symbol} spending cap`,
         );
-        await activityTab.checkWaitForTransactionStatus('confirmed');
+        await activityListPage.checkWaitForTransactionStatus('confirmed');
       },
     );
   });
@@ -207,6 +206,7 @@ describe('Trezor Hardware', function (this: Suite) {
         ],
       },
       async ({ driver, localNodes, contractRegistry }) => {
+        const symbol = 'TST';
         (await localNodes?.[0]?.setAccountBalance(
           KNOWN_PUBLIC_KEY_ADDRESSES[0].address,
           '0x100000000000000000000',
@@ -222,7 +222,7 @@ describe('Trezor Hardware', function (this: Suite) {
         });
         await testDappPage.checkPageIsLoaded();
 
-        const activityTab = new ActivityTab(driver);
+        const activityListPage = new ActivityListPage(driver);
         const homePage = new HomePage(driver);
         // Increase token allowance
         await testDappPage.clickERC20IncreaseAllowanceButton();
@@ -233,10 +233,10 @@ describe('Trezor Hardware', function (this: Suite) {
           WINDOW_TITLES.ExtensionInFullScreenView,
         );
         await homePage.goToActivityList();
-        await activityTab.checkTransactionActivityByText(
-          'Increased spending cap',
+        await activityListPage.checkTransactionActivityByText(
+          `Increase ${symbol} spending cap`,
         );
-        await activityTab.checkWaitForTransactionStatus('confirmed');
+        await activityListPage.checkWaitForTransactionStatus('confirmed');
       },
     );
   });

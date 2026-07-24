@@ -44,8 +44,7 @@ import {
   usePerpsEventTracking,
 } from '../../../../hooks/perps';
 import { PerpsTokenLogo } from '../perps-token-logo';
-import { formatOrderType, getDisplaySymbol } from '../utils';
-import { isClosingOrder } from '../utils/orderUtils';
+import { getDisplayName, formatOrderType } from '../utils';
 import { PERPS_TOAST_KEYS, usePerpsToast } from '../perps-toast';
 import { PerpsGeoBlockModal } from '../perps-geo-block-modal';
 import type { Order } from '../types';
@@ -64,11 +63,11 @@ export type CancelOrderModalProps = {
  * @param options0.onClose - Callback to close the modal
  * @param options0.order - The order to display and potentially cancel
  */
-export const CancelOrderModal = ({
+export const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
   isOpen,
   onClose,
   order,
-}: CancelOrderModalProps) => {
+}) => {
   const t = useI18nContext();
   const currentLocale = useSelector(getCurrentLocale);
   const { replacePerpsToastByKey } = usePerpsToast();
@@ -87,7 +86,9 @@ export const CancelOrderModal = ({
     }
   }, [isOpen]);
 
-  const displayName = getDisplaySymbol(order.symbol);
+  const displayName = getDisplayName(order.symbol);
+  const isBuy = order.side === 'buy';
+
   const formattedDate = useMemo(() => {
     const date = new Date(order.timestamp);
     return date.toLocaleString(currentLocale ?? 'en-US', {
@@ -114,33 +115,10 @@ export const CancelOrderModal = ({
   }, [order.size, order.price]);
 
   const modalTitle = useMemo(() => {
-    const isClosing = isClosingOrder({
-      reduceOnly: order.reduceOnly,
-      isPositionTpsl: order.isPositionTpsl,
-    });
-    const isLong = isClosing ? order.side === 'sell' : order.side === 'buy';
-    let directionKey: string;
-    if (isClosing) {
-      directionKey = isLong ? 'perpsCloseLong' : 'perpsCloseShort';
-    } else {
-      directionKey = isLong ? 'perpsLong' : 'perpsShort';
-    }
-    const directionLabel = t(directionKey);
-    const orderTypeLabel =
-      order.detailedOrderType || formatOrderType(order.orderType);
-
-    return `${orderTypeLabel} ${directionLabel.toLocaleLowerCase(
-      currentLocale ?? 'en-US',
-    )}`;
-  }, [
-    order.reduceOnly,
-    order.isPositionTpsl,
-    order.side,
-    order.detailedOrderType,
-    order.orderType,
-    currentLocale,
-    t,
-  ]);
+    const orderTypeLabel = formatOrderType(order.orderType);
+    const directionLabel = isBuy ? t('perpsLong') : t('perpsShort');
+    return `${orderTypeLabel} ${directionLabel.toLowerCase()}`;
+  }, [order.orderType, isBuy, t]);
 
   const handleCancel = useCallback(async () => {
     if (!isEligible) {

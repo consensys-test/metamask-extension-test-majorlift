@@ -6,33 +6,10 @@ import {
 import {
   isBatchTransaction,
   hasTransactionType,
-  getPostQuoteWithdrawTransactionType,
-  isPostQuoteWithdrawTransaction,
   isPerpsWithdrawTransaction,
-  isValidTransactionHash,
 } from './transactions.utils';
 
 describe('Transactions utils', () => {
-  describe('isValidTransactionHash', () => {
-    it('returns true for a valid EVM transaction hash', () => {
-      expect(
-        isValidTransactionHash(
-          '0x8586e162e456a23c1969573a4b79e77912705b474bc5aa0c2a63d56556623ab2',
-        ),
-      ).toBe(true);
-    });
-
-    it('returns false for invalid EVM transaction hashes', () => {
-      expect(
-        isValidTransactionHash('48a75190-45ca-11ef-9001-f3886ec2397c'),
-      ).toBe(false);
-    });
-
-    it('returns false for truncated EVM hashes', () => {
-      expect(isValidTransactionHash('0x1234')).toBe(false);
-    });
-  });
-
   describe('isBatchTransaction', () => {
     it('returns true when nestedTransactions has items', () => {
       const nested: NestedTransactionMetadata[] = [{ to: '0x1', data: '0x' }];
@@ -171,53 +148,6 @@ describe('Transactions utils', () => {
 
     it('returns false when transactionMeta is undefined', () => {
       expect(isPerpsWithdrawTransaction(undefined)).toBe(false);
-    });
-  });
-
-  describe('getPostQuoteWithdrawTransactionType', () => {
-    it('returns perpsWithdraw when type is perpsWithdraw', () => {
-      const transactionMeta = {
-        type: TransactionType.perpsWithdraw,
-      } as TransactionMeta;
-
-      expect(getPostQuoteWithdrawTransactionType(transactionMeta)).toBe(
-        TransactionType.perpsWithdraw,
-      );
-    });
-
-    it('returns perpsWithdraw when a nested transaction is perpsWithdraw', () => {
-      const transactionMeta = {
-        type: TransactionType.batch,
-        nestedTransactions: [{ type: TransactionType.perpsWithdraw }],
-      } as unknown as TransactionMeta;
-
-      expect(getPostQuoteWithdrawTransactionType(transactionMeta)).toBe(
-        TransactionType.perpsWithdraw,
-      );
-    });
-
-    it('returns undefined for unrelated transaction types', () => {
-      const transactionMeta = {
-        type: TransactionType.simpleSend,
-      } as TransactionMeta;
-
-      expect(getPostQuoteWithdrawTransactionType(transactionMeta)).toBe(
-        undefined,
-      );
-    });
-  });
-
-  describe('isPostQuoteWithdrawTransaction', () => {
-    it('returns true when the transaction has a post-quote withdraw type', () => {
-      const transactionMeta = {
-        type: TransactionType.perpsWithdraw,
-      } as TransactionMeta;
-
-      expect(isPostQuoteWithdrawTransaction(transactionMeta)).toBe(true);
-    });
-
-    it('returns false when transactionMeta is undefined', () => {
-      expect(isPostQuoteWithdrawTransaction(undefined)).toBe(false);
     });
   });
 });

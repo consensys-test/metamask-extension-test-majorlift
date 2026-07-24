@@ -29,12 +29,12 @@ export type AddressConnectedSubjectMap = {
   [address: string]: any;
 };
 
-export const ConnectedStatus = ({
+export const ConnectedStatus: React.FC<ConnectedStatusProps> = ({
   address = '',
   isActive,
   showConnectedStatus = true,
   hideTooltip = false,
-}: ConnectedStatusProps): JSX.Element => {
+}): JSX.Element => {
   const t = useI18nContext();
 
   const addressArray = useMemo(() => [address], [address]);

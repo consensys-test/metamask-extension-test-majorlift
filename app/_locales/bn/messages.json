@@ -26,6 +26,9 @@
   "accountSelectionRequired": {
     "message": "আপনাকে একটি অ্যাকাউন্ট নির্বাচন করতে হবে!"
   },
+  "addAcquiredTokens": {
+    "message": "MetaMask ব্যবহার করে আপনি যে টোকেনগুলি অর্জন করেছেন সেগুলি যোগ করুন"
+  },
   "addAlias": {
     "message": "উপনাম যোগ করুন"
   },
@@ -74,6 +77,9 @@
   },
   "autoLockTimeLimit": {
     "message": "স্বয়ংক্রিয়-লগ আউট টাইমার (মিনিট)"
+  },
+  "autoLockTimeLimitDescription": {
+    "message": "MetaMask স্বয়ংক্রিয়ভাবে লগ আউট করার আগে নিষ্ক্রিয় থাকার সময় মিনিটে সেট করুন"
   },
   "average": {
     "message": "গড়"
@@ -172,11 +178,23 @@
   "createPassword": {
     "message": "পাসওয়ার্ড তৈরি করুন"
   },
+  "currencyConversion": {
+    "message": "মুদ্রা বিনিময়"
+  },
+  "currentLanguage": {
+    "message": "বর্তমান ভাষা"
+  },
   "custom": {
     "message": "উন্নত"
   },
+  "customToken": {
+    "message": "কাস্টম টোকেন"
+  },
   "decimal": {
     "message": "নির্ভুলতার দশমিক"
+  },
+  "decimalsMustZerotoTen": {
+    "message": "দশমিকগুলি অবশ্যই অন্তত 0 হতে হবে, এবং 36 এর উপর হবে না।"
   },
   "delete": {
     "message": "মুছুন"
@@ -186,6 +204,9 @@
   },
   "done": {
     "message": "সম্পন্ন "
+  },
+  "downloadGoogleChrome": {
+    "message": "Google Chrome ডাউনলোড করুন"
   },
   "downloadStateLogs": {
     "message": "স্টেট লগগুলি ডাউনলোড করুন"
@@ -244,6 +265,9 @@
   },
   "hardwareWallets": {
     "message": "একটি হার্ডওয়্যার ওয়ালেট সংযুক্ত করুন"
+  },
+  "hardwareWalletsMsg": {
+    "message": "আপনি MetaMask এর সাথে ব্যবহার করতে চান এমন একটি হার্ডওয়্যার ওয়ালেট নির্বাচন করুন"
   },
   "here": {
     "message": "এখানে",
@@ -312,6 +336,9 @@
   "likeToImportTokens": {
     "message": "আপনি কি এই টোকেনগুলি যোগ করতে চান?"
   },
+  "links": {
+    "message": "লিঙ্কসমূহ"
+  },
   "loading": {
     "message": "লোড হচ্ছে..."
   },
@@ -336,6 +363,9 @@
   "metamaskVersion": {
     "message": "MetaMask সংস্করণ"
   },
+  "mustSelectOne": {
+    "message": "অবশ্যই অন্তত 1টি টোকেন নির্বাচন করতে হবে।"
+  },
   "needImportFile": {
     "message": "আমদানি করার জন্য আপনাকে অবশ্যই একটি ফাইল নির্বাচন করতে হবে।",
     "description": "User is important an account and needs to add a file to continue"
@@ -345,6 +375,12 @@
   },
   "networks": {
     "message": "নেটওয়ার্কসমূহ"
+  },
+  "nevermind": {
+    "message": "কিছু মনে করবেন না"
+  },
+  "newAccount": {
+    "message": "নতুন আ্যাকাউন্ট"
   },
   "newAccountNumberName": {
     "message": "অ্যাকাউন্ট $1",
@@ -364,6 +400,9 @@
   },
   "noWebcamFoundTitle": {
     "message": "ওয়েবক্যাম খুঁজে পাওয়া যায় নি"
+  },
+  "notEnoughGas": {
+    "message": "পর্যাপ্ত গ্যাস নেই"
   },
   "ofTextNofM": {
     "message": "এর"
@@ -448,6 +487,9 @@
   "restore": {
     "message": "পুনরুদ্ধার করুন"
   },
+  "revealSeedWords": {
+    "message": "সীড শব্দগুলি প্রকাশ করুন"
+  },
   "revealSeedWordsWarning": {
     "message": "আপনার সমস্ত অ্যাকাউন্ট চুরি করতে এই শব্দগুলি ব্যবহার করা যাবে।",
     "description": "$1 is bolded text using the message from 'revealSeedWordsWarning2'"
@@ -494,6 +536,9 @@
   "showFiatConversionInTestnets": {
     "message": "Testnets এ রূপান্তর দেখান"
   },
+  "showFiatConversionInTestnetsDescription": {
+    "message": "Testnets এ ফিয়াট বাক্যালাপগুলি দেখাতে এটি নির্বাচন করুন"
+  },
   "showHexData": {
     "message": "হেক্স ডেটা দেখান"
   },
@@ -502,6 +547,9 @@
   },
   "sign": {
     "message": "স্বাক্ষর করুন"
+  },
+  "signatureRequest": {
+    "message": "স্বাক্ষরের অনুরোধ"
   },
   "signed": {
     "message": "স্বাক্ষরিত"
@@ -520,6 +568,9 @@
   },
   "stateLogs": {
     "message": "স্টেট লগসমূহ"
+  },
+  "stateLogsDescription": {
+    "message": "স্টেট লগগুলিতে আপনার পাবলিক অ্যাকাউন্টের ঠিকানা এবং প্রেরণ করার লেনদেনগুলি আছে।"
   },
   "submitted": {
     "message": "জমা করা হয়েছে"

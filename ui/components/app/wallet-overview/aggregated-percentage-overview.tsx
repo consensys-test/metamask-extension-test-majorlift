@@ -2,33 +2,33 @@ import React, { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { toChecksumAddress } from 'ethereumjs-util';
 import { getNativeTokenAddress } from '@metamask/assets-controllers';
-import { Box, Skeleton } from '@metamask/design-system-react';
 import { getCurrentCurrency } from '../../../ducks/metamask/metamask';
 import {
   getSelectedAccount,
   getShouldHideZeroBalanceTokens,
   getTokensMarketData,
+  getPreferences,
+  getSelectedInternalAccount,
   selectAnyEnabledNetworksAreAvailable,
 } from '../../../selectors';
-import { getPreferences } from '../../../../shared/lib/selectors/preferences';
-import { getSelectedInternalAccount } from '../../../../shared/lib/selectors/accounts';
 import { getCurrentChainId } from '../../../../shared/lib/selectors/networks';
 import { useAccountTotalFiatBalance } from '../../../hooks/useAccountTotalFiatBalance';
-import {
-  formatValue,
-  isValidAmount,
-} from '../../../../shared/lib/format-value';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { formatValue, isValidAmount } from '../../../../app/scripts/lib/util';
 import { getIntlLocale } from '../../../ducks/locale/locale';
 import {
+  Display,
   TextColor,
   TextVariant,
 } from '../../../helpers/constants/design-system';
-import { SensitiveText } from '../../component-library';
+import { Box, SensitiveText } from '../../component-library';
 import { getCalculatedTokenAmount1dAgo } from '../../../helpers/utils/util';
 import { getHistoricalMultichainAggregatedBalance } from '../../../selectors/assets';
 import { formatWithThreshold } from '../assets/util/formatWithThreshold';
 import { useFormatters } from '../../../hooks/useFormatters';
 import { isZeroAmount } from '../../../helpers/utils/number-utils';
+import { Skeleton } from '../../component-library/skeleton';
 
 // core already has this exported type but its not yet available in this version
 // todo remove this and use core type once available
@@ -89,56 +89,43 @@ export const AggregatedPercentageOverview = ({
     }, 0); // Initial total1dAgo is 0
   }, [orderedTokenList, tokensMarketData, currentChainId]); // Dependencies: recalculate if orderedTokenList or tokensMarketData changes
 
-  const { amountChange, formattedPercentChange, formattedAmountChange, color } =
-    useMemo(() => {
-      const totalBalance: number = Number(totalFiatBalance);
-      const totalBalance1dAgo = totalFiat1dAgo;
-      const change = totalBalance - totalBalance1dAgo;
-      const percentageChange = (change / totalBalance1dAgo) * 100 || 0;
+  const totalBalance: number = Number(totalFiatBalance);
+  const totalBalance1dAgo = totalFiat1dAgo;
 
-      const fmtPctChange = formatValue(
-        change === 0 ? 0 : percentageChange,
-        true,
-      );
+  const amountChange = totalBalance - totalBalance1dAgo;
+  const percentageChange = (amountChange / totalBalance1dAgo) * 100 || 0;
 
-      let fmtAmountChange = '';
-      if (isValidAmount(change)) {
-        fmtAmountChange = (change as number) >= 0 ? '+' : '';
-        fmtAmountChange += formatCurrencyCompact(change, fiatCurrency);
-      }
+  const formattedPercentChange = formatValue(
+    amountChange === 0 ? 0 : percentageChange,
+    true,
+  );
 
-      let derivedColor = TextColor.textAlternative;
-      if (!privacyMode && isValidAmount(change)) {
-        if ((change as number) === 0) {
-          derivedColor = TextColor.textAlternative;
-        } else if ((change as number) > 0) {
-          derivedColor = TextColor.successDefault;
-        } else {
-          derivedColor = TextColor.errorDefault;
-        }
-      }
+  let formattedAmountChange = '';
+  if (isValidAmount(amountChange)) {
+    formattedAmountChange = (amountChange as number) >= 0 ? '+' : '';
 
-      return {
-        amountChange: change,
-        formattedPercentChange: fmtPctChange,
-        formattedAmountChange: fmtAmountChange,
-        color: derivedColor,
-      };
-    }, [
-      totalFiatBalance,
-      totalFiat1dAgo,
-      formatCurrencyCompact,
-      fiatCurrency,
-      privacyMode,
-    ]);
+    formattedAmountChange += formatCurrencyCompact(amountChange, fiatCurrency);
+  }
+
+  let color = TextColor.textAlternative;
+
+  if (!privacyMode && isValidAmount(amountChange)) {
+    if ((amountChange as number) === 0) {
+      color = TextColor.textAlternative;
+    } else if ((amountChange as number) > 0) {
+      color = TextColor.successDefault;
+    } else {
+      color = TextColor.errorDefault;
+    }
+  } else {
+    color = TextColor.textAlternative;
+  }
 
   return (
     <Skeleton
-      hideChildren={
-        !anyEnabledNetworksAreAvailable && isZeroAmount(amountChange)
-      }
+      isLoading={!anyEnabledNetworksAreAvailable && isZeroAmount(amountChange)}
     >
-      <Box className="flex gap-1">
+      <Box display={Display.Flex} className="gap-1">
         <SensitiveText
           variant={TextVariant.bodyMdMedium}
           color={color}
@@ -183,67 +170,52 @@ export const AggregatedMultichainPercentageOverview = ({
     selectAnyEnabledNetworksAreAvailable,
   );
 
-  const {
-    singleDayPercentChange,
-    singleDayAmountChange,
-    signPrefix,
-    color,
-    localizedAmountChange,
-    localizedPercentChange,
-  } = useMemo(() => {
-    const pctChange = historicalAggregatedBalances.P1D.percentChange;
-    const amtChange = historicalAggregatedBalances.P1D.amountChange;
-    const prefix = pctChange >= 0 ? '+' : '-';
+  let color = TextColor.textAlternative;
 
-    let derivedColor = TextColor.textAlternative;
-    if (!privacyMode && isValidAmount(pctChange)) {
-      if ((pctChange as number) === 0) {
-        derivedColor = TextColor.textAlternative;
-      } else if ((pctChange as number) > 0) {
-        derivedColor = TextColor.successDefault;
-      } else {
-        derivedColor = TextColor.errorDefault;
-      }
+  const singleDayPercentChange = historicalAggregatedBalances.P1D.percentChange;
+  const singleDayAmountChange = historicalAggregatedBalances.P1D.amountChange;
+  const signPrefix = singleDayPercentChange >= 0 ? '+' : '-';
+
+  if (!privacyMode && isValidAmount(singleDayPercentChange)) {
+    if ((singleDayPercentChange as number) === 0) {
+      color = TextColor.textAlternative;
+    } else if ((singleDayPercentChange as number) > 0) {
+      color = TextColor.successDefault;
+    } else {
+      color = TextColor.errorDefault;
     }
+  } else {
+    color = TextColor.textAlternative;
+  }
 
-    const fmtAmountChange = formatWithThreshold(
-      Math.abs(amtChange),
-      0.01,
-      locale,
-      {
-        style: 'currency',
-        currency: currentCurrency,
-      },
-    );
+  const localizedAmountChange = formatWithThreshold(
+    Math.abs(singleDayAmountChange),
+    0.01,
+    locale,
+    {
+      style: 'currency',
+      currency: currentCurrency,
+    },
+  );
 
-    const fmtPercentChange = formatWithThreshold(
-      Math.abs(pctChange) / 100,
-      0.0001,
-      locale,
-      {
-        style: 'percent',
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 2,
-      },
-    );
-
-    return {
-      singleDayPercentChange: pctChange,
-      singleDayAmountChange: amtChange,
-      signPrefix: prefix,
-      color: derivedColor,
-      localizedAmountChange: fmtAmountChange,
-      localizedPercentChange: fmtPercentChange,
-    };
-  }, [historicalAggregatedBalances, privacyMode, locale, currentCurrency]);
+  const localizedPercentChange = formatWithThreshold(
+    Math.abs(singleDayPercentChange) / 100,
+    0.0001,
+    locale,
+    {
+      style: 'percent',
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    },
+  );
 
   return (
     <Skeleton
-      hideChildren={
+      isLoading={
         !anyEnabledNetworksAreAvailable && isZeroAmount(singleDayAmountChange)
       }
     >
-      <Box className="flex">
+      <Box display={Display.Flex}>
         <SensitiveText
           variant={TextVariant.bodyMdMedium}
           color={color}

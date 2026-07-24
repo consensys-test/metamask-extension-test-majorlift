@@ -4,16 +4,14 @@ import PropTypes from 'prop-types';
 import ZENDESK_URLS from '../../../helpers/constants/zendesk-url';
 import { I18nContext } from '../../../contexts/i18n';
 import InfoTooltip from '../../../components/ui/info-tooltip';
-// eslint-disable-next-line import-x/no-restricted-paths -- TODO(ADR-0021): route-isolation backlog
 import TransactionDetail from '../../confirmations/components/transaction-detail/transaction-detail.component';
-// eslint-disable-next-line import-x/no-restricted-paths -- TODO(ADR-0021): route-isolation backlog
 import TransactionDetailItem from '../../confirmations/components/transaction-detail-item/transaction-detail-item.component';
 import {
   TextColor,
   TextVariant,
   FontWeight,
 } from '../../../helpers/constants/design-system';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import { MetaMetricsEventCategory } from '../../../../shared/constants/metametrics';
 import { getUseCurrencyRateCheck } from '../../../selectors';
 import {
@@ -35,7 +33,7 @@ export default function FeeCard({
   const t = useContext(I18nContext);
   const useCurrencyRateCheck = useSelector(getUseCurrencyRateCheck);
 
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   const tokenApprovalTextComponent = (
     <span key="fee-card-approve-symbol" className="fee-card__bold">
@@ -67,13 +65,10 @@ export default function FeeCard({
                             externalLink
                             key="gas-fees-learn-more"
                             onClick={() => {
-                              trackEvent(
-                                createEventBuilder(
-                                  'Clicked "Gas Fees: Learn More" Link',
-                                )
-                                  .addCategory(MetaMetricsEventCategory.Swaps)
-                                  .build(),
-                              );
+                              trackEvent({
+                                event: 'Clicked "Gas Fees: Learn More" Link',
+                                category: MetaMetricsEventCategory.Swaps,
+                              });
                             }}
                           >
                             {t('swapGasFeesExplanationLinkText')}

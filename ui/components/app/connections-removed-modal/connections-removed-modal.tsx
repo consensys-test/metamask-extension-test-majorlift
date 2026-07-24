@@ -1,15 +1,17 @@
 import React from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Box, BoxJustifyContent } from '@metamask/design-system-react';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import {
   AlignItems,
+  Display,
   IconColor,
+  JustifyContent,
   TextAlign,
   TextVariant,
 } from '../../../helpers/constants/design-system';
 import {
+  Box,
   Modal,
   ModalContent,
   ModalHeader,
@@ -27,6 +29,8 @@ import { resetWallet } from '../../../store/actions';
 import { isPopupOrSidePanelEnvironment } from '../../../../shared/lib/environment-type';
 import { DEFAULT_ROUTE } from '../../../helpers/constants/routes';
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function ConnectionsRemovedModal() {
   const t = useI18nContext();
   const navigate = useNavigate();
@@ -52,7 +56,7 @@ export default function ConnectionsRemovedModal() {
       <ModalContent alignItems={AlignItems.center}>
         <ModalHeader>
           <Box>
-            <Box className="flex" justifyContent={BoxJustifyContent.Center}>
+            <Box display={Display.Flex} justifyContent={JustifyContent.center}>
               <Icon
                 name={IconName.Danger}
                 size={IconSize.Xl}

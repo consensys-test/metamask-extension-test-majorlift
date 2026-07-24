@@ -29,7 +29,11 @@ describe('Wallet Created Events - Imported Account', function () {
 
     await withFixtures(
       {
-        fixtures: new FixtureBuilderV2({ onboarding: true }).build(),
+        fixtures: new FixtureBuilderV2({ onboarding: true })
+          .withMetaMetricsController({
+            participateInMetaMetrics: true,
+          })
+          .build(),
         title: this.test?.fullTitle(),
         testSpecificMock: async (server: Mockttp) => {
           return await mockSegment(server, expectedEvents);
@@ -38,8 +42,7 @@ describe('Wallet Created Events - Imported Account', function () {
       async ({ driver, mockedEndpoint: mockedEndpoints }) => {
         await completeImportSRPOnboardingFlow({
           driver,
-          completedMetaMetricsOnboarding: true,
-          optedIn: true,
+          participateInMetaMetrics: true,
         });
 
         const events = await getEventPayloads(driver, mockedEndpoints);
@@ -64,6 +67,8 @@ describe('Wallet Created Events - Imported Account', function () {
         const appInstallBackground = [
           [
             (req: {
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               properties: {
                 category: string;
                 locale: string;
@@ -86,6 +91,8 @@ describe('Wallet Created Events - Imported Account', function () {
         const appInstallFullscreen = [
           [
             (req: {
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               properties: {
                 category: string;
                 locale: string;

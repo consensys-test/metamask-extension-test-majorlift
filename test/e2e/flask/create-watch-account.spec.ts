@@ -11,7 +11,6 @@ import HeaderNavbar from '../page-objects/pages/header-navbar';
 import HomePage from '../page-objects/pages/home/homepage';
 import SettingsPage from '../page-objects/pages/settings/settings-page';
 import { login } from '../page-objects/flows/login.flow';
-import { closeSettings } from '../page-objects/flows/settings.flow';
 import { watchEoaAddress } from '../page-objects/flows/watch-account.flow';
 
 const ACCOUNT_1 = '0x5CfE73b6021E818B776b421B1c4Db2474086a7e1';
@@ -78,10 +77,10 @@ describe.skip('Account-watcher snap', function (this: Suite) {
           );
 
           // 'Send' button should be disabled
-          await homePage.checkSendButtonIsClickable(false);
+          assert.equal(await homePage.checkIfSendButtonIsClickable(), false);
 
           // 'Swap' button should be disabled
-          await homePage.checkSwapButtonIsClickable(false);
+          assert.equal(await homePage.checkIfSwapButtonIsClickable(), false);
         },
       );
     });
@@ -304,7 +303,7 @@ describe.skip('Account-watcher snap', function (this: Suite) {
             'Toggle should be off by default',
           );
           await experimentalSettings.toggleWatchAccount();
-          await closeSettings(driver);
+          await settingsPage.clickBackButton();
 
           // verify the 'Watch and Ethereum account (Beta)' option is available
           await homePage.checkPageIsLoaded();
@@ -337,7 +336,7 @@ describe.skip('Account-watcher snap', function (this: Suite) {
           const experimentalSettings = new ExperimentalSettings(driver);
           await experimentalSettings.checkPageIsLoaded();
           await experimentalSettings.toggleWatchAccount();
-          await closeSettings(driver);
+          await settingsPage.clickBackButton();
 
           // verify the 'Watch and Ethereum account (Beta)' option is available
           await homePage.checkPageIsLoaded();
@@ -356,7 +355,7 @@ describe.skip('Account-watcher snap', function (this: Suite) {
           await settingsPage.goToExperimentalSettings();
           await experimentalSettings.checkPageIsLoaded();
           await experimentalSettings.toggleWatchAccount();
-          await closeSettings(driver);
+          await settingsPage.clickBackButton();
 
           // verify the 'Watch and Ethereum account (Beta)' option is not available
           await homePage.checkPageIsLoaded();

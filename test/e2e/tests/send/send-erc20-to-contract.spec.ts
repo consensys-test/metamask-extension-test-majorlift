@@ -9,7 +9,7 @@ import { Mockttp } from 'mockttp';
 import { withFixtures } from '../../helpers';
 import { SMART_CONTRACTS } from '../../seeder/smart-contracts';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
-import TokensTab from '../../page-objects/pages/home/tokens-tab';
+import AssetListPage from '../../page-objects/pages/home/asset-list';
 import HomePage from '../../page-objects/pages/home/homepage';
 import SendPage from '../../page-objects/pages/send/send-page';
 import TokenOverviewPage from '../../page-objects/pages/token-overview-page';
@@ -40,26 +40,21 @@ describe('Send ERC20 - Contract Warning', function () {
         smartContract,
         title: this.test?.fullTitle(),
         testSpecificMock: mocks,
-        manifestFlags: {
-          remoteFeatureFlags: {
-            extensionUxTokenManagementFilter: true,
-          },
-        },
       },
       async ({ driver, contractRegistry, localNodes }) => {
         const contractAddress: string =
           await contractRegistry.getContractAddress(smartContract);
         await login(driver, { localNode: localNodes[0] });
 
-        const tokensTab = new TokensTab(driver);
-        await tokensTab.importCustomTokenByChain(
+        const assetListPage = new AssetListPage(driver);
+        await assetListPage.importCustomTokenByChain(
           '0x539',
           '0x581c3C1A2A4EBDE2A0Df29B5cf4c116E42945947',
         );
 
         const homePage = new HomePage(driver);
         await homePage.checkPageIsLoaded();
-        await tokensTab.clickOnAsset('TST');
+        await assetListPage.clickOnAsset('TST');
 
         // Send TST
         const tokenOverviewPage = new TokenOverviewPage(driver);
@@ -67,10 +62,7 @@ describe('Send ERC20 - Contract Warning', function () {
         await tokenOverviewPage.clickSend();
 
         const sendPage = new SendPage(driver);
-        await sendPage.fillRecipient({
-          recipientAddress: contractAddress,
-          validAddress: false,
-        });
+        await sendPage.fillRecipient(contractAddress);
 
         // Verify warning
         const warningText =

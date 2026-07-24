@@ -1,8 +1,8 @@
-import type {
-  ActionConstraint,
+import {
   ActionHandler,
-  EventConstraint,
   Messenger,
+  MOCK_ANY_NAMESPACE,
+  MockAnyNamespace,
 } from '@metamask/messenger';
 import type {
   UIMessenger,
@@ -10,27 +10,21 @@ import type {
   UIMessengerEvents,
 } from '../../ui/messengers/ui-messenger';
 
-type DelegateeMessenger = Messenger<string, ActionConstraint, EventConstraint>;
-
-type DelegateArgs<
-  Actions extends UIMessengerActions,
-  Events extends UIMessengerEvents,
-> = {
-  actions?: Actions['type'][];
-  events?: Events['type'][];
-  messenger: DelegateeMessenger;
+/**
+ * Maps each UIMessenger action type string to its handler function type.
+ */
+export type UIMessengerActionHandlersByType = {
+  [Action in UIMessengerActions as Action['type']]: Action['handler'];
 };
 
 /**
  * Create a UI messenger for testing with the specified action handlers.
  *
- * This creates a mock UIMessenger that registers the provided action handlers
- * directly on any messenger delegated to it, bypassing the background
- * connection. Events are not subscribed to since there is no background
- * connection in tests.
+ * This creates a real Messenger instance with a fake namespace and registers
+ * the provided action handlers on it.
  *
  * @param actionHandlers - A map of action type strings to handler functions.
- * @returns A mock UI messenger with the specified action handlers.
+ * @returns A messenger with the specified action handlers registered.
  * @example
  * ```typescript
  * const addNetwork = jest.fn().mockResolvedValue({ chainId: '0x1' });
@@ -41,31 +35,26 @@ type DelegateArgs<
  */
 export function createMockUIMessenger<
   Actions extends UIMessengerActions = never,
-  Events extends UIMessengerEvents = never,
 >(actionHandlers?: {
   [Action in Actions as Action['type']]: Action['handler'];
 }): UIMessenger {
-  return {
-    async delegate({ actions = [], messenger }: DelegateArgs<Actions, Events>) {
-      for (const actionType of actions) {
-        const handler =
-          actionHandlers?.[actionType] ??
-          (() => {
-            throw new Error(
-              `No handler registered for action "${String(actionType)}".`,
-            );
-          });
+  const messenger = new Messenger<
+    MockAnyNamespace,
+    UIMessengerActions,
+    UIMessengerEvents
+  >({
+    namespace: MOCK_ANY_NAMESPACE,
+  });
 
-        messenger._internalRegisterDelegatedActionHandler(actionType, handler);
-      }
+  for (const [actionType, handler] of Object.entries(actionHandlers ?? {})) {
+    messenger.registerActionHandler(
+      actionType as Actions['type'],
+      handler as ActionHandler<Actions, Actions['type']>,
+    );
+  }
 
-      // No background connection in tests — events are not subscribed to.
-    },
-
-    async revoke({ actions = [], messenger }: DelegateArgs<Actions, Events>) {
-      for (const actionType of actions) {
-        messenger._internalUnregisterDelegatedActionHandler(actionType);
-      }
-    },
-  } as unknown as UIMessenger;
+  // UIMessenger is a subclass of Messenger that includes private fields.
+  // We don't want to create a real UIMessenger instance above, we want to make
+  // a "fake" one, but we want TypeScript to think this is a real one.
+  return messenger as UIMessenger;
 }

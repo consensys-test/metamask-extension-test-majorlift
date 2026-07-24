@@ -25,12 +25,9 @@ describe('trackCriticalErrorEvent', () => {
     const backup: Backup = {
       KeyringController: { vault: 'encrypted-vault-data' },
       AppMetadataController: {},
-      AnalyticsController: {
-        optedIn: true,
-        analyticsId: 'test-metrics-id-123',
-      },
       MetaMetricsController: {
-        completedMetaMetricsOnboarding: true,
+        participateInMetaMetrics: true,
+        metaMetricsId: 'test-metrics-id-123',
       },
     };
 
@@ -62,12 +59,9 @@ describe('trackCriticalErrorEvent', () => {
     const backup: Backup = {
       KeyringController: { vault: 'encrypted-vault-data' },
       AppMetadataController: {},
-      AnalyticsController: {
-        optedIn: true,
-        analyticsId: 'test-metrics-id-456',
-      },
       MetaMetricsController: {
-        completedMetaMetricsOnboarding: true,
+        participateInMetaMetrics: true,
+        metaMetricsId: 'test-metrics-id-456',
       },
     };
 
@@ -102,21 +96,28 @@ describe('trackCriticalErrorEvent', () => {
   // @ts-expect-error This is missing from the Mocha type definitions
   it.each([
     ['backup is null', null],
-    ['AnalyticsController is missing', { KeyringController: {} }],
+    ['MetaMetricsController is missing', { KeyringController: {} }],
     [
-      'optedIn is false',
+      'participateInMetaMetrics is false',
       {
-        AnalyticsController: {
-          optedIn: false,
-          analyticsId: 'id',
+        MetaMetricsController: {
+          participateInMetaMetrics: false,
+          metaMetricsId: 'id',
         },
       },
     ],
     [
-      'analyticsId is missing',
+      'participateInMetaMetrics is null',
       {
-        AnalyticsController: { optedIn: true },
+        MetaMetricsController: {
+          participateInMetaMetrics: null,
+          metaMetricsId: 'id',
+        },
       },
+    ],
+    [
+      'metaMetricsId is missing',
+      { MetaMetricsController: { participateInMetaMetrics: true } },
     ],
   ])('does not track when %s', (_: string, backup: Backup | null) => {
     trackCriticalErrorEvent(

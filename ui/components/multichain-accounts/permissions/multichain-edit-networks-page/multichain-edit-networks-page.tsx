@@ -1,36 +1,35 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { CaipChainId } from '@metamask/utils';
+import { useI18nContext } from '../../../../hooks/useI18nContext';
 import {
   Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxJustifyContent,
-  Button,
+  IconName,
   ButtonIcon,
   ButtonIconSize,
-  ButtonSize,
-  ButtonVariant,
   Checkbox,
-  FontWeight,
-  Icon,
-  IconColor,
-  IconName,
   IconSize,
+  ButtonPrimary,
+  ButtonPrimarySize,
   Text,
-  TextColor,
-  TextVariant,
-} from '@metamask/design-system-react';
-import { useI18nContext } from '../../../../hooks/useI18nContext';
+  Icon,
+} from '../../../component-library';
 
 import {
+  AlignItems,
   BackgroundColor,
-  TextVariant as LegacyTextVariant,
+  BlockSize,
+  Display,
+  FlexDirection,
+  IconColor,
+  JustifyContent,
+  TextColor,
+  TextVariant,
 } from '../../../../helpers/constants/design-system';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../../contexts/metametrics';
 import { Content, Footer, Header, Page } from '../../../multichain/pages/page';
 import { EvmAndMultichainNetworkConfigurationsWithCaipChainId } from '../../../../selectors/selectors.types';
 import { NetworkListItem } from '../../../multichain/network-list-item';
@@ -44,15 +43,17 @@ type MultichainEditNetworksPageProps = {
   onSubmit: (chainIds: CaipChainId[]) => void;
 };
 
-export const MultichainEditNetworksPage = ({
+export const MultichainEditNetworksPage: React.FC<
+  MultichainEditNetworksPageProps
+> = ({
   nonTestNetworks,
   testNetworks,
   defaultSelectedChainIds,
   onSubmit,
   onClose,
-}: MultichainEditNetworksPageProps) => {
+}) => {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const allNetworks = [...nonTestNetworks, ...testNetworks];
 
   const [selectedChainIds, setSelectedChainIds] = useState(
@@ -97,12 +98,12 @@ export const MultichainEditNetworksPage = ({
   return (
     <Page
       data-testid="modal-page"
-      className="main-container multichain-edit-networks-page"
+      className="main-container connect-page"
       backgroundColor={BackgroundColor.backgroundDefault}
     >
       <Header
         textProps={{
-          variant: LegacyTextVariant.headingSm,
+          variant: TextVariant.headingSm,
         }}
         startAccessory={
           <ButtonIcon
@@ -123,13 +124,11 @@ export const MultichainEditNetworksPage = ({
       >
         <Box padding={4}>
           <Checkbox
-            id="edit-networks-select-all"
             label={t('selectAll')}
-            isSelected={checked || isIndeterminate}
-            onChange={() => (allAreSelected ? deselectAll() : selectAll())}
-            checkedIconProps={
-              isIndeterminate ? { name: IconName.MinusBold } : undefined
-            }
+            isChecked={checked}
+            gap={4}
+            onClick={() => (allAreSelected ? deselectAll() : selectAll())}
+            isIndeterminate={isIndeterminate}
           />
         </Box>
         {nonTestNetworks.map((network) => (
@@ -142,18 +141,13 @@ export const MultichainEditNetworksPage = ({
             }}
             startAccessory={
               <Checkbox
-                id={`edit-networks-checkbox-${network.caipChainId}`}
-                isSelected={selectedChainIds.includes(network.caipChainId)}
-                onChange={() => handleNetworkClick(network.caipChainId)}
-                onClick={(event) => event.stopPropagation()}
+                isChecked={selectedChainIds.includes(network.caipChainId)}
               />
             }
           />
         ))}
         <Box padding={4}>
-          <Text variant={TextVariant.BodyMd} fontWeight={FontWeight.Medium}>
-            {t('testnets')}
-          </Text>
+          <Text variant={TextVariant.bodyMdMedium}>{t('testnets')}</Text>
         </Box>
         {testNetworks.map((network) => (
           <NetworkListItem
@@ -165,10 +159,7 @@ export const MultichainEditNetworksPage = ({
             }}
             startAccessory={
               <Checkbox
-                id={`edit-networks-checkbox-${network.caipChainId}`}
-                isSelected={selectedChainIds.includes(network.caipChainId)}
-                onChange={() => handleNetworkClick(network.caipChainId)}
-                onClick={(event) => event.stopPropagation()}
+                isChecked={selectedChainIds.includes(network.caipChainId)}
               />
             }
             showEndAccessory={false}
@@ -178,27 +169,28 @@ export const MultichainEditNetworksPage = ({
       <Footer>
         {selectedChainIds.length === 0 ? (
           <Box
-            flexDirection={BoxFlexDirection.Column}
+            display={Display.Flex}
+            flexDirection={FlexDirection.Column}
             gap={4}
-            alignItems={BoxAlignItems.Center}
-            className="flex w-full"
+            alignItems={AlignItems.center}
+            width={BlockSize.Full}
           >
             <Box
-              className="flex"
+              display={Display.Flex}
               gap={1}
-              alignItems={BoxAlignItems.Center}
-              justifyContent={BoxJustifyContent.Center}
+              alignItems={AlignItems.center}
+              justifyContent={JustifyContent.center}
             >
               <Icon
                 name={IconName.Danger}
                 size={IconSize.Sm}
-                color={IconColor.ErrorDefault}
+                color={IconColor.errorDefault}
               />
-              <Text variant={TextVariant.BodySm} color={TextColor.ErrorDefault}>
+              <Text variant={TextVariant.bodySm} color={TextColor.errorDefault}>
                 {t('disconnectMessage')}
               </Text>
             </Box>
-            <Button
+            <ButtonPrimary
               data-testid="disconnect-chains-button"
               onClick={() => {
                 onSubmit(selectedChainIds);
@@ -212,41 +204,36 @@ export const MultichainEditNetworksPage = ({
                   (chainId) => !selectedChainIdsSet.has(chainId),
                 );
 
-                trackEvent(
-                  createEventBuilder(
-                    MetaMetricsEventName.UpdatePermissionedNetworks,
-                  )
-                    .addCategory(MetaMetricsEventCategory.Permissions)
-                    .addProperties({
-                      addedNetworks: addedNetworks.length,
-                      removedNetworks: removedNetworks.length,
-                      location: 'Edit Networks Modal',
-                    })
-                    .build(),
-                );
+                trackEvent({
+                  category: MetaMetricsEventCategory.Permissions,
+                  event: MetaMetricsEventName.UpdatePermissionedNetworks,
+                  properties: {
+                    addedNetworks: addedNetworks.length,
+                    removedNetworks: removedNetworks.length,
+                    location: 'Edit Networks Modal',
+                  },
+                });
                 onClose();
               }}
-              variant={ButtonVariant.Primary}
-              size={ButtonSize.Lg}
-              isFullWidth
-              isDanger
+              size={ButtonPrimarySize.Lg}
+              block
+              danger
             >
               {t('disconnect')}
-            </Button>
+            </ButtonPrimary>
           </Box>
         ) : (
-          <Button
+          <ButtonPrimary
             data-testid="connect-more-chains-button"
             onClick={() => {
               onSubmit(selectedChainIds);
               onClose();
             }}
-            variant={ButtonVariant.Primary}
-            size={ButtonSize.Lg}
-            isFullWidth
+            size={ButtonPrimarySize.Lg}
+            block
           >
             {t('update')}
-          </Button>
+          </ButtonPrimary>
         )}
       </Footer>
     </Page>

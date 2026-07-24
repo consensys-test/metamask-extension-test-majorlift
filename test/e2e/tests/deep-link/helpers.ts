@@ -281,8 +281,8 @@ export const mockRewardsApi = async (server: Mockttp): Promise<void> => {
   await server
     .forPost('https://rewards.uat-api.cx.metamask.io/public/rewards/ois')
     .thenJson(200, {
-      ois: [false],
-      sids: [null],
+      ois: [true],
+      sids: ['019b2245-9533-7739-a89c-b4c839a3d53a'],
     });
 
   await server
@@ -312,7 +312,10 @@ export const mockRewardsApi = async (server: Mockttp): Promise<void> => {
 export const REDIRECT_ROUTES = [
   { route: '/buy', expectedUrl: `${BaseUrl.Portfolio}/buy` },
   { route: '/card-onboarding', expectedUrl: `${BaseUrl.MetaMask}/card` },
-  { route: '/money', expectedUrl: `${BaseUrl.MetaMask}/money` },
+  {
+    route: '/predict',
+    expectedUrl: `${BaseUrl.MetaMask}/prediction-markets`,
+  },
 ] as const;
 
 export function getHashParams(url: URL) {

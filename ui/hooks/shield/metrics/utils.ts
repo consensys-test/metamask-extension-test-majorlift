@@ -142,6 +142,8 @@ export function formatCaptureShieldEligibilityCohortEventsProps(
   };
 
   if ('modalType' in params) {
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     props.modal_type = params.modalType;
   }
 

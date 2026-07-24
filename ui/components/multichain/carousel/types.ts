@@ -1,11 +1,27 @@
-import type { CarouselSlide } from '../../../../shared/constants/app-state';
+import { CarouselSlide } from '../../../../shared/constants/app-state';
+
+// Navigation action types for slides
+export type NavigationAction = {
+  type: 'external' | 'internal' | 'modal';
+  href?: string;
+  modal?: string;
+  action?: string;
+};
+
+// Enhanced carousel slide with navigation
+export type EnhancedCarouselSlide = CarouselSlide & {
+  navigation?: NavigationAction;
+  testID?: string;
+  testIDTitle?: string;
+  testIDCloseButton?: string;
+};
 
 // Main carousel props
 export type CarouselProps = {
   slides: CarouselSlide[];
   className?: string;
   isLoading?: boolean;
-  onSlideClick?: (slideId: string) => boolean | void;
+  onSlideClick?: (slideId: string, navigation?: NavigationAction) => void;
   onEmptyState?: () => void;
   onSlideClose?: (slideId: string, isLastSlide: boolean) => void;
   onActiveSlideChange?: (slide: CarouselSlide) => void;

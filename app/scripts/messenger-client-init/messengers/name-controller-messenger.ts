@@ -1,11 +1,10 @@
-import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { NameControllerMessenger } from '@metamask/name-controller';
+import { Messenger } from '@metamask/messenger';
 import { PreferencesControllerGetStateAction } from '../../controllers/preferences-controller';
 import { RootMessenger } from '../../lib/messenger';
+
+export type NameControllerMessenger = ReturnType<
+  typeof getNameControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the name
@@ -15,16 +14,12 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getNameControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<NameControllerMessenger>,
-    MessengerEvents<NameControllerMessenger>
-  >,
-): NameControllerMessenger {
-  const controllerMessenger: NameControllerMessenger = new Messenger({
+  messenger: RootMessenger<never, never>,
+) {
+  return new Messenger<'NameController', never, never, typeof messenger>({
     namespace: 'NameController',
     parent: messenger,
   });
-  return controllerMessenger;
 }
 
 type AllowedInitializationActions = PreferencesControllerGetStateAction;

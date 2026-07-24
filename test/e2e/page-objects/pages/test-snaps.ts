@@ -129,7 +129,6 @@ export const buttonLocator = {
   startWebSocket: '#startWebSocket',
   stopWebSocket: '#stopWebSocket',
   getWebSocketState: '#getWebSocketState',
-  messengerCallButton: '#messenger-call',
 } satisfies Record<string, string>;
 
 export const spanLocator = {
@@ -156,7 +155,6 @@ export const spanLocator = {
   messageResultEd25519SBip32Span: '#bip32MessageResult-ed25519Bip32',
   personalSignResultSpan: '#personalSignResult',
   preferencesResultSpan: '#preferencesResult',
-  preinstalledResultSpan: '#preinstalledResult',
   providerVersionResultSpan: '#ethproviderResult',
   multichainProviderResultSpan: '#multichainProviderResult',
   sendManageStateResultSpan: '#sendManageStateResult',

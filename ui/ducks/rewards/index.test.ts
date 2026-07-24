@@ -1,10 +1,12 @@
 import configureMockStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 
+import { OnboardingStep } from './types';
 import rewardsReducer, {
   initialState,
   resetRewardsState,
-  setRewardsModalOpen,
+  setOnboardingModalOpen,
+  setOnboardingActiveStep,
   setOnboardingReferralCode,
   setRewardsGeoMetadata,
   setRewardsGeoMetadataLoading,
@@ -15,7 +17,6 @@ import rewardsReducer, {
   setSeasonStatusError,
   setErrorToast,
   setRewardsBadgeHidden,
-  setRewardsDeeplinkUrl,
 } from '.';
 
 describe('Ducks - Rewards', () => {
@@ -39,7 +40,7 @@ describe('Ducks - Rewards', () => {
     it('returns state unchanged for unknown action type', () => {
       const mockState = {
         ...initialState,
-        rewardsModalOpen: true,
+        onboardingModalOpen: true,
       };
       expect(
         rewardsReducer(mockState, {
@@ -54,7 +55,7 @@ describe('Ducks - Rewards', () => {
     it('resetRewardsState resets to initialState', () => {
       const mutated = {
         ...initialState,
-        rewardsModalOpen: true,
+        onboardingModalOpen: true,
         geoLocation: 'US',
         optinAllowedForGeo: true,
       };
@@ -64,12 +65,20 @@ describe('Ducks - Rewards', () => {
       expect(newState).toStrictEqual(initialState);
     });
 
-    it('setRewardsModalOpen updates rewardsModalOpen', () => {
-      store.dispatch(setRewardsModalOpen(true));
+    it('setOnboardingModalOpen updates onboardingModalOpen', () => {
+      store.dispatch(setOnboardingModalOpen(true));
       const actions = store.getActions();
-      expect(actions[0].type).toBe('rewards/setRewardsModalOpen');
+      expect(actions[0].type).toBe('rewards/setOnboardingModalOpen');
       const newState = rewardsReducer(initialState, actions[0]);
-      expect(newState.rewardsModalOpen).toBe(true);
+      expect(newState.onboardingModalOpen).toBe(true);
+    });
+
+    it('setOnboardingActiveStep updates onboardingActiveStep', () => {
+      store.dispatch(setOnboardingActiveStep(OnboardingStep.STEP1));
+      const actions = store.getActions();
+      expect(actions[0].type).toBe('rewards/setOnboardingActiveStep');
+      const newState = rewardsReducer(initialState, actions[0]);
+      expect(newState.onboardingActiveStep).toBe(OnboardingStep.STEP1);
     });
 
     it('setOnboardingReferralCode updates onboardingReferralCode', () => {
@@ -218,23 +227,6 @@ describe('Ducks - Rewards', () => {
       expect(actions[0].type).toBe('rewards/setRewardsBadgeHidden');
       const newState = rewardsReducer(initialState, actions[0]);
       expect(newState.rewardsBadgeHidden).toBe(false);
-    });
-
-    it('setRewardsDeeplinkUrl stores the deeplink URL', () => {
-      const url = 'https://link.metamask.io/rewards?referral=ABC123';
-      store.dispatch(setRewardsDeeplinkUrl(url));
-      const actions = store.getActions();
-      expect(actions[0].type).toBe('rewards/setRewardsDeeplinkUrl');
-      const newState = rewardsReducer(initialState, actions[0]);
-      expect(newState.rewardsDeeplinkUrl).toBe(url);
-    });
-
-    it('setRewardsDeeplinkUrl clears the deeplink URL when passed null', () => {
-      store.dispatch(setRewardsDeeplinkUrl(null));
-      const actions = store.getActions();
-      expect(actions[0].type).toBe('rewards/setRewardsDeeplinkUrl');
-      const newState = rewardsReducer(initialState, actions[0]);
-      expect(newState.rewardsDeeplinkUrl).toBeNull();
     });
   });
 });

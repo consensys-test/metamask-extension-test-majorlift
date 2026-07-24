@@ -21,6 +21,8 @@ export type NotificationsSettingsBoxProps = {
   onToggle: () => void;
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function NotificationsSettingsBox({
   children,
   value,
@@ -47,7 +49,7 @@ export function NotificationsSettingsBox({
           className="w-10 min-w-10 shrink-0"
         >
           {loading ? (
-            <Box className="flex justify-end">
+            <Box className="text-right">
               <Preloader size={24} />
             </Box>
           ) : (

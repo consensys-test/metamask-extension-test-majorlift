@@ -5,7 +5,7 @@ import { calcTokenAmount } from '../../../../../../shared/lib/transactions-contr
 import {
   formatAmount,
   formatAmountMaxPrecision,
-} from '../../../../../../shared/lib/format-amount';
+} from '../../../../../pages/confirmations/components/simulation-details/formatAmount';
 import { shortenString } from '../../../../../helpers/utils/util';
 import { ConfirmInfoRowText } from './text';
 
@@ -14,10 +14,9 @@ type ConfirmInfoRowTextTokenUnitsProps = {
   decimals?: number;
 };
 
-export const ConfirmInfoRowTextTokenUnits = ({
-  value,
-  decimals,
-}: ConfirmInfoRowTextTokenUnitsProps) => {
+export const ConfirmInfoRowTextTokenUnits: React.FC<
+  ConfirmInfoRowTextTokenUnitsProps
+> = ({ value, decimals }) => {
   const tokenValue = calcTokenAmount(value, decimals);
 
   const tokenText = formatAmount('en-US', tokenValue);

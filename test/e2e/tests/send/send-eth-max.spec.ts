@@ -10,7 +10,7 @@
 import { MockttpServer } from 'mockttp';
 import { withFixtures } from '../../helpers';
 import { CHAIN_IDS } from '../../../../shared/constants/network';
-import { createInternalTransactionWithMaxAmount } from '../../page-objects/flows/transaction.flow';
+import { createInternalTransactionWithMaxAmount } from '../../page-objects/flows/transaction';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { GAS_API_BASE_URL } from '../../../../shared/constants/swaps';
 import { login } from '../../page-objects/flows/login.flow';
@@ -192,7 +192,7 @@ describe('Send ETH - Max Amount', function () {
           // confirms the transaction
           await transactionConfirmation.clickFooterConfirmButtonAndWaitToDisappear();
 
-          await validateTransaction(driver, '-24.9996');
+          await validateTransaction(driver, '-24.99957065');
         },
       );
     });
@@ -265,7 +265,7 @@ describe('Send ETH - Max Amount', function () {
 
         // confirms the transaction
         await transactionConfirmation.clickFooterConfirmButtonAndWaitToDisappear();
-        await validateTransaction(driver, '-24.9989');
+        await validateTransaction(driver, '-24.99893303');
       },
     );
   });

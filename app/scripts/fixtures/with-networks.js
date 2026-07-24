@@ -125,7 +125,7 @@ export const FIXTURES_NETWORKS = {
     },
     zkSync: {
       id: 'zkSync',
-      rpcUrl: `https://zksync-mainnet.infura.io/v3/${infuraProjectId}`,
+      rpcUrl: 'https://mainnet.era.zksync.io',
       chainId: CHAIN_IDS.ZKSYNC_ERA,
       ticker: CURRENCY_SYMBOLS.ETH,
       nickname: ZK_SYNC_ERA_DISPLAY_NAME,

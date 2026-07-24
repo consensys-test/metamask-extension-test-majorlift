@@ -19,10 +19,12 @@ import { getNetworkConfigurationsByChainId } from '../../../../../../../../share
 import Tooltip from '../../../../../../../components/ui/tooltip';
 import { getIntlLocale } from '../../../../../../../ducks/locale/locale';
 import { useFiatFormatter } from '../../../../../../../hooks/useFiatFormatter';
-import { selectConversionRateByChainId } from '../../../../../../../selectors';
-import { getPreferences } from '../../../../../../../../shared/lib/selectors/preferences';
+import {
+  getPreferences,
+  selectConversionRateByChainId,
+} from '../../../../../../../selectors';
 import { useConfirmContext } from '../../../../../context/confirm';
-import { formatAmount } from '../../../../../../../../shared/lib/format-amount';
+import { formatAmount } from '../../../../simulation-details/formatAmount';
 import { useSendingValueMetric } from '../../hooks/useSendingValueMetric';
 import SendHeadingLayout from '../send-heading-layout/send-heading-layout';
 
@@ -45,7 +47,7 @@ const NativeSendHeading = () => {
   const fiatValue =
     conversionRate &&
     nativeAssetTransferValue &&
-    new BigNumber(String(conversionRate))
+    new BigNumber(conversionRate)
       .times(nativeAssetTransferValue, 10)
       .toNumber();
   const fiatFormatter = useFiatFormatter();

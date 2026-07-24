@@ -71,14 +71,9 @@ function createPermissionInfoWithMetadata<
         justification: 'Justification for erc20 token periodic',
       };
       break;
-    case 'token-approval-revocation':
+    case 'erc20-token-revocation':
       permissionData = {
-        erc20Approve: true,
-        erc721Approve: true,
-        erc721SetApprovalForAll: true,
-        permit2Approve: true,
-        permit2Lockdown: true,
-        permit2InvalidateNonces: true,
+        justification: 'Justification for erc20 token revocation',
       };
       break;
     default:
@@ -145,7 +140,7 @@ describe('Gator Permissions Selectors', () => {
       chainId: MOCK_CHAIN_ID_MAINNET,
       siteOrigin: 'http://localhost:8000',
       permissions: [
-        { permissionType: 'token-approval-revocation', count: 1 },
+        { permissionType: 'erc20-token-revocation', count: 1 },
         { permissionType: 'native-token-stream', count: 1 },
         { permissionType: 'native-token-periodic', count: 1 },
         { permissionType: 'erc20-token-stream', count: 1 },
@@ -155,7 +150,7 @@ describe('Gator Permissions Selectors', () => {
       chainId: MOCK_CHAIN_ID_POLYGON,
       siteOrigin: 'http://localhost:8001',
       permissions: [
-        { permissionType: 'token-approval-revocation', count: 1 },
+        { permissionType: 'erc20-token-revocation', count: 1 },
         { permissionType: 'native-token-stream', count: 1 },
         { permissionType: 'erc20-token-stream', count: 1 },
       ],
@@ -171,9 +166,7 @@ describe('Gator Permissions Selectors', () => {
         'erc20-token-stream',
         'native-token-periodic',
         'erc20-token-periodic',
-        'native-token-allowance',
-        'erc20-token-allowance',
-        'token-approval-revocation',
+        'erc20-token-revocation',
         'other',
       ]);
 
@@ -245,7 +238,7 @@ describe('Gator Permissions Selectors', () => {
       expect(result['erc20-token-stream']).toEqual({});
       expect(result['native-token-periodic']).toEqual({});
       expect(result['erc20-token-periodic']).toEqual({});
-      expect(result['token-approval-revocation']).toEqual({});
+      expect(result['erc20-token-revocation']).toEqual({});
       expect(result.other).toEqual({});
     });
   });
@@ -277,7 +270,7 @@ describe('Gator Permissions Selectors', () => {
             chainId: MOCK_CHAIN_ID_MAINNET,
             siteOrigin: 'http://localhost:8000',
             permissions: [
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
               { permissionType: 'native-token-stream', count: 2 },
               { permissionType: 'native-token-periodic', count: 1 },
               { permissionType: 'erc20-token-stream', count: 3 },
@@ -288,7 +281,7 @@ describe('Gator Permissions Selectors', () => {
             chainId: MOCK_CHAIN_ID_POLYGON,
             siteOrigin: 'http://localhost:8001',
             permissions: [
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
               { permissionType: 'native-token-stream', count: 1 },
               { permissionType: 'native-token-periodic', count: 2 },
             ],
@@ -430,7 +423,7 @@ describe('Gator Permissions Selectors', () => {
             siteOrigin: 'http://localhost:8000',
             permissions: [
               { permissionType: 'erc20-token-stream', count: 4 },
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
             ],
           },
           {
@@ -438,7 +431,7 @@ describe('Gator Permissions Selectors', () => {
             siteOrigin: 'http://localhost:8001',
             permissions: [
               { permissionType: 'erc20-token-stream', count: 2 },
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
             ],
           },
         ]);
@@ -468,7 +461,7 @@ describe('Gator Permissions Selectors', () => {
             permissions: [
               { permissionType: 'native-token-stream', count: 1 },
               { permissionType: 'erc20-token-stream', count: 2 },
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
             ],
           },
           {
@@ -477,7 +470,7 @@ describe('Gator Permissions Selectors', () => {
             permissions: [
               { permissionType: 'native-token-periodic', count: 2 },
               { permissionType: 'erc20-token-stream', count: 1 },
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
             ],
           },
         ]);
@@ -517,7 +510,7 @@ describe('Gator Permissions Selectors', () => {
             chainId: MOCK_CHAIN_ID_MAINNET,
             siteOrigin: 'http://localhost:8000',
             permissions: [
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
               { permissionType: 'native-token-stream', count: 2 },
               { permissionType: 'native-token-periodic', count: 1 },
               { permissionType: 'erc20-token-stream', count: 1 },
@@ -545,7 +538,7 @@ describe('Gator Permissions Selectors', () => {
             chainId: MOCK_CHAIN_ID_MAINNET,
             siteOrigin: 'http://localhost:8000',
             permissions: [
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
               { permissionType: 'native-token-stream', count: 7 },
               { permissionType: 'native-token-periodic', count: 3 },
             ],
@@ -554,7 +547,7 @@ describe('Gator Permissions Selectors', () => {
             chainId: MOCK_CHAIN_ID_POLYGON,
             siteOrigin: 'http://localhost:8001',
             permissions: [
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
               { permissionType: 'native-token-stream', count: 5 },
               { permissionType: 'native-token-periodic', count: 0 },
             ],
@@ -1013,7 +1006,7 @@ describe('Gator Permissions Selectors', () => {
         (permission: PermissionInfoWithMetadata) =>
           permission.permissionResponse.permission.type,
       );
-      expect(permissionTypes).toContain('token-approval-revocation');
+      expect(permissionTypes).toContain('erc20-token-revocation');
       expect(permissionTypes).toContain('native-token-stream');
       expect(permissionTypes).toContain('erc20-token-stream');
       expect(permissionTypes).toContain('native-token-periodic');
@@ -1100,7 +1093,7 @@ describe('Gator Permissions Selectors', () => {
         (permission: PermissionInfoWithMetadata) =>
           permission.permissionResponse.permission.type,
       );
-      expect(permissionTypes).toContain('token-approval-revocation');
+      expect(permissionTypes).toContain('erc20-token-revocation');
       expect(permissionTypes).toContain('native-token-stream');
       expect(permissionTypes).toContain('erc20-token-stream');
     });
@@ -1475,7 +1468,7 @@ describe('Gator Permissions Selectors', () => {
             chainId: MOCK_CHAIN_ID_MAINNET,
             siteOrigin: 'https://example.com',
             permissions: [
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
               { permissionType: 'native-token-stream', count: 2 },
               { permissionType: 'native-token-periodic', count: 1 },
               { permissionType: 'erc20-token-stream', count: 1 },
@@ -1485,7 +1478,7 @@ describe('Gator Permissions Selectors', () => {
             chainId: MOCK_CHAIN_ID_POLYGON,
             siteOrigin: 'https://example.com',
             permissions: [
-              { permissionType: 'token-approval-revocation', count: 1 },
+              { permissionType: 'erc20-token-revocation', count: 1 },
               { permissionType: 'native-token-stream', count: 3 },
               { permissionType: 'native-token-periodic', count: 2 },
               { permissionType: 'erc20-token-stream', count: 1 },

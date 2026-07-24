@@ -3,6 +3,7 @@ import HomePage from '../pages/home/homepage';
 import HeaderNavbar from '../pages/header-navbar';
 import { Driver } from '../../webdriver/driver';
 import { Anvil } from '../../seeder/anvil';
+import { Ganache } from '../../seeder/ganache';
 
 /**
  * Unlocks the wallet and lands the user on the homepage.
@@ -16,26 +17,20 @@ import { Anvil } from '../../seeder/anvil';
  * @param options.password - The password used to unlock the wallet.
  * @param options.validateBalance - Whether to verify the balance is displayed. Defaults to true.
  * @param options.waitForNonEvmAccounts - Whether to wait for non-EVM accounts to load on the homepage. Defaults to true; set to false to skip.
- * @param options.ignorePasskeyUnlock - Whether to ignore the passkey unlock and use password instead. Defaults to false.
  */
 export const login = async (
   driver: Driver,
   options?: {
     expectedBalance?: string;
-    localNode?: Anvil;
+    localNode?: Ganache | Anvil;
     password?: string;
     validateBalance?: boolean;
     waitForNonEvmAccounts?: boolean;
-    ignorePasskeyUnlock?: boolean;
   },
 ) => {
   console.log('Navigate to unlock page and try to login with password');
   await driver.navigate();
   const loginPage = new LoginPage(driver);
-  if (options?.ignorePasskeyUnlock === true) {
-    await loginPage.checkPasskeyUnlockPageIsLoaded();
-    await loginPage.clickUsePassword();
-  }
   await loginPage.checkPageIsLoaded();
   await loginPage.loginToHomepage(options?.password);
 
@@ -69,20 +64,4 @@ export const lockAndWaitForLoginPage = async (
   await headerNavbar.lockMetaMask();
   const loginPage = new LoginPage(driver);
   await loginPage.checkPageIsLoaded();
-};
-
-/**
- * Locks MetaMask and waits for the passkey unlock page to be loaded.
- * Use this flow when you need to lock the wallet and then interact with the passkey unlock screen.
- *
- * @param driver - The webdriver instance.
- */
-export const lockAndWaitForPasskeyUnlockPage = async (
-  driver: Driver,
-): Promise<void> => {
-  console.log('Lock MetaMask and wait for passkey unlock page');
-  const headerNavbar = new HeaderNavbar(driver);
-  await headerNavbar.lockMetaMask();
-  const loginPage = new LoginPage(driver);
-  await loginPage.checkPasskeyUnlockPageIsLoaded();
 };

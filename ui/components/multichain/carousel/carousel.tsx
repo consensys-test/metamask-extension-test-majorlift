@@ -7,7 +7,7 @@ import {
 } from 'react-transition-group';
 import { Box, BoxProps } from '../../component-library';
 import { getSelectedAccount } from '../../../selectors';
-import type { CarouselProps, CarouselState } from './types';
+import type { CarouselProps, CarouselState, NavigationAction } from './types';
 import { MAX_SLIDES } from './constants';
 import { StackCard } from './stack-card';
 import { StackCardEmpty } from './stack-card-empty';
@@ -124,11 +124,14 @@ export const Carousel = React.forwardRef(
       transitionToNextCard(slideId, isLastSlide);
     };
 
-    const handleSlideClick = (slideId: string) => {
+    const handleSlideClick = (
+      slideId: string,
+      navigation?: NavigationAction,
+    ) => {
       if (state.isTransitioning) {
-        return true;
+        return;
       }
-      return onSlideClick?.(slideId);
+      onSlideClick?.(slideId, navigation);
     };
 
     // Loading state
@@ -137,7 +140,6 @@ export const Carousel = React.forwardRef(
         <Box
           className={`carousel-container ${className}`}
           ref={ref}
-          data-testid="carousel-container"
           {...(props as BoxProps<'div'>)}
         >
           <div className="carousel-cards-wrapper">
@@ -165,7 +167,6 @@ export const Carousel = React.forwardRef(
       <Box
         className={`carousel-container ${className}`}
         ref={ref}
-        data-testid="carousel-container"
         {...(props as BoxProps<'div'>)}
       >
         <div className="carousel-cards-wrapper">

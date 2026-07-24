@@ -1,7 +1,4 @@
-import {
-  TokenDetectionController,
-  TokenDetectionControllerMessenger,
-} from '@metamask/assets-controllers';
+import { TokenDetectionController } from '@metamask/assets-controllers';
 import { getRootMessenger } from '../lib/messenger';
 import { MessengerClientInitRequest } from './types';
 import { buildControllerInitRequestMock } from './test/utils';
@@ -9,6 +6,7 @@ import {
   getTokenDetectionControllerInitMessenger,
   getTokenDetectionControllerMessenger,
   TokenDetectionControllerInitMessenger,
+  TokenDetectionControllerMessenger,
 } from './messengers';
 import { TokenDetectionControllerInit } from './token-detection-controller-init';
 
@@ -50,7 +48,6 @@ describe('TokenDetectionControllerInit', () => {
       trackMetaMetricsEvent: expect.any(Function),
       useExternalServices: expect.any(Function),
       useTokenDetection: expect.any(Function),
-      tokenListService: expect.any(Object),
     });
   });
 });

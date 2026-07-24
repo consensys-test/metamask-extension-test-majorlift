@@ -9,7 +9,7 @@
  *
  * Run after a webpack production/test build, e.g.:
  * yarn webpack
- * yarn validate-source-maps
+ * yarn validate-source-maps:webpack
  */
 
 import { access, readdir, readFile, stat } from 'node:fs/promises';

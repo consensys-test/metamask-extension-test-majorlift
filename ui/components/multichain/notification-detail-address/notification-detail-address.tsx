@@ -1,4 +1,5 @@
 import React from 'react';
+import type { FC } from 'react';
 import { NotificationDetail } from '../notification-detail';
 import { NotificationDetailCopyButton } from '../notification-detail-copy-button';
 import { Text } from '../../component-library';
@@ -15,7 +16,7 @@ export type NotificationDetailAddressProps = {
   address: string;
 };
 
-const SideText = ({ side }: { side: string }) => (
+const SideText: FC<{ side: string }> = ({ side }) => (
   <Text variant={TextVariant.bodyLgMedium} fontWeight={FontWeight.Medium}>
     {side}
   </Text>
@@ -29,10 +30,10 @@ const SideText = ({ side }: { side: string }) => (
  * @param props.address - The address to display.
  * @returns The rendered component.
  */
-export const NotificationDetailAddress = ({
+export const NotificationDetailAddress: FC<NotificationDetailAddressProps> = ({
   side,
   address,
-}: NotificationDetailAddressProps): JSX.Element => {
+}): JSX.Element => {
   const checksummedAddress = toChecksumHexAddress(address);
   const displayAddress = shortenAddress(checksummedAddress);
 

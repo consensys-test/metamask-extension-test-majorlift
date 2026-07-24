@@ -3,8 +3,12 @@ import {
   SignatureRequestStatus,
   SignatureRequestType,
 } from '@metamask/signature-controller';
-import { useAppSelector } from '../../../../store/store';
-import { selectUnapprovedSignatureRequestById } from '../../../../selectors/signatures';
+import { useSelector } from 'react-redux';
+
+import {
+  SignatureState,
+  selectUnapprovedSignatureRequestById,
+} from '../../../../selectors/signatures';
 import { useConfirmationId } from '../useConfirmationId';
 
 const FALLBACK_SIGNATURE_REQUEST: SignatureRequest = {
@@ -23,8 +27,11 @@ const FALLBACK_SIGNATURE_REQUEST: SignatureRequest = {
 export function useSignatureRequestOptional(): SignatureRequest | undefined {
   const confirmationId = useConfirmationId();
 
-  return useAppSelector((state) =>
-    selectUnapprovedSignatureRequestById(state, confirmationId),
+  return useSelector((state) =>
+    selectUnapprovedSignatureRequestById(
+      state as SignatureState,
+      confirmationId,
+    ),
   );
 }
 

@@ -1,10 +1,39 @@
+import { Messenger } from '@metamask/messenger';
+import { GatorPermissionsControllerStateChangeEvent } from '@metamask/gator-permissions-controller';
 import {
-  Messenger,
-  MessengerActions,
-  MessengerEvents,
-} from '@metamask/messenger';
-import { GatorPermissionsControllerMessenger } from '@metamask/gator-permissions-controller';
+  SnapControllerHandleRequestAction,
+  SnapControllerHasSnapAction,
+} from '@metamask/snaps-controllers';
+import {
+  TransactionControllerTransactionApprovedEvent,
+  TransactionControllerTransactionRejectedEvent,
+  TransactionControllerTransactionConfirmedEvent,
+  TransactionControllerTransactionFailedEvent,
+  TransactionControllerTransactionDroppedEvent,
+} from '@metamask/transaction-controller';
+import {
+  NetworkControllerFindNetworkClientIdByChainIdAction,
+  NetworkControllerGetNetworkClientByIdAction,
+} from '@metamask/network-controller';
 import { RootMessenger } from '../../../lib/messenger';
+
+export type GatorPermissionsControllerMessenger = ReturnType<
+  typeof getGatorPermissionsControllerMessenger
+>;
+
+type MessengerActions =
+  | SnapControllerHandleRequestAction
+  | SnapControllerHasSnapAction
+  | NetworkControllerFindNetworkClientIdByChainIdAction
+  | NetworkControllerGetNetworkClientByIdAction;
+
+type MessengerEvents =
+  | GatorPermissionsControllerStateChangeEvent
+  | TransactionControllerTransactionApprovedEvent
+  | TransactionControllerTransactionRejectedEvent
+  | TransactionControllerTransactionConfirmedEvent
+  | TransactionControllerTransactionFailedEvent
+  | TransactionControllerTransactionDroppedEvent;
 
 /**
  * Get a restricted messenger for the Gator Permissions controller. This is scoped to the
@@ -14,16 +43,17 @@ import { RootMessenger } from '../../../lib/messenger';
  * @returns The restricted messenger.
  */
 export function getGatorPermissionsControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<GatorPermissionsControllerMessenger>,
-    MessengerEvents<GatorPermissionsControllerMessenger>
-  >,
+  messenger: RootMessenger<MessengerActions, MessengerEvents>,
 ) {
-  const controllerMessenger: GatorPermissionsControllerMessenger =
-    new Messenger({
-      namespace: 'GatorPermissionsController',
-      parent: messenger,
-    });
+  const controllerMessenger = new Messenger<
+    'GatorPermissionsController',
+    MessengerActions,
+    MessengerEvents,
+    typeof messenger
+  >({
+    namespace: 'GatorPermissionsController',
+    parent: messenger,
+  });
   messenger.delegate({
     messenger: controllerMessenger,
     actions: [

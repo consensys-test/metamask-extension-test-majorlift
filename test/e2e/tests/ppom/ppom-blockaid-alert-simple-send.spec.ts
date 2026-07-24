@@ -7,7 +7,7 @@ import { mockMultiNetworkBalancePolling } from '../../mock-balance-polling/mock-
 import HomePage from '../../page-objects/pages/home/homepage';
 import TestDapp from '../../page-objects/pages/test-dapp';
 import TransactionConfirmation from '../../page-objects/pages/confirmations/transaction-confirmation';
-import { createInternalTransaction } from '../../page-objects/flows/transaction.flow';
+import { createInternalTransaction } from '../../page-objects/flows/transaction';
 import { login } from '../../page-objects/flows/login.flow';
 import { mockServerJsonRpc } from './mocks/mock-server-json-rpc';
 import { SECURITY_ALERTS_PROD_API_BASE_URL } from './constants';
@@ -152,9 +152,6 @@ describe('Simple Send Security Alert - Blockaid', function (this: Suite) {
           })
           .build(),
         testSpecificMock: mockInfuraWithBenignResponses,
-        unifiedEvmAccountsApiBalances: {
-          mainnetNativeEthHuman: '20',
-        },
         title: this.test?.fullTitle(),
       },
 
@@ -203,9 +200,6 @@ describe('Simple Send Security Alert - Blockaid', function (this: Suite) {
           })
           .build(),
         testSpecificMock: mockInfuraWithMaliciousResponses,
-        unifiedEvmAccountsApiBalances: {
-          mainnetNativeEthHuman: '20',
-        },
         title: this.test?.fullTitle(),
       },
 
@@ -245,9 +239,6 @@ describe('Simple Send Security Alert - Blockaid', function (this: Suite) {
           })
           .build(),
         testSpecificMock: mockInfuraWithFailedResponses,
-        unifiedEvmAccountsApiBalances: {
-          mainnetNativeEthHuman: '20',
-        },
         title: this.test?.fullTitle(),
       },
 

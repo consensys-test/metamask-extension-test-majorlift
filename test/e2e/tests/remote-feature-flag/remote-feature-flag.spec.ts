@@ -9,7 +9,7 @@ import SettingsPage from '../../page-objects/pages/settings/settings-page';
 import DeveloperOptionsPage from '../../page-objects/pages/debug-page';
 import {
   MOCK_CUSTOMIZED_REMOTE_FEATURE_FLAGS,
-  MOCK_ANALYTICS_ID,
+  MOCK_META_METRICS_ID,
   MOCK_REMOTE_FEATURE_FLAGS_RESPONSE,
 } from '../../constants';
 import { type MockedEndpoint, Mockttp } from '../../mock-e2e';
@@ -60,9 +60,8 @@ describe('Remote feature flag', function (this: Suite) {
       {
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: MOCK_META_METRICS_ID,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -111,9 +110,8 @@ describe('Remote feature flag', function (this: Suite) {
       {
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: MOCK_META_METRICS_ID,
+            participateInMetaMetrics: true,
           })
           .build(),
         manifestFlags: {

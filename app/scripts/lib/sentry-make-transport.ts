@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/browser';
-import { getAnalyticsState } from './sentry-get-state';
+import { getMetaMetricsState } from './sentry-get-state';
 
 /**
  * Custom Sentry transport: skip network when MetaMetrics is off. Event bodies are already
@@ -11,9 +11,9 @@ export function makeTransport(
   options: Parameters<typeof Sentry.makeFetchTransport>[0],
 ) {
   return Sentry.makeFetchTransport(options, async (...args) => {
-    const state = await getAnalyticsState();
+    const state = await getMetaMetricsState();
 
-    if (!state?.completedMetaMetricsOnboarding || !state.optedIn) {
+    if (!state?.participateInMetaMetrics) {
       throw new Error('Network request skipped as metrics disabled');
     }
 

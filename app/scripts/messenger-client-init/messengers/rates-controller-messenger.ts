@@ -1,10 +1,9 @@
-import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { RatesControllerMessenger } from '@metamask/assets-controllers';
+import { Messenger } from '@metamask/messenger';
 import { RootMessenger } from '../../lib/messenger';
+
+export type RatesControllerMessenger = ReturnType<
+  typeof getRatesControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the
@@ -14,14 +13,10 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getRatesControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<RatesControllerMessenger>,
-    MessengerEvents<RatesControllerMessenger>
-  >,
-): RatesControllerMessenger {
-  const controllerMessenger: RatesControllerMessenger = new Messenger({
+  messenger: RootMessenger<never, never>,
+) {
+  return new Messenger<'RatesController', never, never, typeof messenger>({
     namespace: 'RatesController',
     parent: messenger,
   });
-  return controllerMessenger;
 }

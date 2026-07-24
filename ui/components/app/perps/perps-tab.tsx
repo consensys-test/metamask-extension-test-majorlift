@@ -18,7 +18,6 @@ import { useI18nContext } from '../../../hooks/useI18nContext';
 import { PRIVACY_ROUTE } from '../../../helpers/constants/routes';
 import { submitRequestToBackground } from '../../../store/background-connection';
 import ErrorBoundary from '../error-boundary/error-boundary';
-import { AccessRestrictedProvider } from '../compliance';
 import { PerpsView } from './perps-view';
 import { PerpsViewStreamBoundary } from './perps-view-stream-boundary';
 import { PerpsToastProvider } from './perps-toast';
@@ -77,14 +76,12 @@ export function PerpsTab() {
   }
 
   return (
-    <AccessRestrictedProvider>
-      <PerpsToastProvider>
-        <ErrorBoundary key="perps">
-          <PerpsViewStreamBoundary>
-            <PerpsView />
-          </PerpsViewStreamBoundary>
-        </ErrorBoundary>
-      </PerpsToastProvider>
-    </AccessRestrictedProvider>
+    <PerpsToastProvider>
+      <ErrorBoundary key="perps">
+        <PerpsViewStreamBoundary>
+          <PerpsView />
+        </PerpsViewStreamBoundary>
+      </ErrorBoundary>
+    </PerpsToastProvider>
   );
 }

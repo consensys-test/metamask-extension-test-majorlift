@@ -26,6 +26,9 @@
   "accountSelectionRequired": {
     "message": "Potrebno je da izaberete nalog!"
   },
+  "addAcquiredTokens": {
+    "message": "Dodajte stečene tokene koristeći MetaMask."
+  },
   "addAlias": {
     "message": "Dodaj pseudonim"
   },
@@ -74,6 +77,9 @@
   },
   "autoLockTimeLimit": {
     "message": "Tajmer za automatsko odjavljivanje (u minutama)"
+  },
+  "autoLockTimeLimitDescription": {
+    "message": "Podesite vreme mirovanja u minutima pre nego što se MetaMask automatski odjavi. "
   },
   "average": {
     "message": "Prosečno"
@@ -172,11 +178,23 @@
   "createPassword": {
     "message": "Kreirajte lozinku"
   },
+  "currencyConversion": {
+    "message": "Konverzija valuta"
+  },
+  "currentLanguage": {
+    "message": "Trenutni jezik"
+  },
   "custom": {
     "message": "Напредне опције"
   },
+  "customToken": {
+    "message": "Prilagođeni token"
+  },
   "decimal": {
     "message": "Decimale preciznosti"
+  },
+  "decimalsMustZerotoTen": {
+    "message": "Decimalni broj mora biti najmanje 0, a ne veći od 36."
   },
   "delete": {
     "message": "Избриши"
@@ -186,6 +204,9 @@
   },
   "done": {
     "message": "Gotovo"
+  },
+  "downloadGoogleChrome": {
+    "message": "Preuzmi Google Chrome"
   },
   "downloadStateLogs": {
     "message": "Preuzmite dnevnike stanja"
@@ -244,6 +265,9 @@
   },
   "hardwareWallets": {
     "message": "Povežite hardverski novčanik"
+  },
+  "hardwareWalletsMsg": {
+    "message": "Izaberite hardverski novčanik koji biste voleli da koristite sa MetaMask-om"
   },
   "here": {
     "message": "ovde",
@@ -312,6 +336,12 @@
   "likeToImportTokens": {
     "message": "Želite li da dodate ove tokene?"
   },
+  "lineaGoerli": {
+    "message": "Test mreža Linea Goerli"
+  },
+  "links": {
+    "message": "Veze"
+  },
   "loading": {
     "message": "Учитава се..."
   },
@@ -330,6 +360,9 @@
   "metamaskVersion": {
     "message": "MetaMask verzija"
   },
+  "mustSelectOne": {
+    "message": "Morate izabrati najmanje 1 token."
+  },
   "needImportFile": {
     "message": "Morate izabrati fajl koji ćete uvesti.",
     "description": "User is important an account and needs to add a file to continue"
@@ -339,6 +372,12 @@
   },
   "networks": {
     "message": "Mreže"
+  },
+  "nevermind": {
+    "message": "Nema veze"
+  },
+  "newAccount": {
+    "message": "Nov nalog"
   },
   "newAccountNumberName": {
     "message": "Nalog $1",
@@ -358,6 +397,9 @@
   },
   "noWebcamFoundTitle": {
     "message": "Nije nađena veb kamera"
+  },
+  "notEnoughGas": {
+    "message": "Nema dovoljno gasa"
   },
   "ofTextNofM": {
     "message": "od"
@@ -442,6 +484,9 @@
   "restore": {
     "message": "Поново отвори"
   },
+  "revealSeedWords": {
+    "message": "Otkrivanje početnih reči"
+  },
   "revealSeedWordsWarning": {
     "message": "Ove reči se mogu iskoristiti za krađu svih vaših naloga.",
     "description": "$1 is bolded text using the message from 'revealSeedWordsWarning2'"
@@ -488,6 +533,9 @@
   "showFiatConversionInTestnets": {
     "message": "Prikažite konverzije na Testnet"
   },
+  "showFiatConversionInTestnetsDescription": {
+    "message": "Izaberite ovo za prikaz konverzije dekretnog novca (fiat) na test mrežama."
+  },
   "showHexData": {
     "message": "Prikaži Hex podatke"
   },
@@ -496,6 +544,9 @@
   },
   "sign": {
     "message": "Potpišite"
+  },
+  "signatureRequest": {
+    "message": "Zahtev za potpis"
   },
   "signed": {
     "message": "Potpisan"
@@ -514,6 +565,9 @@
   },
   "stateLogs": {
     "message": "Državne evidencije"
+  },
+  "stateLogsDescription": {
+    "message": "Dnevnici stanja sadrže adrese vaših javnih naloga i poslatih transakcija."
   },
   "submitted": {
     "message": "Prosleđeno"

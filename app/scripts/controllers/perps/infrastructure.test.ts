@@ -10,16 +10,6 @@ import {
   type InfrastructureDeps,
 } from './infrastructure';
 
-const mockTrackEvent = jest.fn();
-
-jest.mock('../analytics', () => {
-  const actual = jest.requireActual('../analytics');
-  return {
-    ...actual,
-    trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
-  };
-});
-
 jest.mock('@metamask/perps-controller', () => ({
   formatPerpsFiat: jest.fn((value: number) =>
     new Intl.NumberFormat('en-US', {
@@ -52,20 +42,17 @@ function setupSentryScope() {
 }
 
 describe('createPerpsInfrastructure', () => {
+  const mockTrackEvent = jest.fn();
   const mockGetStorageItem = jest.fn();
   const mockSetStorageItem = jest.fn();
   const mockRemoveStorageItem = jest.fn();
-  const mockGetPerpsDiscountForAccount = jest.fn();
 
-  function getDeps(
-    overrides?: Partial<InfrastructureDeps>,
-  ): InfrastructureDeps {
+  function getDeps(): InfrastructureDeps {
     return {
+      trackEvent: mockTrackEvent,
       getStorageItem: mockGetStorageItem,
       setStorageItem: mockSetStorageItem,
       removeStorageItem: mockRemoveStorageItem,
-      getPerpsDiscountForAccount: mockGetPerpsDiscountForAccount,
-      ...overrides,
     };
   }
 
@@ -74,7 +61,6 @@ describe('createPerpsInfrastructure', () => {
     mockGetStorageItem.mockReset().mockResolvedValue({});
     mockSetStorageItem.mockReset().mockResolvedValue(undefined);
     mockRemoveStorageItem.mockReset().mockResolvedValue(undefined);
-    mockGetPerpsDiscountForAccount.mockReset().mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -96,98 +82,6 @@ describe('createPerpsInfrastructure', () => {
     expect(infrastructure.cacheInvalidator).toBeDefined();
     expect(infrastructure.diskCache).toBeDefined();
     expect(infrastructure.rewards).toBeDefined();
-    expect(infrastructure.terminalApiUrl).toBeDefined();
-  });
-
-  describe('terminalApiUrl', () => {
-    const originalEnv = process.env;
-
-    beforeEach(() => {
-      process.env = { ...originalEnv };
-    });
-
-    afterEach(() => {
-      process.env = originalEnv;
-    });
-
-    it('returns dev URL for development environment', () => {
-      process.env.METAMASK_ENVIRONMENT = 'development';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.dev-api.cx.metamask.io/v1/perpetuals',
-      );
-    });
-
-    it('returns dev URL for testing environment', () => {
-      process.env.METAMASK_ENVIRONMENT = 'testing';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.dev-api.cx.metamask.io/v1/perpetuals',
-      );
-    });
-
-    it('returns uat URL for beta build type', () => {
-      process.env.METAMASK_ENVIRONMENT = 'staging';
-      process.env.METAMASK_BUILD_TYPE = 'beta';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.uat-api.cx.metamask.io/v1/perpetuals',
-      );
-    });
-
-    it('returns prd URL for production environment', () => {
-      process.env.METAMASK_ENVIRONMENT = 'production';
-      process.env.METAMASK_BUILD_TYPE = 'main';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.api.cx.metamask.io/v1/perpetuals',
-      );
-    });
-
-    it('returns prd URL for release-candidate environment', () => {
-      process.env.METAMASK_ENVIRONMENT = 'release-candidate';
-      process.env.METAMASK_BUILD_TYPE = 'main';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.api.cx.metamask.io/v1/perpetuals',
-      );
-    });
-
-    it('returns uat URL for staging environment', () => {
-      process.env.METAMASK_ENVIRONMENT = 'staging';
-      process.env.METAMASK_BUILD_TYPE = 'main';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.uat-api.cx.metamask.io/v1/perpetuals',
-      );
-    });
-
-    it('returns uat URL for pull-request environment', () => {
-      process.env.METAMASK_ENVIRONMENT = 'pull-request';
-      process.env.METAMASK_BUILD_TYPE = 'main';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.uat-api.cx.metamask.io/v1/perpetuals',
-      );
-    });
-
-    it('returns uat URL for flask build type', () => {
-      process.env.METAMASK_ENVIRONMENT = 'staging';
-      process.env.METAMASK_BUILD_TYPE = 'flask';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.uat-api.cx.metamask.io/v1/perpetuals',
-      );
-    });
-
-    it('returns uat URL for experimental build type', () => {
-      process.env.METAMASK_ENVIRONMENT = 'staging';
-      process.env.METAMASK_BUILD_TYPE = 'experimental';
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      expect(infrastructure.terminalApiUrl).toBe(
-        'https://terminal.uat-api.cx.metamask.io/v1/perpetuals',
-      );
-    });
   });
 
   describe('metrics', () => {
@@ -200,17 +94,15 @@ describe('createPerpsInfrastructure', () => {
       });
 
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-      expect(mockTrackEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: PerpsAnalyticsEvent.ScreenViewed,
-          properties: expect.objectContaining({
-            category: MetaMetricsEventCategory.Perps,
-            [PERPS_EVENT_PROPERTY.SCREEN_TYPE]:
-              PERPS_EVENT_VALUE.SCREEN_TYPE.MARKET_LIST,
-            [PERPS_EVENT_PROPERTY.TIMESTAMP]: expect.any(Number),
-          }),
-        }),
-      );
+      expect(mockTrackEvent).toHaveBeenCalledWith({
+        event: PerpsAnalyticsEvent.ScreenViewed,
+        category: MetaMetricsEventCategory.Perps,
+        properties: {
+          [PERPS_EVENT_PROPERTY.SCREEN_TYPE]:
+            PERPS_EVENT_VALUE.SCREEN_TYPE.MARKET_LIST,
+          [PERPS_EVENT_PROPERTY.TIMESTAMP]: expect.any(Number),
+        },
+      });
     });
 
     it('reports metrics as enabled', () => {
@@ -332,188 +224,6 @@ describe('createPerpsInfrastructure', () => {
         expect(mockScope.setContext).not.toHaveBeenCalled();
         expect(mockScope.setExtras).not.toHaveBeenCalled();
         expect(mockCaptureException).toHaveBeenCalledWith(error);
-      });
-    });
-
-    describe('when error is a benign disconnect race', () => {
-      function makeBenignError() {
-        return Object.assign(new Error('reconnect error'), {
-          name: 'ReconnectingWebSocketError',
-          code: 'TERMINATED_BY_USER',
-        });
-      }
-
-      describe('while disconnect is in progress (isDisconnecting = true)', () => {
-        function getDisconnectingDeps() {
-          return getDeps({ isDisconnecting: () => true });
-        }
-
-        it('does not call captureException for a direct TERMINATED_BY_USER code', () => {
-          setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDisconnectingDeps());
-
-          const error = Object.assign(new Error('reconnect error'), {
-            name: 'ReconnectingWebSocketError',
-            code: 'TERMINATED_BY_USER',
-          });
-
-          logger.error(error);
-
-          expect(mockCaptureException).not.toHaveBeenCalled();
-        });
-
-        it('does not call captureException when TERMINATED_BY_USER is nested via cause', () => {
-          setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDisconnectingDeps());
-
-          // Real-world shape: WebSocketRequestError { cause: ReconnectingWebSocketError { code } }
-          const cause = Object.assign(
-            new Error('Error when reconnecting WebSocket: TERMINATED_BY_USER'),
-            {
-              name: 'ReconnectingWebSocketError',
-              code: 'TERMINATED_BY_USER',
-            },
-          );
-          const error = Object.assign(
-            new Error('Failed to establish WebSocket connection'),
-            {
-              name: 'WebSocketRequestError',
-              cause,
-            },
-          );
-
-          logger.error(error);
-
-          expect(mockCaptureException).not.toHaveBeenCalled();
-        });
-
-        it('does not call captureException when matched by ReconnectingWebSocketError name alone', () => {
-          setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDisconnectingDeps());
-
-          const error = Object.assign(new Error('reconnect error'), {
-            name: 'ReconnectingWebSocketError',
-          });
-
-          logger.error(error);
-
-          expect(mockCaptureException).not.toHaveBeenCalled();
-        });
-
-        it('does not call captureException for WebSocketRequestError("WebSocket connection closed")', () => {
-          setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDisconnectingDeps());
-
-          // Shape produced when the HL SDK drains its pending request queue on socket close
-          const error = Object.assign(
-            new Error('WebSocket connection closed'),
-            {
-              name: 'WebSocketRequestError',
-            },
-          );
-
-          logger.error(error);
-
-          expect(mockCaptureException).not.toHaveBeenCalled();
-        });
-
-        it('does not touch Sentry scope when suppressing', () => {
-          const mockScope = setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDisconnectingDeps());
-
-          const cause = Object.assign(new Error('TERMINATED_BY_USER'), {
-            name: 'ReconnectingWebSocketError',
-            code: 'TERMINATED_BY_USER',
-          });
-          const error = Object.assign(new Error('WS error'), {
-            name: 'WebSocketRequestError',
-            cause,
-          });
-
-          logger.error(error, { tags: { feature: 'perps' } });
-
-          expect(mockScope.setTag).not.toHaveBeenCalled();
-          expect(mockScope.setContext).not.toHaveBeenCalled();
-          expect(mockScope.setExtras).not.toHaveBeenCalled();
-          expect(mockCaptureException).not.toHaveBeenCalled();
-        });
-
-        it('suppresses regardless of the error context (write or read)', () => {
-          setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDisconnectingDeps());
-          const error = makeBenignError();
-
-          // Even a write context like placeOrder is suppressed during disconnect
-          logger.error(error, {
-            context: { name: 'TradingService', data: { method: 'placeOrder' } },
-          });
-
-          expect(mockCaptureException).not.toHaveBeenCalled();
-        });
-      });
-
-      describe('while disconnect is NOT in progress (isDisconnecting = false)', () => {
-        it('still calls captureException for errors with a different ReconnectingWebSocket code', () => {
-          setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDeps());
-
-          const cause = Object.assign(
-            new Error('Error when reconnecting WebSocket: UNKNOWN_ERROR'),
-            {
-              name: 'ReconnectingWebSocketError',
-              code: 'UNKNOWN_ERROR',
-            },
-          );
-          const error = Object.assign(
-            new Error('Failed to establish WebSocket connection'),
-            {
-              name: 'WebSocketRequestError',
-              cause,
-            },
-          );
-
-          logger.error(error);
-
-          expect(mockCaptureException).toHaveBeenCalledWith(error);
-        });
-
-        it('still calls captureException for WebSocketRequestError with a different message', () => {
-          setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDeps());
-
-          const error = Object.assign(
-            new Error('Failed to close WebSocket connection'),
-            {
-              name: 'WebSocketRequestError',
-            },
-          );
-
-          logger.error(error);
-
-          expect(mockCaptureException).toHaveBeenCalledWith(error);
-        });
-
-        it('reports benign-shaped errors to Sentry when no disconnect is active', () => {
-          setupSentryScope();
-          const { logger } = createPerpsInfrastructure(getDeps());
-          const error = makeBenignError();
-
-          logger.error(error);
-
-          expect(mockCaptureException).toHaveBeenCalledWith(error);
-        });
-
-        it('reports benign-shaped errors to Sentry when isDisconnecting is not provided', () => {
-          setupSentryScope();
-          const deps = getDeps();
-          delete deps.isDisconnecting;
-          const { logger } = createPerpsInfrastructure(deps);
-          const error = makeBenignError();
-
-          logger.error(error);
-
-          expect(mockCaptureException).toHaveBeenCalledWith(error);
-        });
       });
     });
   });
@@ -833,39 +543,10 @@ describe('createPerpsInfrastructure', () => {
   });
 
   describe('rewards', () => {
-    it('delegates to the injected getPerpsDiscountForAccount with the perps base fee', async () => {
-      mockGetPerpsDiscountForAccount.mockResolvedValueOnce(5000);
+    it('returns 0 discount as default stub', async () => {
       const infrastructure = createPerpsInfrastructure(getDeps());
       const discount = await infrastructure.rewards.getPerpsDiscountForAccount(
         'eip155:42161:0x1234',
-        10,
-      );
-
-      expect(discount).toBe(5000);
-      // Base fee bips comes from the perps package constants
-      // (BUILDER_FEE_CONFIG.MaxFeeDecimal * BASIS_POINTS_DIVISOR = 0.001 * 10000 = 10).
-      expect(mockGetPerpsDiscountForAccount).toHaveBeenCalledWith(
-        'eip155:42161:0x1234',
-        10,
-      );
-    });
-
-    it('returns 0 when the injected getPerpsDiscountForAccount throws', async () => {
-      mockGetPerpsDiscountForAccount.mockRejectedValueOnce(new Error('boom'));
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      const discount = await infrastructure.rewards.getPerpsDiscountForAccount(
-        'eip155:42161:0x1234',
-        10,
-      );
-      expect(discount).toBe(0);
-    });
-
-    it('collapses a null discount to 0 so the core perps-controller never sees null', async () => {
-      mockGetPerpsDiscountForAccount.mockResolvedValueOnce(null);
-      const infrastructure = createPerpsInfrastructure(getDeps());
-      const discount = await infrastructure.rewards.getPerpsDiscountForAccount(
-        'eip155:42161:0x1234',
-        0,
       );
       expect(discount).toBe(0);
     });

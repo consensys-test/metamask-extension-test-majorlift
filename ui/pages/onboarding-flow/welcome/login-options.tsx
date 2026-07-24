@@ -57,7 +57,7 @@ export const SocialButton = React.forwardRef(
           className="w-full"
           gap={2}
         >
-          <span aria-hidden="true">{icon}</span>
+          {icon}
           <Box>{label}</Box>
         </Box>
       </Button>
@@ -65,6 +65,8 @@ export const SocialButton = React.forwardRef(
   },
 );
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function LoginOptions({
   loginOption,
   handleLogin,
@@ -81,84 +83,55 @@ export default function LoginOptions({
       : 'var(--color-accent02-dark)';
   }, [theme]);
 
-  const isExisting = useMemo(() => {
-    return loginOption === LOGIN_OPTION.EXISTING;
-  }, [loginOption]);
-
-  const socialOptions: {
-    name: string;
-    loginType: LoginType;
-    testIdSuffix: string;
-    icon: React.ReactNode;
-    btnClass: string;
-  }[] = [
-    {
-      name: 'Google',
-      loginType: LOGIN_TYPE.GOOGLE,
-      testIdSuffix: 'google',
-      icon: (
-        <img
-          src="images/google.svg"
-          className="options-modal__social-icon"
-          alt=""
-        />
-      ),
-      btnClass: 'mb-4',
-    },
-    {
-      name: 'Apple',
-      loginType: LOGIN_TYPE.APPLE,
-      testIdSuffix: 'apple',
-      icon: (
-        <Icon
-          name={IconName.AppleLogo}
-          color={IconColor.InfoInverse}
-          size={IconSize.Lg}
-        />
-      ),
-      btnClass: 'mb-4',
-    },
-    {
-      name: 'Telegram',
-      loginType: LOGIN_TYPE.TELEGRAM,
-      testIdSuffix: 'telegram',
-      icon: (
-        <Icon
-          name={IconName.Telegram}
-          style={{ color: 'var(--color-telegram-blue)' }}
-          size={IconSize.Lg}
-        />
-      ),
-      btnClass: 'mb-2',
-    },
-  ];
-
   return (
     <Box>
-      {socialOptions.map(
-        ({ name, loginType, testIdSuffix, icon, btnClass }) => (
-          <SocialButton
-            key={loginType}
-            data-testid={`onboarding-${
-              isExisting ? 'import' : 'create'
-            }-with-${testIdSuffix}-button`}
-            icon={icon}
-            label={t(
-              isExisting ? 'onboardingSignInWith' : 'onboardingContinueWith',
-              [name],
-            )}
-            btnClass={btnClass}
-            onClick={() => handleLogin(loginType)}
+      <SocialButton
+        data-testid={
+          loginOption === LOGIN_OPTION.EXISTING
+            ? 'onboarding-import-with-google-button'
+            : 'onboarding-create-with-google-button'
+        }
+        icon={
+          <img
+            src="images/icons/google.svg"
+            className="options-modal__social-icon"
+            alt={t('onboardingOptionIcon', ['Google'])}
           />
-        ),
-      )}
+        }
+        label={
+          loginOption === LOGIN_OPTION.EXISTING
+            ? t('onboardingSignInWith', ['Google'])
+            : t('onboardingContinueWith', ['Google'])
+        }
+        btnClass="mb-4"
+        onClick={() => handleLogin(LOGIN_TYPE.GOOGLE)}
+      />
+      <SocialButton
+        data-testid={
+          loginOption === LOGIN_OPTION.EXISTING
+            ? 'onboarding-import-with-apple-button'
+            : 'onboarding-create-with-apple-button'
+        }
+        icon={
+          <Icon
+            name={IconName.AppleLogo}
+            color={IconColor.InfoInverse}
+            size={IconSize.Lg}
+          />
+        }
+        label={
+          loginOption === LOGIN_OPTION.EXISTING
+            ? t('onboardingSignInWith', ['Apple'])
+            : t('onboardingContinueWith', ['Apple'])
+        }
+        btnClass="mb-2"
+        onClick={() => handleLogin(LOGIN_TYPE.APPLE)}
+      />
       <Box
         flexDirection={BoxFlexDirection.Row}
         alignItems={BoxAlignItems.Center}
         marginBottom={4}
         className="options-modal__or"
-        role="separator"
-        aria-orientation="horizontal"
       >
         <Text
           className="w-max px-2 mx-auto relative z-[1]"
@@ -175,15 +148,19 @@ export default function LoginOptions({
       </Box>
       <Button
         data-theme={theme === ThemeType.dark ? ThemeType.light : ThemeType.dark}
-        data-testid={`onboarding-${
-          isExisting ? 'import' : 'create'
-        }-with-srp-button`}
+        data-testid={
+          loginOption === LOGIN_OPTION.EXISTING
+            ? 'onboarding-import-with-srp-button'
+            : 'onboarding-create-with-srp-button'
+        }
         variant={ButtonVariant.Primary}
         className="w-full"
         size={ButtonSize.Lg}
         onClick={() => handleLogin(LOGIN_TYPE.SRP)}
       >
-        {t(isExisting ? 'onboardingSrpImport' : 'onboardingSrpCreate')}
+        {loginOption === LOGIN_OPTION.EXISTING
+          ? t('onboardingSrpImport')
+          : t('onboardingSrpCreate')}
       </Button>
       <Text
         variant={TextVariant.BodySm}
@@ -202,10 +179,6 @@ export default function LoginOptions({
               href="https://consensys.io/terms-of-use"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`${t('onboardingLoginFooterTermsOfUse')} (${t(
-                'opensInNewTab',
-              )})`}
-              data-testid="onboarding-login-footer-terms-of-use"
             >
               {t('onboardingLoginFooterTermsOfUse')}
             </a>
@@ -219,10 +192,6 @@ export default function LoginOptions({
               href="https://consensys.io/privacy-notice"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`${t('onboardingLoginFooterPrivacyNotice')} (${t(
-                'opensInNewTab',
-              )})`}
-              data-testid="onboarding-login-footer-privacy-notice"
             >
               {t('onboardingLoginFooterPrivacyNotice')}
             </a>

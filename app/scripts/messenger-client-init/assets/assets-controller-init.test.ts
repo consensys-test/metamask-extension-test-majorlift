@@ -1,8 +1,4 @@
-import {
-  AssetsController,
-  type AssetsControllerMessenger,
-} from '@metamask/assets-controller';
-import { ClientController } from '@metamask/client-controller';
+import { AssetsController } from '@metamask/assets-controller';
 import { createApiPlatformClient } from '@metamask/core-backend';
 import { MessengerClientInitRequest } from '../types';
 import { buildControllerInitRequestMock } from '../test/utils';
@@ -10,11 +6,13 @@ import { getRootMessenger } from '../../lib/messenger';
 import {
   getAssetsControllerMessenger,
   getAssetsControllerInitMessenger,
+  AssetsControllerMessenger,
   AssetsControllerInitMessenger,
 } from '../messengers/assets/assets-controller-messenger';
 import { AssetsControllerInit } from './assets-controller-init';
 
 jest.mock('@metamask/assets-controller', () => ({
+  ...jest.requireActual('@metamask/assets-controller'),
   AssetsController: jest.fn().mockImplementation(() => ({
     state: {},
   })),
@@ -23,10 +21,6 @@ jest.mock('@metamask/assets-controller', () => ({
 jest.mock('@metamask/core-backend', () => ({
   createApiPlatformClient: jest.fn().mockReturnValue({ mockApiClient: true }),
 }));
-
-function buildClientControllerMock(isUiOpen = true): ClientController {
-  return { state: { isUiOpen } } as ClientController;
-}
 
 function getInitRequestMock(
   options: {
@@ -61,8 +55,6 @@ function getInitRequestMock(
     }
     throw new Error(`Unexpected action: ${action}`);
   });
-
-  requestMock.getMessengerClient.mockReturnValue(buildClientControllerMock());
 
   return requestMock;
 }
@@ -140,8 +132,8 @@ describe('AssetsControllerInit', () => {
         pollInterval: 30_000,
         enabled: false,
       },
+      trace: expect.any(Function),
       isOnboarded: expect.any(Function),
-      tempMigrateAssetsInfoMetadataAssets3346: expect.any(Function),
     });
   });
 
@@ -176,8 +168,8 @@ describe('AssetsControllerInit', () => {
         pollInterval: 30_000,
         enabled: false,
       },
+      trace: expect.any(Function),
       isOnboarded: expect.any(Function),
-      tempMigrateAssetsInfoMetadataAssets3346: expect.any(Function),
     });
   });
 
@@ -252,32 +244,13 @@ describe('AssetsControllerInit', () => {
   });
 
   describe('isEnabled', () => {
-    it('returns ClientController isUiOpen state when UI is open', () => {
-      const requestMock = getInitRequestMock();
-
-      AssetsControllerInit(requestMock);
+    it('always returns true', () => {
+      AssetsControllerInit(getInitRequestMock());
 
       const constructorCall = jest.mocked(AssetsController).mock.calls[0][0];
       const isEnabled = constructorCall.isEnabled as () => boolean;
 
       expect(isEnabled()).toBe(true);
-      expect(requestMock.getMessengerClient).toHaveBeenCalledWith(
-        'ClientController',
-      );
-    });
-
-    it('returns false when ClientController isUiOpen is false', () => {
-      const requestMock = getInitRequestMock();
-      requestMock.getMessengerClient.mockReturnValue(
-        buildClientControllerMock(false),
-      );
-
-      AssetsControllerInit(requestMock);
-
-      const constructorCall = jest.mocked(AssetsController).mock.calls[0][0];
-      const isEnabled = constructorCall.isEnabled as () => boolean;
-
-      expect(isEnabled()).toBe(false);
     });
   });
 
@@ -446,60 +419,6 @@ describe('AssetsControllerInit', () => {
     });
   });
 
-  describe('tempMigrateAssetsInfoMetadataAssets3346', () => {
-    it('returns the TokensController and AccountsController persisted state slices for the healing migration', () => {
-      const persistedState = {
-        TokensController: {
-          allTokens: {
-            '0xe': {
-              '0x0000000000000000000000000000000000000001': [
-                {
-                  address: '0x0000000000000000000000000000000000000002',
-                  symbol: 'NICHE',
-                  decimals: 18,
-                },
-              ],
-            },
-          },
-        },
-        AccountsController: {
-          internalAccounts: {
-            accounts: {
-              'account-id-1': {
-                address: '0x0000000000000000000000000000000000000001',
-              },
-            },
-          },
-        },
-      };
-
-      const requestMock = getInitRequestMock();
-      // The healing migration treats the persisted state as untrusted and
-      // re-validates every shape, so a partial fixture is intentional here.
-      requestMock.persistedState =
-        persistedState as unknown as typeof requestMock.persistedState;
-
-      AssetsControllerInit(requestMock);
-
-      const constructorCall = jest.mocked(AssetsController).mock.calls[0][0];
-      const getMigrationState =
-        constructorCall.tempMigrateAssetsInfoMetadataAssets3346;
-      if (!getMigrationState) {
-        throw new Error(
-          'Expected tempMigrateAssetsInfoMetadataAssets3346 to be defined',
-        );
-      }
-
-      const migrationState = getMigrationState();
-      expect(migrationState.TokensController).toBe(
-        persistedState.TokensController,
-      );
-      expect(migrationState.AccountsController).toBe(
-        persistedState.AccountsController,
-      );
-    });
-  });
-
   describe('queryApiClient', () => {
     it('creates the API client with correct clientProduct', () => {
       // Use jest.isolateModules so assets-controller-init gets a fresh module
@@ -512,7 +431,6 @@ describe('AssetsControllerInit', () => {
 
       expect(createApiPlatformClient).toHaveBeenCalledWith({
         clientProduct: 'metamask-extension',
-        clientVersion: process.env.METAMASK_VERSION,
         getBearerToken: expect.any(Function),
       });
     });

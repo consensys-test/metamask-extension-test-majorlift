@@ -10,7 +10,7 @@ import { SENTRY_UI_STATE } from '../../../../app/scripts/constants/sentry-state'
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { withFixtures, sentryRegEx } from '../../helpers';
 import { PAGES } from '../../webdriver/driver';
-import { MOCK_ANALYTICS_ID } from '../../constants';
+import { MOCK_META_METRICS_ID } from '../../constants';
 import LoginPage from '../../page-objects/pages/login-page';
 import { login } from '../../page-objects/flows/login.flow';
 import { mockSpotPrices } from '../tokens/utils/mocks';
@@ -105,13 +105,8 @@ const removedBackgroundFields = [
   'BridgeController.quoteRequest.slippage',
   'PPOMController.chainStatus.0x539.lastVisited',
   'PPOMController.versionInfo',
-  // Populated asynchronously during sign-in (the shield cohort-eligibility
-  // evaluation round-trips to the subscription backend), so captured as
-  // `null` or a string depending on whether that settles before the error.
-  'AppStateController.pendingShieldCohort',
-  // Present only once the SRP/account-sync session is established, so its
-  // capture is timing-dependent across runs.
-  'AuthenticationController.srpSessionData',
+  // This property is timing-dependent
+  'MetaMetricsController.latestNonAnonymousEventTimestamp',
   // PhishingController properties (except urlScanCache which is masked)
   'PhishingController.c2DomainBlocklistLastFetched',
   'PhishingController.hotlistLastFetched',
@@ -298,9 +293,8 @@ describe('Sentry errors', function () {
           fixtures: {
             ...new FixtureBuilderV2()
               .withMetaMetricsController({
-                analyticsId: null,
-                completedMetaMetricsOnboarding: true,
-                optedIn: false,
+                metaMetricsId: null,
+                participateInMetaMetrics: false,
               })
               .build(),
             // Intentionally corrupt state to trigger migration error during initialization
@@ -367,13 +361,15 @@ describe('Sentry errors', function () {
     });
 
     it('should NOT send error events in the UI', async function () {
+      if (process.env.ASSETS_UNIFIED_STATE_ENABLED === 'false') {
+        this.skip();
+      }
       await withFixtures(
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: null,
-              completedMetaMetricsOnboarding: true,
-              optedIn: false,
+              metaMetricsId: null,
+              participateInMetaMetrics: false,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -448,9 +444,8 @@ describe('Sentry errors', function () {
           fixtures: {
             ...new FixtureBuilderV2()
               .withMetaMetricsController({
-                analyticsId: MOCK_ANALYTICS_ID,
-                completedMetaMetricsOnboarding: true,
-                optedIn: true,
+                metaMetricsId: MOCK_META_METRICS_ID,
+                participateInMetaMetrics: true,
               })
               .build(),
             // Intentionally corrupt state to trigger migration error during initialization
@@ -528,14 +523,16 @@ describe('Sentry errors', function () {
     });
 
     it('should capture background application state', async function () {
+      if (process.env.ASSETS_UNIFIED_STATE_ENABLED === 'false') {
+        this.skip();
+      }
       await withFixtures(
         {
           fixtures: {
             ...new FixtureBuilderV2()
               .withMetaMetricsController({
-                analyticsId: MOCK_ANALYTICS_ID,
-                completedMetaMetricsOnboarding: true,
-                optedIn: true,
+                metaMetricsId: MOCK_META_METRICS_ID,
+                participateInMetaMetrics: true,
               })
               .build(),
             // Intentionally corrupt state to trigger migration error during initialization
@@ -635,9 +632,8 @@ describe('Sentry errors', function () {
           fixtures: {
             ...new FixtureBuilderV2()
               .withMetaMetricsController({
-                analyticsId: MOCK_ANALYTICS_ID,
-                completedMetaMetricsOnboarding: true,
-                optedIn: true,
+                metaMetricsId: MOCK_META_METRICS_ID,
+                participateInMetaMetrics: true,
               })
               .withBadPreferencesControllerState()
               .build(),
@@ -725,9 +721,8 @@ describe('Sentry errors', function () {
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: MOCK_ANALYTICS_ID,
-              completedMetaMetricsOnboarding: true,
-              optedIn: true,
+              metaMetricsId: MOCK_META_METRICS_ID,
+              participateInMetaMetrics: true,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -805,13 +800,15 @@ describe('Sentry errors', function () {
     });
 
     it('should capture UI application state', async function () {
+      if (process.env.ASSETS_UNIFIED_STATE_ENABLED === 'false') {
+        this.skip();
+      }
       await withFixtures(
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: MOCK_ANALYTICS_ID,
-              completedMetaMetricsOnboarding: true,
-              optedIn: true,
+              metaMetricsId: MOCK_META_METRICS_ID,
+              participateInMetaMetrics: true,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -916,9 +913,8 @@ describe('Sentry errors', function () {
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: null,
-              completedMetaMetricsOnboarding: true,
-              optedIn: false,
+              metaMetricsId: null,
+              participateInMetaMetrics: false,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -990,9 +986,8 @@ describe('Sentry errors', function () {
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: null,
-              completedMetaMetricsOnboarding: true,
-              optedIn: false,
+              metaMetricsId: null,
+              participateInMetaMetrics: false,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -1064,9 +1059,8 @@ describe('Sentry errors', function () {
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: MOCK_ANALYTICS_ID,
-              completedMetaMetricsOnboarding: true,
-              optedIn: true,
+              metaMetricsId: MOCK_META_METRICS_ID,
+              participateInMetaMetrics: true,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -1136,15 +1130,13 @@ describe('Sentry errors', function () {
           const mockJsonBody = JSON.parse(mockTextBody[2]);
           const { level, extra } = mockJsonBody;
           const [{ type, value }] = mockJsonBody.exception.values;
-          const { optedIn } = extra.appState.state.AnalyticsController;
-          const { completedMetaMetricsOnboarding } =
+          const { participateInMetaMetrics } =
             extra.appState.state.MetaMetricsController;
           // Verify request
           assert.equal(type, 'TestError');
           assert.equal(value, 'Test Error');
           assert.equal(level, 'error');
-          assert.equal(optedIn, true);
-          assert.equal(completedMetaMetricsOnboarding, true);
+          assert.equal(participateInMetaMetrics, true);
         },
       );
     });
@@ -1154,9 +1146,8 @@ describe('Sentry errors', function () {
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: MOCK_ANALYTICS_ID,
-              completedMetaMetricsOnboarding: true,
-              optedIn: true,
+              metaMetricsId: MOCK_META_METRICS_ID,
+              participateInMetaMetrics: true,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -1256,9 +1247,8 @@ describe('Sentry errors', function () {
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: MOCK_ANALYTICS_ID,
-              completedMetaMetricsOnboarding: true,
-              optedIn: true,
+              metaMetricsId: MOCK_META_METRICS_ID,
+              participateInMetaMetrics: true,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -1323,26 +1313,26 @@ describe('Sentry errors', function () {
           const mockJsonBody = JSON.parse(mockTextBody[2]);
           const { level, extra } = mockJsonBody;
           const [{ type, value }] = mockJsonBody.exception.values;
-          const { optedIn, completedMetaMetricsOnboarding } =
-            extra.appState.state.metamask;
+          const { participateInMetaMetrics } = extra.appState.state.metamask;
           // Verify request
           assert.equal(type, 'TestError');
           assert.equal(value, 'Test Error');
           assert.equal(level, 'error');
-          assert.equal(optedIn, true);
-          assert.equal(completedMetaMetricsOnboarding, true);
+          assert.equal(participateInMetaMetrics, true);
         },
       );
     });
 
     it('should capture UI application state', async function () {
+      if (process.env.ASSETS_UNIFIED_STATE_ENABLED === 'false') {
+        this.skip();
+      }
       await withFixtures(
         {
           fixtures: new FixtureBuilderV2()
             .withMetaMetricsController({
-              analyticsId: MOCK_ANALYTICS_ID,
-              completedMetaMetricsOnboarding: true,
-              optedIn: true,
+              metaMetricsId: MOCK_META_METRICS_ID,
+              participateInMetaMetrics: true,
             })
             .build(),
           title: this.test?.fullTitle(),
@@ -1489,8 +1479,6 @@ describe('Sentry errors', function () {
       // Filtered from UI state patches (sensitive auth tokens - see state-utils.ts)
       rewardsSubscriptionTokens: false,
       storageWriteErrorType: true,
-      // AnalyticsController keeps the queue out of UI state.
-      eventQueue: false,
       // Optional property on AppStateController; only set after a user
       // interacts with a Snap install dialog, so absent from initial state.
       snapsInstallPrivacyWarningShown: true,

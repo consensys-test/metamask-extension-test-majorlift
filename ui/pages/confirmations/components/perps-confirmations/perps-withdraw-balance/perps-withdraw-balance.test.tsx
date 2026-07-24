@@ -7,20 +7,6 @@ import { enLocale as messages } from '../../../../../../test/lib/i18n-helpers';
 import { usePerpsLiveAccount } from '../../../../../hooks/perps/stream';
 import { PerpsWithdrawBalance } from './perps-withdraw-balance';
 
-const renderWithPrivacyMode = (privacyMode: boolean) => {
-  const store = configureStore({
-    ...mockState,
-    metamask: {
-      ...mockState.metamask,
-      preferences: {
-        ...mockState.metamask.preferences,
-        privacyMode,
-      },
-    },
-  });
-  return renderWithProvider(<PerpsWithdrawBalance />, store);
-};
-
 jest.mock('../../../../../hooks/perps/stream', () => ({
   usePerpsLiveAccount: jest.fn(),
 }));
@@ -46,11 +32,13 @@ describe('PerpsWithdrawBalance', () => {
     renderBalance();
 
     expect(
-      screen.getByText(messages.perpsAvailableBalance.message.trim()),
+      screen.getByText(
+        new RegExp(
+          `${messages.perpsAvailableBalance.message}\\$1,232\\.39`,
+          'u',
+        ),
+      ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('perps-withdraw-balance-value'),
-    ).toHaveTextContent('$1,232.39');
   });
 
   it('prefers available-to-trade balance when provided', () => {
@@ -65,8 +53,10 @@ describe('PerpsWithdrawBalance', () => {
     renderBalance();
 
     expect(
-      screen.getByTestId('perps-withdraw-balance-value'),
-    ).toHaveTextContent('$456.78');
+      screen.getByText(
+        new RegExp(`${messages.perpsAvailableBalance.message}\\$456\\.78`, 'u'),
+      ),
+    ).toBeInTheDocument();
   });
 
   it('renders $0.00 when the live account has no balance', () => {
@@ -78,20 +68,9 @@ describe('PerpsWithdrawBalance', () => {
     renderBalance();
 
     expect(
-      screen.getByTestId('perps-withdraw-balance-value'),
-    ).toHaveTextContent('$0.00');
-  });
-
-  it('masks the balance when privacy mode is enabled', () => {
-    usePerpsLiveAccountMock.mockReturnValue({
-      account: { spendableBalance: '1232.39' } as never,
-      isInitialLoading: false,
-    });
-
-    renderWithPrivacyMode(true);
-
-    expect(
-      screen.getByTestId('perps-withdraw-balance-value'),
-    ).toHaveTextContent('••••••');
+      screen.getByText(
+        new RegExp(`${messages.perpsAvailableBalance.message}\\$0\\.00`, 'u'),
+      ),
+    ).toBeInTheDocument();
   });
 });

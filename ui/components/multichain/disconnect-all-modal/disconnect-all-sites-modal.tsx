@@ -20,11 +20,9 @@ export type DisconnectAllSitesModalProps = {
   onClose: () => void;
 };
 
-export const DisconnectAllSitesModal = ({
-  isOpen,
-  onClick,
-  onClose,
-}: DisconnectAllSitesModalProps) => {
+export const DisconnectAllSitesModal: React.FC<
+  DisconnectAllSitesModalProps
+> = ({ isOpen, onClick, onClose }) => {
   const t = useI18nContext();
 
   return (

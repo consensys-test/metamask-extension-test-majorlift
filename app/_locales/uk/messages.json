@@ -26,6 +26,9 @@
   "accountSelectionRequired": {
     "message": "Вам потрібно обрати обліковий запис!"
   },
+  "addAcquiredTokens": {
+    "message": "Додайте токени, отримані за допомогою MetaMask"
+  },
   "addAlias": {
     "message": "Додати псевдо"
   },
@@ -74,6 +77,9 @@
   },
   "autoLockTimeLimit": {
     "message": "Таймер автоматичного виходу (хвилин)"
+  },
+  "autoLockTimeLimitDescription": {
+    "message": "Встановіть час відсутності активності у хвилинах після якого MetaMask буде здійснювати автоматичний вихід"
   },
   "average": {
     "message": "У середньому"
@@ -175,11 +181,23 @@
   "createPassword": {
     "message": "Створити пароль"
   },
+  "currencyConversion": {
+    "message": "Обмін валют"
+  },
+  "currentLanguage": {
+    "message": "Поточна мова"
+  },
   "custom": {
     "message": "Розширені"
   },
+  "customToken": {
+    "message": "Користувацький токен"
+  },
   "decimal": {
     "message": "Знаків після коми"
+  },
+  "decimalsMustZerotoTen": {
+    "message": "Кількість розрядів після коми: від 0 до 36."
   },
   "delete": {
     "message": "Видалити"
@@ -189,6 +207,9 @@
   },
   "done": {
     "message": "Готово"
+  },
+  "downloadGoogleChrome": {
+    "message": "Завантажити Гугл Хром"
   },
   "downloadStateLogs": {
     "message": "Завантажити журнали стану"
@@ -247,6 +268,9 @@
   },
   "hardwareWallets": {
     "message": "Під'єднати апаратний гаманець"
+  },
+  "hardwareWalletsMsg": {
+    "message": "Оберіть апаратний гаманець, який ви хочете використовувати з MetaMask"
   },
   "here": {
     "message": "тут",
@@ -315,6 +339,12 @@
   "likeToImportTokens": {
     "message": "Ви б хотіли додати ці токени?"
   },
+  "lineaGoerli": {
+    "message": "Тестова мережа Linea Goerli"
+  },
+  "links": {
+    "message": "Посилання"
+  },
   "loading": {
     "message": "Завантаження..."
   },
@@ -339,6 +369,9 @@
   "metamaskVersion": {
     "message": "Версія MetaMask"
   },
+  "mustSelectOne": {
+    "message": "Слід вибрати хоча б 1 токен."
+  },
   "needImportFile": {
     "message": "Потрібно вибрати файл для імпорту.",
     "description": "User is important an account and needs to add a file to continue"
@@ -348,6 +381,12 @@
   },
   "networks": {
     "message": "Мережі"
+  },
+  "nevermind": {
+    "message": "Не зважати"
+  },
+  "newAccount": {
+    "message": "Новий обліковий запис"
   },
   "newAccountNumberName": {
     "message": "Обліковий запис $1",
@@ -367,6 +406,9 @@
   },
   "noWebcamFoundTitle": {
     "message": "Вебкамеру не знайдено"
+  },
+  "notEnoughGas": {
+    "message": "Недостатньо газу"
   },
   "ofTextNofM": {
     "message": "з"
@@ -451,6 +493,9 @@
   "restore": {
     "message": "Відновити"
   },
+  "revealSeedWords": {
+    "message": "Показати мнемонічні слова"
+  },
   "revealSeedWordsWarning": {
     "message": "Ці слова можуть бути використані, щоб вкрасти всі ваші облікові записи.",
     "description": "$1 is bolded text using the message from 'revealSeedWordsWarning2'"
@@ -497,6 +542,9 @@
   "showFiatConversionInTestnets": {
     "message": "Показати бесіду у Testnet"
   },
+  "showFiatConversionInTestnetsDescription": {
+    "message": "Оберіть це, щоб показати конверсію фіатних валют на Testnets"
+  },
   "showHexData": {
     "message": "Показати шістнадцятирикові дані"
   },
@@ -505,6 +553,9 @@
   },
   "sign": {
     "message": "Підписати"
+  },
+  "signatureRequest": {
+    "message": "Запит підпису"
   },
   "signed": {
     "message": "Підписано"
@@ -523,6 +574,9 @@
   },
   "stateLogs": {
     "message": "Логи стану"
+  },
+  "stateLogsDescription": {
+    "message": "Логи стану містять ваші публічні адреси облікового запису та надіслані транзакції."
   },
   "submitted": {
     "message": "Надіслано"

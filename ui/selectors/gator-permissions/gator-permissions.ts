@@ -20,9 +20,7 @@ const TOKEN_TRANSFER_PERMISSION_TYPES: SupportedPermissionType[] = [
   'erc20-token-stream',
   'native-token-periodic',
   'erc20-token-periodic',
-  'native-token-allowance',
-  'erc20-token-allowance',
-  'token-approval-revocation',
+  'erc20-token-revocation',
 ];
 
 /**

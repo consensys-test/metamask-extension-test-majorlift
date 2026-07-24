@@ -5,26 +5,12 @@ import { render, fireEvent, waitFor } from '@testing-library/react';
 import { BACKUPANDSYNC_FEATURES } from '@metamask/profile-sync-controller/user-storage';
 import * as useBackupAndSyncHook from '../../../../hooks/identity/useBackupAndSync/useBackupAndSync';
 import { MetamaskIdentityProvider } from '../../../../contexts/identity';
+import { MetaMetricsContext } from '../../../../contexts/metametrics';
 import { renderWithProvider } from '../../../../../test/lib/render-helpers-navigate';
 import {
   BackupAndSyncFeaturesToggles,
   backupAndSyncFeaturesTogglesTestIds,
 } from './backup-and-sync-features-toggles';
-
-const mockTrackEvent = jest.fn();
-
-jest.mock('../../../../hooks/useAnalytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../../../shared/lib/analytics/create-event-builder',
-  );
-
-  return {
-    useAnalytics: () => ({
-      trackEvent: mockTrackEvent,
-      createEventBuilder,
-    }),
-  };
-});
 
 const mockStore = configureMockStore();
 const initialStore = () => ({
@@ -34,18 +20,13 @@ const initialStore = () => ({
     isBackupAndSyncEnabled: true,
     isAccountSyncingEnabled: false,
     isContactSyncingEnabled: false,
-    completedMetaMetricsOnboarding: true,
-    optedIn: false,
+    participateInMetaMetrics: false,
     isBackupAndSyncUpdateLoading: false,
     keyrings: [],
   },
 });
 
 describe('BackupAndSyncFeaturesToggles', () => {
-  beforeEach(() => {
-    mockTrackEvent.mockClear();
-  });
-
   it('renders correctly', () => {
     const { getByTestId } = render(
       <Redux.Provider store={mockStore(initialStore())}>
@@ -60,13 +41,22 @@ describe('BackupAndSyncFeaturesToggles', () => {
   });
 
   it('tracks the toggle event', () => {
+    const mockTrackEvent = jest.fn();
+    const mockMetaMetricsContext = {
+      trackEvent: mockTrackEvent,
+      bufferedTrace: jest.fn(),
+      bufferedEndTrace: jest.fn(),
+      onboardingParentContext: { current: null },
+    };
     const store = initialStore();
 
     store.metamask.isAccountSyncingEnabled = true;
     arrangeMocks();
 
     const { getByTestId } = renderWithProvider(
-      <BackupAndSyncFeaturesToggles />,
+      <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
+        <BackupAndSyncFeaturesToggles />
+      </MetaMetricsContext.Provider>,
       mockStore(store),
     );
     fireEvent.click(
@@ -75,9 +65,9 @@ describe('BackupAndSyncFeaturesToggles', () => {
       ),
     );
     expect(mockTrackEvent).toHaveBeenCalledWith({
-      name: 'Settings Updated',
+      category: 'Settings',
+      event: 'Settings Updated',
       properties: {
-        category: 'Settings',
         // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
         // eslint-disable-next-line @typescript-eslint/naming-convention
         settings_group: 'backup_and_sync',
@@ -94,7 +84,6 @@ describe('BackupAndSyncFeaturesToggles', () => {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         was_notifications_on: undefined,
       },
-      sensitiveProperties: {},
     });
   });
 

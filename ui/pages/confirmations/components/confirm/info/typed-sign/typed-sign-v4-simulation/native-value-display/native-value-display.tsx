@@ -23,7 +23,7 @@ import { AssetPill } from '../../../../../simulation-details/asset-pill';
 import {
   formatAmount,
   formatAmountMaxPrecision,
-} from '../../../../../../../../../shared/lib/format-amount';
+} from '../../../../../simulation-details/formatAmount';
 import { IndividualFiatDisplay } from '../../../../../simulation-details/fiat-display';
 import { getAmountColors } from '../../../utils';
 
@@ -43,12 +43,12 @@ type PermitSimulationValueDisplayParams = {
   debit?: boolean;
 };
 
-const NativeValueDisplay = ({
+const NativeValueDisplay: React.FC<PermitSimulationValueDisplayParams> = ({
   chainId,
   value,
   credit,
   debit,
-}: PermitSimulationValueDisplayParams) => {
+}) => {
   const conversionRate = useSelector((state) =>
     selectConversionRateByChainId(state, chainId),
   );

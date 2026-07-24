@@ -13,7 +13,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import { useSelector } from 'react-redux';
-import { getSelectedInternalAccount } from '../../../shared/lib/selectors/accounts';
+import { getSelectedInternalAccount } from '../../selectors/accounts';
 import { getPerpsController } from './getPerpsController.mock';
 import type { getPerpsController as GetPerpsControllerType } from './getPerpsController.mock';
 
@@ -56,6 +56,7 @@ export type PerpsControllerProviderProps = {
  * </PerpsControllerProvider>
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function PerpsControllerProvider({
   children,
   controller: providedController,

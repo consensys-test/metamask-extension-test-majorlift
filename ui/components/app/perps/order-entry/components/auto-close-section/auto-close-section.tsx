@@ -8,17 +8,10 @@ import {
   BoxAlignItems,
   FontWeight,
 } from '@metamask/design-system-react';
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   formatPerpsFiat,
   PRICE_RANGES_MINIMAL_VIEW,
-  PRICE_RANGES_UNIVERSAL,
 } from '../../../../../../../shared/lib/perps-formatters';
 
 import {
@@ -44,9 +37,6 @@ import {
   isSignedDecimalInput,
 } from '../../../utils/tpslInput';
 import { formatRoePercent, getPnlDisplayColor } from '../../../utils';
-
-const LOW_VALUE_TRIGGER_PRICE_THRESHOLD = 0.01;
-const LOW_VALUE_TRIGGER_PRICE_DECIMALS = 6;
 
 /**
  * AutoCloseSection - Collapsible section for Take Profit and Stop Loss configuration
@@ -75,7 +65,7 @@ const LOW_VALUE_TRIGGER_PRICE_DECIMALS = 6;
  * @param props.leverage - Leverage multiplier for RoE% calculation
  * @param props.asset - Asset symbol for fetching dynamic closing fee rates
  */
-export const AutoCloseSection = ({
+export const AutoCloseSection: React.FC<AutoCloseSectionProps> = ({
   enabled,
   onEnabledChange,
   takeProfitPrice,
@@ -91,7 +81,7 @@ export const AutoCloseSection = ({
   liquidationPrice,
   leverage,
   asset,
-}: AutoCloseSectionProps) => {
+}) => {
   const t = useI18nContext();
   const { feeRate: closingFeeRate } = usePerpsOrderFees({
     symbol: asset,
@@ -163,31 +153,12 @@ export const AutoCloseSection = ({
       const priceChangeRatio = percent / (leverage * 100);
       const multiplier =
         direction === 'long' ? 1 + priceChangeRatio : 1 - priceChangeRatio;
+
       const price = entryPrice * multiplier;
-
-      if (!Number.isFinite(price) || price <= 0) {
-        return '';
-      }
-
-      const preserveLowValueDecimals =
-        Math.abs(price) < LOW_VALUE_TRIGGER_PRICE_THRESHOLD;
-
-      const formattedPrice = formatPerpsFiat(price, {
-        ranges: PRICE_RANGES_UNIVERSAL,
-        ...(preserveLowValueDecimals
-          ? {
-              minimumDecimals: LOW_VALUE_TRIGGER_PRICE_DECIMALS,
-              maximumDecimals: LOW_VALUE_TRIGGER_PRICE_DECIMALS,
-              stripTrailingZeros: false,
-            }
-          : {}),
-      });
-
-      if (formattedPrice.startsWith('<')) {
-        return '';
-      }
-
-      return formattedPrice.replace(/[$,]/gu, '');
+      const normalizedPrice = Number.parseFloat(price.toFixed(8));
+      return Number.isFinite(normalizedPrice) && normalizedPrice > 0
+        ? normalizedPrice.toString()
+        : '';
     },
     [entryPrice, leverage, direction],
   );
@@ -436,27 +407,8 @@ export const AutoCloseSection = ({
     return null;
   }, [isSlInvalid, isSlLiquidationInvalid, direction, priceLabel, t]);
 
-  const sectionRef = useRef<HTMLDivElement | null>(null);
-
-  // Bring the expanded TP/SL inputs into view on smaller surfaces where the
-  // section would otherwise sit below the fold.
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    sectionRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'end',
-    });
-  }, [enabled]);
-
   return (
-    <Box
-      flexDirection={BoxFlexDirection.Column}
-      gap={3}
-      ref={sectionRef}
-      data-testid="auto-close-section"
-    >
+    <Box flexDirection={BoxFlexDirection.Column} gap={3}>
       {/* Toggle Row */}
       <Box
         flexDirection={BoxFlexDirection.Row}

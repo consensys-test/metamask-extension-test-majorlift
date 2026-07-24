@@ -1,11 +1,16 @@
 import { AuthenticationController } from '@metamask/profile-sync-controller';
-import {
-  Messenger,
-  MessengerActions,
-  MessengerEvents,
-} from '@metamask/messenger';
-import { SubscriptionControllerMessenger } from '@metamask/subscription-controller';
+import { Messenger } from '@metamask/messenger';
 import { RootMessenger } from '../../../lib/messenger';
+
+type Actions =
+  | AuthenticationController.AuthenticationControllerGetBearerTokenAction
+  | AuthenticationController.AuthenticationControllerPerformSignOutAction;
+
+type Events = AuthenticationController.AuthenticationControllerStateChangeEvent;
+
+export type SubscriptionControllerMessenger = ReturnType<
+  typeof getSubscriptionControllerMessenger
+>;
 
 /**
  * Get a restricted messenger for the Subscription controller. This is scoped to the
@@ -15,12 +20,14 @@ import { RootMessenger } from '../../../lib/messenger';
  * @returns The restricted controller messenger.
  */
 export function getSubscriptionControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<SubscriptionControllerMessenger>,
-    MessengerEvents<SubscriptionControllerMessenger>
-  >,
+  messenger: RootMessenger<Actions, Events>,
 ) {
-  const controllerMessenger: SubscriptionControllerMessenger = new Messenger({
+  const controllerMessenger = new Messenger<
+    'SubscriptionController',
+    Actions,
+    Events,
+    typeof messenger
+  >({
     namespace: 'SubscriptionController',
     parent: messenger,
   });

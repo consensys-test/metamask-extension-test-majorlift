@@ -7,10 +7,7 @@ import {
   IconName,
 } from '../../../../../components/component-library';
 import { IconColor } from '../../../../../helpers/constants/design-system';
-import {
-  selectNetworkConfigurationByChainId,
-  type NetworkConfigurationsByChainIdState,
-} from '../../../../../../shared/lib/selectors/networks';
+import { selectNetworkConfigurationByChainId } from '../../../../../selectors';
 
 const HYPERLIQUID_EXPLORER_URL = 'https://app.hyperliquid.xyz/explorer';
 
@@ -31,14 +28,14 @@ function getBlockExplorerTxUrl(
   return undefined;
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function BlockExplorerLink({
   chainId,
   hash,
   isHyperliquid = false,
 }: BlockExplorerLinkProps) {
-  const networkConfiguration = useSelector(
-    (state: NetworkConfigurationsByChainIdState) =>
-      selectNetworkConfigurationByChainId(state, chainId),
+  const networkConfiguration = useSelector((state) =>
+    selectNetworkConfigurationByChainId(state, chainId),
   );
 
   const blockExplorerUrl = useMemo(() => {

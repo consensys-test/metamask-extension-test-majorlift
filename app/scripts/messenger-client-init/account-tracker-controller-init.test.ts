@@ -5,10 +5,7 @@ import {
   MockAnyNamespace,
 } from '@metamask/messenger';
 import { RemoteFeatureFlagControllerGetStateAction } from '@metamask/remote-feature-flag-controller';
-import {
-  AccountTrackerController,
-  AccountTrackerControllerMessenger,
-} from '@metamask/assets-controllers';
+import { AccountTrackerController } from '@metamask/assets-controllers';
 import {
   AutoManagedNetworkClient,
   CustomNetworkClientConfiguration,
@@ -24,6 +21,7 @@ import { MessengerClientInitRequest } from './types';
 import { buildControllerInitRequestMock } from './test/utils';
 import {
   getAccountTrackerControllerMessenger,
+  AccountTrackerControllerMessenger,
   getAccountTrackerControllerInitMessenger,
   AccountTrackerControllerInitMessenger,
 } from './messengers';

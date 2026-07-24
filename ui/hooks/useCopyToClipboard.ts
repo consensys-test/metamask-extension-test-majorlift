@@ -1,4 +1,6 @@
+import copyToClipboard from 'copy-to-clipboard';
 import { useCallback, useState } from 'react';
+import { COPY_OPTIONS } from '../../shared/constants/copy';
 import { SECOND } from '../../shared/constants/time';
 import { useTimeout } from './useTimeout';
 
@@ -37,10 +39,7 @@ export function useCopyToClipboard({
     () => {
       if (copied === true) {
         if (shouldClearClipboard) {
-          globalThis.navigator.clipboard.writeText(' ').then(
-            () => undefined,
-            () => undefined,
-          );
+          copyToClipboard(' ', COPY_OPTIONS);
         }
 
         setCopied(false);
@@ -52,13 +51,9 @@ export function useCopyToClipboard({
 
   const handleCopy = useCallback(
     (text: string) => {
-      globalThis.navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          setCopied(true);
-          startTimeout?.();
-        })
-        .catch(() => undefined);
+      setCopied(true);
+      startTimeout?.();
+      copyToClipboard(text, COPY_OPTIONS);
     },
     [startTimeout],
   );

@@ -1,7 +1,5 @@
-import {
-  SubjectMetadataController,
-  SubjectMetadataControllerMessenger,
-} from '@metamask/permission-controller';
+import { SubjectMetadataController } from '@metamask/permission-controller';
+import { SubjectMetadataControllerMessenger } from './messengers';
 import { MessengerClientInitFunction } from './types';
 
 /**

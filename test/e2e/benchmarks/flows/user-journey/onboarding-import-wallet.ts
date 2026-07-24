@@ -16,7 +16,7 @@ import {
 } from '../../../page-objects/flows/onboarding.flow';
 import AccountListPage from '../../../page-objects/pages/account-list-page';
 import HeaderNavbar from '../../../page-objects/pages/header-navbar';
-import TokensTab from '../../../page-objects/pages/home/tokens-tab';
+import AssetListPage from '../../../page-objects/pages/home/asset-list';
 import HomePage from '../../../page-objects/pages/home/homepage';
 import OnboardingCompletePage from '../../../page-objects/pages/onboarding/onboarding-complete-page';
 import OnboardingMetricsPage from '../../../page-objects/pages/onboarding/onboarding-metrics-page';
@@ -84,8 +84,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         const isFirefox = process.env.SELENIUM_BROWSER === Browser.FIREFOX;
         if (isFirefox) {
           await onboardingMetricsFlow(driver, {
-            completedMetaMetricsOnboarding: true,
-            optedIn: false,
+            participateInMetaMetrics: false,
             dataCollectionForMarketing: false,
           });
         }
@@ -178,10 +177,10 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
             async () => {
               const homePage = new HomePage(driver);
               await homePage.checkPageIsLoaded();
-              const tokensTab = new TokensTab(driver);
-              await tokensTab.checkTokenListIsDisplayed();
-              await tokensTab.checkTokenExistsInList('Ethereum');
-              await tokensTab.waitForTokenToBeDisplayed('Solana', 120000);
+              const assetListPage = new AssetListPage(driver);
+              await assetListPage.checkTokenListIsDisplayed();
+              await assetListPage.checkTokenExistsInList('Ethereum');
+              await assetListPage.waitForTokenToBeDisplayed('Solana', 120000);
             },
           ),
         );
@@ -200,15 +199,11 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
           ),
         );
 
-        // BUG #42792 This test is failing with the ASSETS_UNIFIED_STATE_ENABLED='true'
-        // commenting out temporarily to unblock the release
-        /*
         try {
           webVitals = await collectWebVitals(driver);
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
-        */
       },
     );
 

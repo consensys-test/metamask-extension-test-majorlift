@@ -1,17 +1,24 @@
-import {
-  Messenger,
-  MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { GasFeeMessenger } from '@metamask/gas-fee-controller';
+import { Messenger } from '@metamask/messenger';
 import {
   type NetworkControllerGetEIP1559CompatibilityAction,
   NetworkControllerGetNetworkClientByIdAction,
   NetworkControllerGetSelectedNetworkClientAction,
   type NetworkControllerGetStateAction,
   NetworkControllerNetworkDidChangeEvent,
+  NetworkControllerStateChangeEvent,
 } from '@metamask/network-controller';
 import { RootMessenger } from '../../lib/messenger';
+
+type AllowedActions =
+  | NetworkControllerGetStateAction
+  | NetworkControllerGetNetworkClientByIdAction
+  | NetworkControllerGetEIP1559CompatibilityAction;
+
+type AllowedEvents = NetworkControllerStateChangeEvent;
+
+export type GasFeeControllerMessenger = ReturnType<
+  typeof getGasFeeControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the
@@ -21,12 +28,14 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getGasFeeControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<GasFeeMessenger>,
-    MessengerEvents<GasFeeMessenger>
-  >,
+  messenger: RootMessenger<AllowedActions, AllowedEvents>,
 ) {
-  const controllerMessenger: GasFeeMessenger = new Messenger({
+  const controllerMessenger = new Messenger<
+    'GasFeeController',
+    AllowedActions,
+    AllowedEvents,
+    typeof messenger
+  >({
     namespace: 'GasFeeController',
     parent: messenger,
   });
@@ -37,7 +46,7 @@ export function getGasFeeControllerMessenger(
       'NetworkController:getNetworkClientById',
       'NetworkController:getState',
     ],
-    events: ['NetworkController:networkDidChange'],
+    events: ['NetworkController:stateChange'],
   });
   return controllerMessenger;
 }

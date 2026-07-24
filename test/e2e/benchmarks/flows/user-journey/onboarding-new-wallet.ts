@@ -13,7 +13,7 @@ import {
   onboardingMetricsFlow,
   skipPasskeySetup,
 } from '../../../page-objects/flows/onboarding.flow';
-import TokensTab from '../../../page-objects/pages/home/tokens-tab';
+import AssetListPage from '../../../page-objects/pages/home/asset-list';
 import HomePage from '../../../page-objects/pages/home/homepage';
 import OnboardingCompletePage from '../../../page-objects/pages/onboarding/onboarding-complete-page';
 import OnboardingMetricsPage from '../../../page-objects/pages/onboarding/onboarding-metrics-page';
@@ -66,8 +66,7 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
         const isFirefox = process.env.SELENIUM_BROWSER === Browser.FIREFOX;
         if (isFirefox) {
           await onboardingMetricsFlow(driver, {
-            completedMetaMetricsOnboarding: true,
-            optedIn: false,
+            participateInMetaMetrics: false,
             dataCollectionForMarketing: false,
           });
         }
@@ -157,22 +156,19 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             async () => {
               const homePage = new HomePage(driver);
               await homePage.checkPageIsLoaded();
-              const tokensTab = new TokensTab(driver);
-              await tokensTab.checkTokenListIsDisplayed();
-              await tokensTab.waitForTokenToBeDisplayed('Ethereum');
-              await tokensTab.waitForTokenToBeDisplayed('Solana', 60000);
+              const assetListPage = new AssetListPage(driver);
+              await assetListPage.checkTokenListIsDisplayed();
+              await assetListPage.waitForTokenToBeDisplayed('Ethereum');
+              await assetListPage.waitForTokenToBeDisplayed('Solana', 60000);
             },
           ),
         );
-        // BUG #42792 This test is failing with the ASSETS_UNIFIED_STATE_ENABLED='true'
-        // commenting out temporarily to unblock the release
-        /*
+
         try {
           webVitals = await collectWebVitals(driver);
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
-        */
       },
     );
 

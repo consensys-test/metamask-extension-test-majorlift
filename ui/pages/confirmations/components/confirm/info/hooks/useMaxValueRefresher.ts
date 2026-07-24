@@ -20,7 +20,6 @@ import { updateEditableParams } from '../../../../../../store/actions';
 import { useConfirmContext } from '../../../../context/confirm';
 import { HEX_ZERO } from '../shared/constants';
 import { useTransactionEventFragment } from '../../../../hooks/useTransactionEventFragment';
-import { useIsGaslessSupported } from '../../../../hooks/gas/useIsGaslessSupported';
 import { useSupportsEIP1559 } from './useSupportsEIP1559';
 
 /**
@@ -47,7 +46,6 @@ export const useMaxValueRefresher = () => {
     id: transactionId,
     txParams: { from },
   } = transactionMeta;
-  const { isSupported: isGaslessSupported } = useIsGaslessSupported();
   const isMaxAmountMode = useSelector((state) =>
     selectMaxValueModeForTransaction(state, transactionMeta?.id),
   );
@@ -91,7 +89,7 @@ export const useMaxValueRefresher = () => {
 
     // Gas Sponsorship means the user has no native gas to pay at all.
     // This will allow to send the full max value of the native balance.
-    if (!transactionMeta.isGasFeeSponsored || !isGaslessSupported) {
+    if (!transactionMeta.isGasFeeSponsored) {
       gasFeeInHex = multiplyHexes(
         gas,
         supportsEIP1559 ? maxFeePerGas : gasPrice,
@@ -126,6 +124,5 @@ export const useMaxValueRefresher = () => {
     layer1GasFee,
     dispatch,
     transactionMeta,
-    isGaslessSupported,
   ]);
 };

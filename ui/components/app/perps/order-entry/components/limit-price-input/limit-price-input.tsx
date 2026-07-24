@@ -13,12 +13,15 @@ import {
   IconName,
   IconSize,
   IconColor,
-  TextField,
-  TextFieldSize,
 } from '@metamask/design-system-react';
 import React, { useCallback, useMemo } from 'react';
 
+import {
+  BorderRadius,
+  BackgroundColor,
+} from '../../../../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../../../../hooks/useI18nContext';
+import { TextField, TextFieldSize } from '../../../../../component-library';
 import type { OrderDirection } from '../../order-entry.types';
 import {
   isLimitPriceUnfavorable,
@@ -57,7 +60,7 @@ export type LimitPriceInputProps = {
  * @param options0.liquidationPrice
  * @param options0.autoFocus
  */
-export const LimitPriceInput = ({
+export const LimitPriceInput: React.FC<LimitPriceInputProps> = ({
   limitPrice,
   onLimitPriceChange,
   currentPrice,
@@ -65,12 +68,9 @@ export const LimitPriceInput = ({
   direction,
   liquidationPrice,
   autoFocus = false,
-}: LimitPriceInputProps) => {
+}) => {
   const t = useI18nContext();
   const midPrice = midPriceProp ?? currentPrice;
-  const parsedLimitPrice = Number.parseFloat(limitPrice);
-  const hasValidLimitPrice =
-    Number.isFinite(parsedLimitPrice) && parsedLimitPrice > 0;
 
   const handlePriceChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,14 +113,11 @@ export const LimitPriceInput = ({
   }, [limitPrice, currentPrice, direction, t]);
 
   const liquidationWarning = useMemo(() => {
-    if (!hasValidLimitPrice) {
-      return null;
-    }
     if (!isNearLiquidationPrice(currentPrice, liquidationPrice, direction)) {
       return null;
     }
     return t('perpsLimitPriceNearLiquidation');
-  }, [currentPrice, liquidationPrice, direction, hasValidLimitPrice, t]);
+  }, [currentPrice, liquidationPrice, direction, t]);
 
   return (
     <Box
@@ -145,7 +142,10 @@ export const LimitPriceInput = ({
         }
         onBlur={handlePriceBlur}
         placeholder="0.00"
-        className="w-full rounded-lg border-0 bg-muted"
+        borderRadius={BorderRadius.MD}
+        borderWidth={0}
+        backgroundColor={BackgroundColor.backgroundMuted}
+        className="w-full"
         data-testid="limit-price-input"
         autoFocus={autoFocus}
         inputProps={{ inputMode: 'decimal' }}

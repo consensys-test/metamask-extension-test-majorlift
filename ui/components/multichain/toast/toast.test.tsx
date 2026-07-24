@@ -1,3 +1,4 @@
+/* eslint-disable jest/require-top-level-describe */
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react';
 import { InternalAccount } from '@metamask/keyring-internal-api';

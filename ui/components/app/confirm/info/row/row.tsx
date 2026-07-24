@@ -1,5 +1,4 @@
-import React, { createContext, useMemo } from 'react';
-import { Skeleton } from '@metamask/design-system-react';
+import React, { createContext } from 'react';
 import Tooltip from '../../../../ui/tooltip/tooltip';
 import {
   Box,
@@ -10,6 +9,7 @@ import {
   IconSize,
   Text,
 } from '../../../../component-library';
+import { Skeleton } from '../../../../component-library/skeleton';
 import {
   AlignItems,
   BackgroundColor,
@@ -102,7 +102,7 @@ export const ConfirmInfoRowContext = createContext({
   variant: ConfirmInfoRowVariant.Default,
 });
 
-export const ConfirmInfoRow = ({
+export const ConfirmInfoRow: React.FC<ConfirmInfoRowProps> = ({
   label,
   children,
   variant = ConfirmInfoRowVariant.Default,
@@ -119,7 +119,7 @@ export const ConfirmInfoRow = ({
   tooltipIconColor,
   onClick,
   labelChildrenStyleOverride,
-}: ConfirmInfoRowProps) => {
+}) => {
   const { value: expanded, toggle } = useBoolean(!collapsed);
 
   const isCollapsible = collapsed !== undefined;
@@ -129,10 +129,8 @@ export const ConfirmInfoRow = ({
 
   const isSmall = rowVariant === ConfirmInfoRowSize.Small;
 
-  const contextValue = useMemo(() => ({ variant }), [variant]);
-
   return (
-    <ConfirmInfoRowContext.Provider value={contextValue}>
+    <ConfirmInfoRowContext.Provider value={{ variant }}>
       <Box
         data-testid={dataTestId}
         className="confirm-info-row"
@@ -257,11 +255,11 @@ export type ConfirmInfoRowSkeletonProps = {
   rowVariant?: ConfirmInfoRowSize;
 };
 
-export const ConfirmInfoRowSkeleton = ({
+export const ConfirmInfoRowSkeleton: React.FC<ConfirmInfoRowSkeletonProps> = ({
   'data-testid': dataTestId,
   label,
   rowVariant = ConfirmInfoRowSize.Default,
-}: ConfirmInfoRowSkeletonProps) => {
+}) => {
   const isSmall = rowVariant === ConfirmInfoRowSize.Small;
 
   if (isSmall || !label) {

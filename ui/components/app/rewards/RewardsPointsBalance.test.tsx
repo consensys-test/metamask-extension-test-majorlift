@@ -4,13 +4,13 @@ import '@testing-library/jest-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   selectCandidateSubscriptionId,
+  selectOnboardingModalRendered,
   selectRewardsBadgeHidden,
-  selectRewardsDeeplinkUrl,
   selectRewardsEnabled,
+  selectRewardsOnboardingEnabled,
   selectSeasonStatus,
   selectSeasonStatusError,
 } from '../../../ducks/rewards/selectors';
-import { setRewardsModalOpen } from '../../../ducks/rewards';
 import { getIntlLocale } from '../../../ducks/locale/locale';
 import { enLocale as messages } from '../../../../test/lib/i18n-helpers';
 import { RewardsPointsBalance } from './RewardsPointsBalance';
@@ -79,7 +79,7 @@ const mockUseSelector = useSelector as jest.MockedFunction<typeof useSelector>;
 const mockUseDispatch = useDispatch as jest.MockedFunction<typeof useDispatch>;
 
 const { useAppSelector } = jest.requireMock('../../../store/store');
-const { getStorageItem } = jest.requireMock(
+const { getStorageItem, setStorageItem } = jest.requireMock(
   '../../../../shared/lib/storage-helpers',
 );
 
@@ -88,6 +88,9 @@ const mockUseAppSelector = useAppSelector as jest.MockedFunction<
 >;
 const mockGetStorageItem = getStorageItem as jest.MockedFunction<
   typeof getStorageItem
+>;
+const mockSetStorageItem = setStorageItem as jest.MockedFunction<
+  typeof setStorageItem
 >;
 
 const { useOptIn } = jest.requireMock('../../../hooks/rewards/useOptIn');
@@ -126,21 +129,25 @@ describe('RewardsPointsBalance', () => {
   const setSelectorValues = ({
     locale = 'en-US',
     rewardsEnabled = true,
+    rewardsOnboardingEnabled = true,
     rewardsBadgeHidden = false,
     candidateSubscriptionId = 'test-subscription-id',
     seasonStatus = mockSeasonStatus,
     seasonStatusError = null,
     rewardsActiveAccountSubscriptionId = 'active-subscription-id',
-    rewardsDeeplinkUrl = null,
+    hasSeenOnboarding = true,
+    onboardingModalRendered = true,
   }: {
     locale?: string;
     rewardsEnabled?: boolean;
+    rewardsOnboardingEnabled?: boolean;
     rewardsBadgeHidden?: boolean;
     candidateSubscriptionId?: string | null;
     seasonStatus?: typeof mockSeasonStatus | null;
     seasonStatusError?: string | null;
-    rewardsActiveAccountSubscriptionId?: string | null;
-    rewardsDeeplinkUrl?: string | null;
+    rewardsActiveAccountSubscriptionId?: string | undefined;
+    hasSeenOnboarding?: boolean;
+    onboardingModalRendered?: boolean;
   }) => {
     mockUseSelector.mockImplementation((selector: unknown) => {
       if (selector === getIntlLocale) {
@@ -148,6 +155,9 @@ describe('RewardsPointsBalance', () => {
       }
       if (selector === selectRewardsEnabled) {
         return rewardsEnabled;
+      }
+      if (selector === selectRewardsOnboardingEnabled) {
+        return rewardsOnboardingEnabled;
       }
       if (selector === selectRewardsBadgeHidden) {
         return rewardsBadgeHidden;
@@ -161,8 +171,8 @@ describe('RewardsPointsBalance', () => {
       if (selector === selectSeasonStatusError) {
         return seasonStatusError;
       }
-      if (selector === selectRewardsDeeplinkUrl) {
-        return rewardsDeeplinkUrl;
+      if (selector === selectOnboardingModalRendered) {
+        return onboardingModalRendered;
       }
       if (selector === selectSeasonStatusError) {
         return seasonStatusError;
@@ -184,13 +194,14 @@ describe('RewardsPointsBalance', () => {
       },
     );
 
-    mockGetStorageItem.mockResolvedValue(rewardsBadgeHidden ? 'true' : null);
+    mockGetStorageItem.mockResolvedValue(hasSeenOnboarding ? 'true' : null);
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     setSelectorValues({});
     mockUseDispatch.mockReturnValue(jest.fn());
+    mockSetStorageItem.mockResolvedValue(undefined);
     mockUseOptIn.mockReturnValue({
       optin: jest.fn().mockResolvedValue(undefined),
     } as ReturnType<typeof useOptIn>);
@@ -216,6 +227,7 @@ describe('RewardsPointsBalance', () => {
     setSelectorValues({
       candidateSubscriptionId: null,
       seasonStatus: null,
+      rewardsOnboardingEnabled: true,
       rewardsBadgeHidden: false,
     });
     render(<RewardsPointsBalance />);
@@ -673,86 +685,79 @@ describe('RewardsPointsBalance', () => {
     expect(mockOptin).toHaveBeenCalledTimes(1);
   });
 
-  it('does not open onboarding modal without a rewards deeplink', () => {
+  it('should not open onboarding modal when hasSeenOnboarding is true', () => {
     const dispatchMock = jest.fn();
     mockUseDispatch.mockReturnValue(dispatchMock);
-    setSelectorValues({
-      candidateSubscriptionId: null,
-      rewardsActiveAccountSubscriptionId: null,
-      rewardsDeeplinkUrl: null,
-    });
+    setSelectorValues({ hasSeenOnboarding: true });
 
     render(<RewardsPointsBalance />);
 
-    expect(dispatchMock).not.toHaveBeenCalledWith(setRewardsModalOpen(true));
+    expect(dispatchMock).not.toHaveBeenCalled();
   });
 
-  it('opens onboarding modal from a rewards deeplink when there is no subscription', async () => {
+  it('should not open onboarding modal in test environment even if hasSeenOnboarding is false', () => {
     const dispatchMock = jest.fn();
     mockUseDispatch.mockReturnValue(dispatchMock);
-    delete process.env.IN_TEST;
-    setSelectorValues({
-      candidateSubscriptionId: null,
-      rewardsActiveAccountSubscriptionId: null,
-      rewardsDeeplinkUrl: 'https://link.metamask.io/rewards?referral=ABC123',
-    });
-
-    render(<RewardsPointsBalance />);
-
-    await waitFor(() => {
-      expect(dispatchMock).toHaveBeenCalledWith(setRewardsModalOpen(true));
-    });
-  });
-
-  it('opens onboarding modal from a rewards deeplink in test environment', async () => {
-    const dispatchMock = jest.fn();
-    mockUseDispatch.mockReturnValue(dispatchMock);
+    setSelectorValues({ hasSeenOnboarding: false });
     process.env.IN_TEST = 'true';
-    setSelectorValues({
-      candidateSubscriptionId: null,
-      rewardsActiveAccountSubscriptionId: null,
-      rewardsDeeplinkUrl: 'https://link.metamask.io/rewards?referral=ABC123',
-    });
 
     render(<RewardsPointsBalance />);
 
-    await waitFor(() => {
-      expect(dispatchMock).toHaveBeenCalledWith(setRewardsModalOpen(true));
-    });
+    expect(dispatchMock).not.toHaveBeenCalled();
   });
 
-  it('opens onboarding modal from a rewards deeplink even when a candidate subscription exists', async () => {
+  it('should not open onboarding modal when onboardingModalRendered is false', () => {
     const dispatchMock = jest.fn();
     mockUseDispatch.mockReturnValue(dispatchMock);
     delete process.env.IN_TEST;
     setSelectorValues({
-      candidateSubscriptionId: 'candidate-subscription-id',
-      rewardsActiveAccountSubscriptionId: null,
-      rewardsDeeplinkUrl: 'https://link.metamask.io/rewards?referral=ABC123',
+      hasSeenOnboarding: false,
+      candidateSubscriptionId: null,
+      rewardsActiveAccountSubscriptionId: undefined,
+      onboardingModalRendered: false,
     });
 
     render(<RewardsPointsBalance />);
 
+    expect(dispatchMock).not.toHaveBeenCalled();
+  });
+
+  it('should call setStorageItem when candidateSubscriptionId is set', async () => {
+    setSelectorValues({
+      candidateSubscriptionId: 'new-subscription-id',
+      rewardsActiveAccountSubscriptionId: undefined,
+    });
+
+    await act(async () => {
+      render(<RewardsPointsBalance />);
+    });
+
     await waitFor(() => {
-      expect(dispatchMock).toHaveBeenCalledWith(setRewardsModalOpen(true));
+      expect(mockSetStorageItem).toHaveBeenCalledWith(
+        'REWARDS_GTM_MODAL_SHOWN',
+        'true',
+      );
     });
   });
 
-  it('opens onboarding modal from a rewards deeplink even when the active account has a subscription', async () => {
-    const dispatchMock = jest.fn();
-    mockUseDispatch.mockReturnValue(dispatchMock);
-    delete process.env.IN_TEST;
+  it('should handle setStorageItem errors gracefully', async () => {
+    mockSetStorageItem.mockRejectedValue(new Error('Storage error'));
     setSelectorValues({
-      candidateSubscriptionId: null,
-      rewardsActiveAccountSubscriptionId: 'active-subscription-id',
-      rewardsDeeplinkUrl: 'https://link.metamask.io/rewards?referral=ABC123',
+      candidateSubscriptionId: 'new-subscription-id',
+      rewardsActiveAccountSubscriptionId: undefined,
     });
 
-    render(<RewardsPointsBalance />);
+    await act(async () => {
+      render(<RewardsPointsBalance />);
+    });
 
     await waitFor(() => {
-      expect(dispatchMock).toHaveBeenCalledWith(setRewardsModalOpen(true));
+      expect(screen.getByTestId('rewards-points-balance')).toBeInTheDocument();
     });
+    // Component should still render despite storage error
+    expect(
+      screen.getByTestId('rewards-points-balance-value'),
+    ).toHaveTextContent('1,000 points');
   });
 
   it('should handle getStorageItem errors gracefully', async () => {

@@ -31,6 +31,12 @@ export function multiplyHexes(aHexWEI: Hex, bHexWEI: Hex): Hex {
     .toString() as Hex;
 }
 
+export function decWEIToDecETH(decWEI: string) {
+  return new Numeric(decWEI, 10, EtherDenomination.WEI)
+    .toDenomination(EtherDenomination.ETH)
+    .toString();
+}
+
 export function hexWEIToDecETH(hexWEI: string) {
   return new Numeric(hexWEI, 16, EtherDenomination.WEI)
     .toDenomination(EtherDenomination.ETH)

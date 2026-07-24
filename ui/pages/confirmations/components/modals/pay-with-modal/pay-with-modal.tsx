@@ -22,13 +22,12 @@ import {
   useMusdConversionTokens,
   useMusdPaymentToken,
 } from '../../../../../hooks/musd';
-import { usePostQuoteWithdrawTokenFilter } from '../../../hooks/pay/useWithdrawTokenFilter';
 import { useConfirmContext } from '../../../context/confirm';
 import {
   addToken,
   findNetworkClientIdByChainId,
 } from '../../../../../store/actions';
-import { isPostQuoteWithdrawTransaction } from '../../../../../../shared/lib/transactions.utils';
+import { isPerpsWithdrawTransaction } from '../../../../../../shared/lib/transactions.utils';
 
 export type PayWithModalProps = {
   isOpen: boolean;
@@ -45,17 +44,12 @@ export const PayWithModal = ({ isOpen, onClose }: PayWithModalProps) => {
   const { filterTokens: musdTokenFilter } = useMusdConversionTokens({
     transactionType: currentConfirmation?.type,
   });
-  const {
-    filterTokens: postQuoteWithdrawTokenFilter,
-    isFilterApplied: isPostQuoteWithdrawTokenFilterApplied,
-  } = usePostQuoteWithdrawTokenFilter();
 
   // Use the mUSD-specific payment token handler for same-chain enforcement
   const { onPaymentTokenChange: onMusdPaymentTokenChange } =
     useMusdPaymentToken();
 
-  const isPostQuoteWithdraw =
-    isPostQuoteWithdrawTransaction(currentConfirmation);
+  const isPerpsWithdraw = isPerpsWithdrawTransaction(currentConfirmation);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -86,7 +80,7 @@ export const PayWithModal = ({ isOpen, onClose }: PayWithModalProps) => {
       // found" and the selection silently fails. Ensure the token is imported
       // first, then update the pay token.
       if (
-        isPostQuoteWithdraw &&
+        isPerpsWithdraw &&
         !token.isNative &&
         (token.rawBalance === '0x0' || !token.rawBalance)
       ) {
@@ -123,7 +117,7 @@ export const PayWithModal = ({ isOpen, onClose }: PayWithModalProps) => {
       currentConfirmation?.type,
       dispatch,
       handleClose,
-      isPostQuoteWithdraw,
+      isPerpsWithdraw,
       onMusdPaymentTokenChange,
       setPayToken,
     ],
@@ -131,24 +125,13 @@ export const PayWithModal = ({ isOpen, onClose }: PayWithModalProps) => {
 
   const tokenFilter = useCallback(
     (tokens: AssetType[]) => {
-      if (isPostQuoteWithdraw && isPostQuoteWithdrawTokenFilterApplied) {
-        return postQuoteWithdrawTokenFilter(tokens);
-      }
-
       let available = getAvailableTokens({ payToken, requiredTokens, tokens });
 
       available = musdTokenFilter(available);
 
       return available;
     },
-    [
-      isPostQuoteWithdraw,
-      isPostQuoteWithdrawTokenFilterApplied,
-      musdTokenFilter,
-      payToken,
-      postQuoteWithdrawTokenFilter,
-      requiredTokens,
-    ],
+    [payToken, requiredTokens, musdTokenFilter],
   );
 
   return (

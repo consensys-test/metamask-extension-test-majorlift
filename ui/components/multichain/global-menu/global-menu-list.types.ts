@@ -47,10 +47,6 @@ type GlobalMenuItemBase = {
    */
   subtitle?: string;
   /**
-   * Optional class name applied to the rendered menu item
-   */
-  className?: string;
-  /**
    * Whether the item is disabled
    */
   disabled?: boolean;

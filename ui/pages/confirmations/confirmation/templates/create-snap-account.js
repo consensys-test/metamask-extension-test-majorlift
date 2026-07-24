@@ -6,19 +6,18 @@ import {
 
 function getValues(pendingApproval, t, actions, _navigate, _data, contexts) {
   const { origin: snapId, snapName } = pendingApproval;
-  const { trackEvent, createEventBuilder } = contexts;
+  const { trackEvent } = contexts;
 
   const trackSnapAccountEvent = (event) => {
-    trackEvent(
-      createEventBuilder(event)
-        .addCategory(MetaMetricsEventCategory.Accounts)
-        .addProperties({
-          account_type: MetaMetricsEventAccountType.Snap,
-          snap_id: snapId,
-          snap_name: snapName,
-        })
-        .build(),
-    );
+    trackEvent({
+      event,
+      category: MetaMetricsEventCategory.Accounts,
+      properties: {
+        account_type: MetaMetricsEventAccountType.Snap,
+        snap_id: snapId,
+        snap_name: snapName,
+      },
+    });
   };
 
   const onCancel = () => {

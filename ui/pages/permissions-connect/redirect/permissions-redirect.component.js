@@ -1,22 +1,22 @@
 import React, { useContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
-  Box,
-  BoxAlignItems,
-  BoxBackgroundColor,
-  BoxBorderColor,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
-import {
-  BlockSize,
+  JustifyContent,
+  AlignItems,
+  Display,
   TextVariant,
+  BlockSize,
+  BorderColor,
+  FlexDirection,
+  BackgroundColor,
+  BorderRadius,
   IconColor,
 } from '../../../helpers/constants/design-system';
 import { I18nContext } from '../../../contexts/i18n';
 import {
   AvatarToken,
   AvatarTokenSize,
+  Box,
   Button,
   ButtonSize,
   ButtonVariant,
@@ -42,26 +42,31 @@ export default function PermissionsRedirect({ subjectMetadata }) {
 
   return (
     <Box
-      className="flex h-full w-full"
-      flexDirection={BoxFlexDirection.Column}
-      justifyContent={BoxJustifyContent.Between}
+      display={Display.Flex}
+      flexDirection={FlexDirection.Column}
+      width={BlockSize.Full}
+      height={BlockSize.Full}
+      justifyContent={JustifyContent.spaceBetween}
     >
       <Box
-        className="flex h-full w-full rounded-sm"
-        flexDirection={BoxFlexDirection.Column}
-        alignItems={BoxAlignItems.Center}
-        justifyContent={BoxJustifyContent.Center}
-        backgroundColor={BoxBackgroundColor.BackgroundDefault}
-        borderColor={BoxBorderColor.BorderMuted}
-        borderWidth={1}
+        display={Display.Flex}
+        flexDirection={FlexDirection.Column}
+        alignItems={AlignItems.center}
+        justifyContent={JustifyContent.center}
+        width={BlockSize.Full}
+        height={BlockSize.Full}
+        backgroundColor={BackgroundColor.backgroundDefault}
+        borderRadius={BorderRadius.XS}
+        border={`1px solid ${BorderColor.borderMuted}`}
         boxShadow="var(--shadow-size-lg) var(--color-shadow-default)"
       >
-        <Box className="flex" marginBottom={4}>
+        <Box display={Display.Flex} marginBottom={4}>
           <Text variant={TextVariant.headingMd}>{t('connecting')}</Text>
         </Box>
         <Box
-          className="flex rounded-full"
-          backgroundColor={BoxBackgroundColor.InfoMuted}
+          display={Display.Flex}
+          backgroundColor={BackgroundColor.infoMuted}
+          borderRadius={BorderRadius.pill}
           padding={2}
         >
           <AvatarToken
@@ -70,9 +75,9 @@ export default function PermissionsRedirect({ subjectMetadata }) {
             size={AvatarTokenSize.Lg}
           />
           <Box
-            className="flex"
-            alignItems={BoxAlignItems.Center}
-            justifyContent={BoxJustifyContent.Center}
+            display={Display.Flex}
+            alignItems={AlignItems.center}
+            justifyContent={JustifyContent.center}
             paddingLeft={4}
             paddingRight={4}
           >
@@ -89,14 +94,15 @@ export default function PermissionsRedirect({ subjectMetadata }) {
           />
         </Box>
       </Box>
-      <Box backgroundColor={BoxBackgroundColor.BackgroundDefault} padding={4}>
-        <Box className="flex" flexDirection={BoxFlexDirection.Column}>
+      <Box backgroundColor={BackgroundColor.backgroundDefault} padding={4}>
+        <Box display={Display.Flex} flexDirection={FlexDirection.Column}>
           <PermissionsConnectFooter />
           <Box
-            className="flex w-full"
+            display={Display.Flex}
             paddingTop={4}
-            justifyContent={BoxJustifyContent.Center}
-            alignItems={BoxAlignItems.Center}
+            width={BlockSize.Full}
+            justifyContent={JustifyContent.center}
+            alignItems={AlignItems.center}
           >
             <Button
               variant={ButtonVariant.Secondary}

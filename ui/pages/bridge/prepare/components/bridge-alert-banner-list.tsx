@@ -18,7 +18,7 @@ import {
 import { BackgroundColor } from '../../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 import { Column } from '../../layout';
-import { getCurrentKeyring } from '../../../../../shared/lib/selectors/keyring';
+import { getCurrentKeyring } from '../../../../selectors';
 import { isHardwareKeyring } from '../../../../helpers/utils/hardware';
 import { useIsTxSubmittable } from '../../../../hooks/bridge/useIsTxSubmittable';
 import { useDismissableAlerts } from '../../hooks/useDismissableBanners';
@@ -93,31 +93,6 @@ export const BridgeAlertBannerList = ({
   const hardwareWalletName = useSelector(getHardwareWalletName);
   const isUsingHardwareWallet = isHardwareKeyring(keyring?.type);
 
-  const showHardwareWalletAlert =
-    isUsingHardwareWallet &&
-    isTxSubmittable &&
-    hardwareWalletName &&
-    activeQuote;
-
-  const visibleAlerts = isValidQuoteRequest(quoteParams, false)
-    ? bannerAlerts.filter(
-        (alert) => alert && alertVisibility[alert.id] !== false,
-      )
-    : [];
-
-  // If no alerts, do not render the alert banner list but do render the modal
-  // so it can close cleanly even when alerts disappear while it is open
-  if (!showHardwareWalletAlert && visibleAlerts.length === 0) {
-    return (
-      <BridgeAlertModal
-        isOpen={false}
-        variant="alert-details"
-        alertId={modalAlertId}
-        onClose={() => setModalAlertId(undefined)}
-      />
-    );
-  }
-
   // Alert banners
   return (
     <>
@@ -129,43 +104,49 @@ export const BridgeAlertBannerList = ({
         backgroundColor={BackgroundColor.backgroundDefault}
         data-testid="bridge-banner-alerts"
       >
-        {showHardwareWalletAlert && (
-          <BannerAlert title={t('hardwareWalletSubmissionWarningTitle')}>
-            <ul style={{ listStyle: 'disc' }}>
-              <li>
-                <Text variant={TextVariant.BodyMd}>
-                  {t('hardwareWalletSubmissionWarningStep1', [
-                    hardwareWalletName,
-                  ])}
-                </Text>
-              </li>
-              <li>
-                <Text variant={TextVariant.BodyMd}>
-                  {t('hardwareWalletSubmissionWarningStep2', [
-                    hardwareWalletName,
-                  ])}
-                </Text>
-              </li>
-            </ul>
-          </BannerAlert>
-        )}
+        {isUsingHardwareWallet &&
+          isTxSubmittable &&
+          hardwareWalletName &&
+          activeQuote && (
+            <BannerAlert title={t('hardwareWalletSubmissionWarningTitle')}>
+              <ul style={{ listStyle: 'disc' }}>
+                <li>
+                  <Text variant={TextVariant.BodyMd}>
+                    {t('hardwareWalletSubmissionWarningStep1', [
+                      hardwareWalletName,
+                    ])}
+                  </Text>
+                </li>
+                <li>
+                  <Text variant={TextVariant.BodyMd}>
+                    {t('hardwareWalletSubmissionWarningStep2', [
+                      hardwareWalletName,
+                    ])}
+                  </Text>
+                </li>
+              </ul>
+            </BannerAlert>
+          )}
 
-        {visibleAlerts.map((alert, index: number) => {
-          let onClose: (() => void) | undefined;
-          if (alert.openModalOnClick) {
-            onClose = () => setModalAlertId(alert.id);
-          } else if (alert.isDismissable) {
-            onClose = () => dismissAlert(alert.id);
-          }
+        {isValidQuoteRequest(quoteParams, false) &&
+          bannerAlerts
+            .filter((alert) => alert && alertVisibility[alert.id] !== false)
+            .map((alert, index: number) => {
+              let onClose: (() => void) | undefined;
+              if (alert.openModalOnClick) {
+                onClose = () => setModalAlertId(alert.id);
+              } else if (alert.isDismissable) {
+                onClose = () => dismissAlert(alert.id);
+              }
 
-          return (
-            <LocalBannerAlert
-              key={`${alert.id}-${index}`}
-              alert={alert}
-              onClose={onClose}
-            />
-          );
-        })}
+              return (
+                <LocalBannerAlert
+                  key={`${alert.id}-${index}`}
+                  alert={alert}
+                  onClose={onClose}
+                />
+              );
+            })}
       </Column>
 
       <BridgeAlertModal

@@ -7,7 +7,9 @@ import { renderWithProvider } from '../../../../test/lib/render-helpers-navigate
 import { enLocale as messages, tEn } from '../../../../test/lib/i18n-helpers';
 import { SUPPORT_LINK } from '../../../helpers/constants/common';
 import { DEFAULT_ROUTE } from '../../../helpers/constants/routes';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
+  MetaMetricsContextProp,
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
@@ -15,27 +17,6 @@ import { isPopupOrSidePanelEnvironment } from '../../../../shared/lib/environmen
 import { getSocialLoginType } from '../../../selectors';
 import LoginErrorModal from './login-error-modal';
 import { LOGIN_ERROR } from './types';
-
-const mockTrackEvent = jest.fn();
-
-jest.mock('../../../hooks/useAnalytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../../shared/lib/analytics/create-event-builder',
-  );
-
-  return {
-    useAnalytics: () => ({
-      trackEvent: mockTrackEvent,
-      createEventBuilder,
-    }),
-  };
-});
-
-jest.mock('../../../hooks/useSegmentContext', () => ({
-  useSegmentContext: () => ({
-    page: { title: 'Welcome' },
-  }),
-}));
 
 const mockNavigate = jest.fn();
 
@@ -65,19 +46,28 @@ const mockIsPopupOrSidePanelEnvironment = jest.mocked(
   isPopupOrSidePanelEnvironment,
 );
 const mockGetSocialLoginType = jest.mocked(getSocialLoginType);
-const TELEGRAM_DESKTOP_UPDATE_URL = 'https://desktop.telegram.org/';
 
 const buildStore = () => configureMockStore([thunk])({ metamask: {} });
 
 function renderModal(
   props: Partial<React.ComponentProps<typeof LoginErrorModal>> = {},
+  trackEvent = jest.fn(),
 ) {
+  const mockMetaMetricsContext = {
+    trackEvent,
+    bufferedTrace: jest.fn(),
+    bufferedEndTrace: jest.fn(),
+    onboardingParentContext: { current: null },
+  };
+
   return renderWithProvider(
-    <LoginErrorModal
-      onClose={jest.fn()}
-      loginError={LOGIN_ERROR.GENERIC}
-      {...props}
-    />,
+    <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
+      <LoginErrorModal
+        onClose={jest.fn()}
+        loginError={LOGIN_ERROR.GENERIC}
+        {...props}
+      />
+    </MetaMetricsContext.Provider>,
     buildStore(),
   );
 }
@@ -109,7 +99,6 @@ describe('LoginErrorModal', () => {
     // @ts-expect-error test platform
     globalThis.platform = {
       openExtensionInBrowser: jest.fn(),
-      openTab: jest.fn(),
     };
   });
 
@@ -166,20 +155,13 @@ describe('LoginErrorModal', () => {
         }),
       ).toHaveAttribute('href', SUPPORT_LINK);
     });
-
-    it('renders the Telegram outdated content', () => {
-      expectErrorContent({
-        loginError: LOGIN_ERROR.TELEGRAM_OUTDATED,
-        title: messages.loginErrorTelegramOutdatedTitle.message,
-        description: messages.loginErrorTelegramOutdatedDescription.message,
-        buttonText: messages.loginErrorTelegramOutdatedButton.message,
-      });
-    });
   });
 
   describe('support link', () => {
     it('tracks the support link click for the generic error', () => {
-      renderModal({ loginError: LOGIN_ERROR.GENERIC });
+      const mockTrackEvent = jest.fn();
+
+      renderModal({ loginError: LOGIN_ERROR.GENERIC }, mockTrackEvent);
 
       fireEvent.click(
         screen.getByRole('link', {
@@ -188,14 +170,17 @@ describe('LoginErrorModal', () => {
       );
 
       expect(mockTrackEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: MetaMetricsEventName.SupportLinkClicked,
-          properties: expect.objectContaining({
-            category: MetaMetricsEventCategory.Onboarding,
+        {
+          category: MetaMetricsEventCategory.Onboarding,
+          event: MetaMetricsEventName.SupportLinkClicked,
+          properties: {
             url: SUPPORT_LINK,
-            location: 'Welcome',
-          }),
-        }),
+            location: 'Welcome page',
+          },
+        },
+        {
+          contextPropsIntoEventProperties: [MetaMetricsContextProp.PageTitle],
+        },
       );
     });
   });
@@ -270,37 +255,6 @@ describe('LoginErrorModal', () => {
       });
 
       expect(mockNavigate).not.toHaveBeenCalled();
-    });
-
-    it('tracks the Telegram update CTA, opens the Telegram site, and closes the modal', () => {
-      const onClose = jest.fn();
-
-      renderModal({
-        onClose,
-        loginError: LOGIN_ERROR.TELEGRAM_OUTDATED,
-      });
-
-      fireEvent.click(
-        screen.getByTestId('login-error-modal-update-telegram-button'),
-      );
-
-      expect(mockTrackEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: MetaMetricsEventName.SupportLinkClicked,
-          properties: expect.objectContaining({
-            category: MetaMetricsEventCategory.Onboarding,
-            url: TELEGRAM_DESKTOP_UPDATE_URL,
-            location: 'Telegram outdated modal',
-          }),
-        }),
-      );
-      expect(globalThis.platform.openTab).toHaveBeenCalledWith({
-        url: TELEGRAM_DESKTOP_UPDATE_URL,
-      });
-      expect(onClose).toHaveBeenCalledTimes(1);
-      expect(mockResetWallet).not.toHaveBeenCalled();
-      expect(mockNavigate).not.toHaveBeenCalled();
-      expect(globalThis.platform.openExtensionInBrowser).not.toHaveBeenCalled();
     });
   });
 });

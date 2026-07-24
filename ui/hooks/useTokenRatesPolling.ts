@@ -5,8 +5,10 @@ import {
   tokenRatesStartPolling,
   tokenRatesStopPollingByPollingToken,
 } from '../store/actions';
-import { getCompletedOnboarding } from '../ducks/metamask/metamask';
-import { getIsUnlocked } from '../ducks/metamask/base-selectors';
+import {
+  getCompletedOnboarding,
+  getIsUnlocked,
+} from '../ducks/metamask/metamask';
 import useMultiPolling from './useMultiPolling';
 
 const useTokenRatesPolling = () => {
@@ -20,6 +22,8 @@ const useTokenRatesPolling = () => {
 
   useMultiPolling({
     startPolling: tokenRatesStartPolling,
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     stopPollingByPollingToken: tokenRatesStopPollingByPollingToken,
     input: enabled ? [enabledChainIds] : [],
   });

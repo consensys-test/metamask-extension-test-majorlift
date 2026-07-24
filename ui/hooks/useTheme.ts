@@ -1,8 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { getTheme } from '../selectors';
 import { ThemeType } from '../../shared/constants/preferences';
-import { useEventListener } from './useEventListener';
 
 /**
  * List of valid themes.
@@ -74,17 +73,23 @@ export function useTheme(): ThemeType.light | ThemeType.dark {
     resolveTheme(settingTheme, systemTheme),
   );
 
-  const mediaQuery = useRef(
-    window.matchMedia('(prefers-color-scheme: dark)'),
-  ).current;
-
   // Handler for system theme changes
   const handleSystemThemeChange = useCallback((event: MediaQueryListEvent) => {
     const newSystemTheme = event.matches ? ThemeType.dark : ThemeType.light;
     setSystemTheme(newSystemTheme);
   }, []);
 
-  useEventListener('change', handleSystemThemeChange, mediaQuery);
+  // Listen for system theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    // Add listener for system theme changes
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
+  }, [handleSystemThemeChange]);
 
   // Update theme when setting or system theme changes
   useEffect(() => {

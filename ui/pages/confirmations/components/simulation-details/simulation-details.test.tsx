@@ -5,7 +5,6 @@ import {
   TransactionMeta,
   TransactionStatus,
 } from '@metamask/transaction-controller';
-import { ApprovalType } from '@metamask/controller-utils';
 import { screen } from '@testing-library/react';
 import { BigNumber } from 'bignumber.js';
 import React from 'react';
@@ -22,7 +21,6 @@ import { BalanceChange } from './types';
 import { useBalanceChanges } from './useBalanceChanges';
 
 const TRANSACTION_ID_MOCK = 'testTransactionId';
-const ERC20_TOKEN_STANDARD = TokenStandard.ERC20;
 
 const BALANCE_CHANGES_MOCK = [
   { amount: new BigNumber(-123) },
@@ -72,24 +70,10 @@ const renderSimulationDetails = (
   // Extract smartTransactionStatus from transactionMetadata
   const { smartTransactionStatus, ...txMetadata } = transactionMetadata || {};
 
-  if (txMetadata.revert) {
-    const preferences = state.metamask.preferences as Record<string, unknown>;
-
-    preferences.showConfirmationAdvancedDetails = true;
-  }
-
-  state.metamask.pendingApprovals = {
-    [TRANSACTION_ID_MOCK]: {
-      id: TRANSACTION_ID_MOCK,
-      type: ApprovalType.Transaction,
-    },
-  } as never;
-
   if (txMetadata && Object.keys(txMetadata).length > 0) {
     state.metamask.transactions.push({
       id: TRANSACTION_ID_MOCK,
       simulationData,
-      status: TransactionStatus.unapproved,
       ...txMetadata,
     } as never);
   }
@@ -131,9 +115,7 @@ describe('SimulationDetails', () => {
 
   it('renders skeleton loader when simulation data is not available', () => {
     const { container } = renderSimulationDetails();
-    expect(
-      container.querySelector('[data-testid="simulation-details-skeleton"]'),
-    ).toBeInTheDocument();
+    expect(container.querySelector('.mm-skeleton')).toBeInTheDocument();
   });
 
   it('renders skeleton loader when balance changes are pending', () => {
@@ -144,9 +126,7 @@ describe('SimulationDetails', () => {
 
     const { container } = renderSimulationDetails({});
 
-    expect(
-      container.querySelector('[data-testid="simulation-details-skeleton"]'),
-    ).toBeInTheDocument();
+    expect(container.querySelector('.mm-skeleton')).toBeInTheDocument();
   });
 
   it('renders error content when simulation error is reverted', () => {
@@ -157,25 +137,6 @@ describe('SimulationDetails', () => {
     expect(
       screen.getByText(/transaction is likely to fail/u),
     ).toBeInTheDocument();
-  });
-
-  it('renders simulation revert reason when advanced details are open', () => {
-    renderSimulationDetails(
-      { error: { code: SimulationErrorCode.Reverted, message: '' } },
-      false,
-      [],
-      {
-        revert: {
-          simulation: {
-            message: 'ERC20: transfer amount exceeds balance',
-          },
-        },
-      },
-    );
-
-    expect(
-      screen.getByTestId('simulation-details-revert-reason-message'),
-    ).toHaveTextContent('ERC20: transfer amount exceeds balance');
   });
 
   it('renders no content when simulation error is due to unsupported chain', () => {
@@ -213,12 +174,14 @@ describe('SimulationDetails', () => {
 
     renderSimulationDetails({});
 
+    expect(BalanceChangeList).toHaveBeenCalledTimes(2);
+
     expect(BalanceChangeList).toHaveBeenCalledWith(
       expect.objectContaining({
         heading: 'You send',
         balanceChanges: [BALANCE_CHANGES_MOCK[0]],
       }),
-      expect.anything(),
+      {},
     );
 
     expect(BalanceChangeList).toHaveBeenCalledWith(
@@ -226,7 +189,7 @@ describe('SimulationDetails', () => {
         heading: 'You receive',
         balanceChanges: [BALANCE_CHANGES_MOCK[1]],
       }),
-      expect.anything(),
+      {},
     );
   });
 
@@ -245,7 +208,7 @@ describe('SimulationDetails', () => {
         heading: 'You sent',
         balanceChanges: [BALANCE_CHANGES_MOCK[0]],
       }),
-      expect.anything(),
+      {},
     );
 
     // Test submitted status
@@ -257,7 +220,7 @@ describe('SimulationDetails', () => {
         heading: "You're sending",
         balanceChanges: [BALANCE_CHANGES_MOCK[0]],
       }),
-      expect.anything(),
+      {},
     );
 
     // Test default (unapproved status)
@@ -269,7 +232,7 @@ describe('SimulationDetails', () => {
         heading: 'You send',
         balanceChanges: [BALANCE_CHANGES_MOCK[0]],
       }),
-      expect.anything(),
+      {},
     );
   });
 
@@ -289,7 +252,7 @@ describe('SimulationDetails', () => {
         heading: 'You sent', // Should show "You sent" due to Smart Transaction success
         balanceChanges: [BALANCE_CHANGES_MOCK[0]],
       }),
-      expect.anything(),
+      {},
     );
 
     // Test: Smart Transaction pending should override unapproved transaction status
@@ -302,7 +265,7 @@ describe('SimulationDetails', () => {
         heading: "You're sending", // Should show "You're sending" due to Smart Transaction pending
         balanceChanges: [BALANCE_CHANGES_MOCK[0]],
       }),
-      expect.anything(),
+      {},
     );
   });
 
@@ -324,7 +287,7 @@ describe('SimulationDetails', () => {
         heading: "You've received",
         balanceChanges: [BALANCE_CHANGES_MOCK[1]],
       }),
-      expect.anything(),
+      {},
     );
 
     jest.clearAllMocks();
@@ -338,7 +301,7 @@ describe('SimulationDetails', () => {
         heading: "You're receiving",
         balanceChanges: [BALANCE_CHANGES_MOCK[1]],
       }),
-      expect.anything(),
+      {},
     );
 
     jest.clearAllMocks();
@@ -352,7 +315,7 @@ describe('SimulationDetails', () => {
         heading: 'You receive',
         balanceChanges: [BALANCE_CHANGES_MOCK[1]],
       }),
-      expect.anything(),
+      {},
     );
   });
 
@@ -374,7 +337,7 @@ describe('SimulationDetails', () => {
         heading: "You've received", // Should show "You've received" due to Smart Transaction success
         balanceChanges: [BALANCE_CHANGES_MOCK[1]],
       }),
-      expect.anything(),
+      {},
     );
 
     jest.clearAllMocks();
@@ -389,7 +352,7 @@ describe('SimulationDetails', () => {
         heading: "You're receiving", // Should show "You're receiving" due to Smart Transaction pending
         balanceChanges: [BALANCE_CHANGES_MOCK[1]],
       }),
-      expect.anything(),
+      {},
     );
   });
 
@@ -412,7 +375,7 @@ describe('SimulationDetails', () => {
             asset: {
               address: '0x123',
               chainId: '0x321',
-              standard: ERC20_TOKEN_STANDARD,
+              standard: TokenStandard.ERC20,
             },
             amount: new BigNumber(123),
             fiatAmount: 456,
@@ -430,7 +393,7 @@ describe('SimulationDetails', () => {
         heading: 'Test Label',
         balanceChanges: staticRows[0].balanceChanges,
       }),
-      expect.anything(),
+      {},
     );
   });
 
@@ -448,7 +411,7 @@ describe('SimulationDetails', () => {
             asset: {
               address: '0x123',
               chainId: '0x321',
-              standard: ERC20_TOKEN_STANDARD,
+              standard: TokenStandard.ERC20,
             },
             amount: new BigNumber(123),
             fiatAmount: 456,
@@ -484,7 +447,7 @@ describe('SimulationDetails', () => {
             asset: {
               address: '0x123',
               chainId: '0x321',
-              standard: ERC20_TOKEN_STANDARD,
+              standard: TokenStandard.ERC20,
             },
             amount: new BigNumber(123),
             fiatAmount: 456,
@@ -510,7 +473,7 @@ describe('SimulationDetails', () => {
         heading: 'Approve',
         balanceChanges: staticRows[0].balanceChanges,
       }),
-      expect.anything(),
+      {},
     );
   });
 

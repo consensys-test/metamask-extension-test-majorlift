@@ -180,26 +180,12 @@ if (typeof window.crypto.randomUUID !== 'function') {
 window.TextEncoder = TextEncoder;
 window.TextDecoder = TextDecoder;
 
-// Clipboard API is missing in JSDOM
+// Used to test `clearClipboard` function
 if (!window.navigator.clipboard) {
-  Object.defineProperty(window.navigator, 'clipboard', {
-    value: {
-      writeText: jest.fn(() => ({
-        then(onFulfilled) {
-          onFulfilled?.();
-          return Promise.resolve();
-        },
-      })),
-      readText: jest.fn(() => ({
-        then(onFulfilled) {
-          onFulfilled?.('');
-          return Promise.resolve('');
-        },
-      })),
-    },
-    writable: true,
-    configurable: true,
-  });
+  window.navigator.clipboard = {};
+}
+if (!window.navigator.clipboard.writeText) {
+  window.navigator.clipboard.writeText = () => undefined;
 }
 
 window.SVGPathElement = window.SVGPathElement || { prototype: {} };

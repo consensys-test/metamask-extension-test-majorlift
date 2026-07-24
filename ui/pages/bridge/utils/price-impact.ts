@@ -1,4 +1,3 @@
-import { BigNumber } from 'bignumber.js';
 import { formatCurrencyAmount } from './quote';
 
 /**
@@ -81,6 +80,6 @@ export function formatPriceImpactFiat(
     return undefined;
   }
 
-  const diff = new BigNumber(sourceFiat).minus(destFiat).abs().toFixed();
-  return formatCurrencyAmount(diff, currentCurrency, 2);
+  const diff = Math.abs(Number(sourceFiat) - Number(destFiat));
+  return formatCurrencyAmount(String(diff), currentCurrency, 2);
 }

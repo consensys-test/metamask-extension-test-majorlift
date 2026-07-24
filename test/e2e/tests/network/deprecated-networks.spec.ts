@@ -2,7 +2,7 @@ import { Suite } from 'mocha';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { withFixtures } from '../../helpers';
 import { DAPP_URL, WINDOW_TITLES } from '../../constants';
-import DappBarNetworkSelectorPopover from '../../page-objects/pages/dialog/dapp-bar-network-selector-popover';
+import DappConnectionsNetworkModal from '../../page-objects/pages/dialog/dapp-connections-network-modal';
 import { login } from '../../page-objects/flows/login.flow';
 import HeaderNavbar from '../../page-objects/pages/header-navbar';
 
@@ -44,9 +44,14 @@ describe('Deprecated networks', function (this: Suite) {
 
         await headerNavbar.openDappNetworkMenu();
 
-        const dappNetworkPopover = new DappBarNetworkSelectorPopover(driver);
-        await dappNetworkPopover.checkPageIsLoaded();
-        await dappNetworkPopover.checkNetworkOptionIsDisplayed('Goerli', false);
+        const dappConnectionsNetworkModal = new DappConnectionsNetworkModal(
+          driver,
+        );
+        await dappConnectionsNetworkModal.checkPageIsLoaded();
+        await dappConnectionsNetworkModal.checkNetworkOptionIsDisplayed(
+          'Goerli',
+          false,
+        );
       },
     );
   });

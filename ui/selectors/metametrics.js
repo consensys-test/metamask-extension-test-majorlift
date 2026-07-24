@@ -6,14 +6,18 @@ const selectFragments = (state) => state.metamask.fragments;
 export const getDataCollectionForMarketing = (state) =>
   state.metamask.dataCollectionForMarketing;
 
-// return whether the user has opted in to analytics (AnalyticsController.optedIn)
-export const getOptedIn = (state) => state.metamask.optedIn === true;
+// return true if user has set their participation preference in MetaMetrics or if they are a social login user
+export const getParticipateInMetaMetrics = (state) =>
+  Boolean(state.metamask.participateInMetaMetrics);
 
-// return true once the user has completed the metrics participation prompt (yes or no)
-export const getCompletedMetaMetricsOnboarding = (state) =>
-  state.metamask.completedMetaMetricsOnboarding === true;
+// return true if user has set their participation preference in MetaMetrics or if they are a social login user
+export const getIsParticipateInMetaMetricsSet = (state) =>
+  state.metamask.participateInMetaMetrics !== null;
 
 export const getPna25Acknowledged = (state) => state.metamask.pna25Acknowledged;
+
+export const getLatestMetricsEventTimestamp = (state) =>
+  state.metamask.latestNonAnonymousEventTimestamp;
 
 export const selectFragmentBySuccessEvent = createSelector(
   selectFragments,

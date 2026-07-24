@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, BoxAlignItems } from '@metamask/design-system-react';
 import { Alert } from '../../../../ducks/confirm-alerts/confirm-alerts';
 import {
+  AlignItems,
   BackgroundColor,
   BorderRadius,
+  Display,
   IconColor,
   TextColor,
   TextVariant,
@@ -11,6 +12,7 @@ import {
 import useAlerts from '../../../../hooks/useAlerts';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 import {
+  Box,
   ButtonIcon,
   ButtonIconSize,
   IconName,
@@ -136,7 +138,7 @@ function PageNavigation({
     return null;
   }
   return (
-    <Box className="flex" alignItems={BoxAlignItems.Center}>
+    <Box display={Display.Flex} alignItems={AlignItems.center}>
       <PreviousButton
         selectedIndex={selectedIndex}
         onBackButtonClick={onBackButtonClick}
@@ -151,6 +153,8 @@ function PageNavigation({
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function MultipleAlertModal({
   alertKey,
   displayAllAlerts = false,

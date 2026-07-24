@@ -3,13 +3,7 @@
  * This module ensures WASM is loaded once and can be used by multiple animation components
  */
 import { RuntimeLoader } from '@rive-app/react-canvas';
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 import { useAsyncResult } from '../../hooks/useAsync';
 
 const RIVE_WASM_URL = new URL(
@@ -78,6 +72,8 @@ const RiveWasmContext = createContext<{
   setIsAnimationCompleted: () => {},
 });
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function RiveWasmProvider({
   children,
 }: {
@@ -109,29 +105,18 @@ export default function RiveWasmProvider({
 
   const { isWasmReady, loading, error } = useRiveWasmReady();
 
-  const contextValue = useMemo(
-    () => ({
-      isWasmReady,
-      loading,
-      error,
-      urlBufferMap,
-      setUrlBufferCache,
-      animationCompleted,
-      setIsAnimationCompleted,
-    }),
-    [
-      isWasmReady,
-      loading,
-      error,
-      urlBufferMap,
-      setUrlBufferCache,
-      animationCompleted,
-      setIsAnimationCompleted,
-    ],
-  );
-
   return (
-    <RiveWasmContext.Provider value={contextValue}>
+    <RiveWasmContext.Provider
+      value={{
+        isWasmReady,
+        loading,
+        error,
+        urlBufferMap,
+        setUrlBufferCache,
+        animationCompleted,
+        setIsAnimationCompleted,
+      }}
+    >
       {children}
     </RiveWasmContext.Provider>
   );

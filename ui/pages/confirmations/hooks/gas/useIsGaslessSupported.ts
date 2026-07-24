@@ -2,7 +2,7 @@ import { TransactionMeta } from '@metamask/transaction-controller';
 import { useSelector } from 'react-redux';
 import { EIP_7702_REVOKE_ADDRESS } from '../../../../../shared/lib/eip7702-utils';
 import { useAsyncResult } from '../../../../hooks/useAsync';
-import { isHardwareWallet } from '../../../../../shared/lib/selectors/keyring';
+import { isHardwareWallet } from '../../../../selectors';
 import { useConfirmContext } from '../../context/confirm';
 import { isRelaySupported } from '../../../../store/actions';
 import { useGaslessSupportedSmartTransactions } from './useGaslessSupportedSmartTransactions';

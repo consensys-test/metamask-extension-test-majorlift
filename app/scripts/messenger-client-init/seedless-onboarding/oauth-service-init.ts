@@ -1,10 +1,8 @@
-import { AnalyticsController } from '@metamask/analytics-controller';
 import { MessengerClientInitFunction } from '../types';
 import { OAuthService } from '../../services/oauth/oauth-service';
 import { webAuthenticatorFactory } from '../../services/oauth/web-authenticator-factory';
 import { OAuthServiceMessenger } from '../../services/oauth/types';
 import { MetaMetricsController } from '../../controllers/metametrics-controller';
-import ExtensionPlatform from '../../platforms/extension';
 
 export const OAuthServiceInit: MessengerClientInitFunction<
   OAuthService,
@@ -15,14 +13,14 @@ export const OAuthServiceInit: MessengerClientInitFunction<
   const metaMetricsController = getMessengerClient(
     'MetaMetricsController',
   ) as MetaMetricsController;
-  const analyticsController = getMessengerClient(
-    'AnalyticsController',
-  ) as AnalyticsController;
 
   const messengerClient = new OAuthService({
     messenger: controllerMessenger,
+    env: {
+      googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
+      appleClientId: process.env.APPLE_CLIENT_ID ?? '',
+    },
     webAuthenticator: webAuthenticatorFactory(),
-    platform: new ExtensionPlatform(),
 
     bufferedTrace: metaMetricsController.bufferedTrace.bind(
       metaMetricsController,
@@ -32,14 +30,15 @@ export const OAuthServiceInit: MessengerClientInitFunction<
       metaMetricsController,
     ),
 
+    trackEvent: metaMetricsController.trackEvent.bind(metaMetricsController),
+
     addEventBeforeMetricsOptIn:
       metaMetricsController.addEventBeforeMetricsOptIn.bind(
         metaMetricsController,
       ),
 
-    getCompletedMetaMetricsOnboarding: () =>
-      metaMetricsController.state.completedMetaMetricsOnboarding === true,
-    getOptedIn: () => analyticsController.state.optedIn === true,
+    getParticipateInMetaMetrics: () =>
+      metaMetricsController.state.participateInMetaMetrics,
   });
 
   return {

@@ -1,10 +1,11 @@
 import React from 'react';
 import { Box, Text, TextVariant } from '@metamask/design-system-react';
 import { useI18nContext } from '../../../../../hooks/useI18nContext';
-import { getEnvironmentType } from '../../../../../../shared/lib/environment-type';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getEnvironmentType } from '../../../../../../app/scripts/lib/util';
 import { ENVIRONMENT_TYPE_POPUP } from '../../../../../../shared/constants/app';
 
-const WhatArePerpsStep = () => {
+const WhatArePerpsStep: React.FC = () => {
   const t = useI18nContext();
   const isPopup = getEnvironmentType() === ENVIRONMENT_TYPE_POPUP;
 

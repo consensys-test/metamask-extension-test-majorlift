@@ -6,9 +6,9 @@ import { useNavigate } from 'react-router-dom';
 import isEqual from 'lodash/isEqual';
 import { getBlockExplorerLink } from '@metamask/etherscan-link';
 import { I18nContext } from '../../../contexts/i18n';
-import { useAnalytics } from '../../../hooks/useAnalytics';
-import { useSegmentContext } from '../../../hooks/useSegmentContext';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
+  MetaMetricsContextProp,
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
@@ -17,12 +17,10 @@ import { getCurrentCurrency } from '../../../ducks/metamask/metamask';
 import {
   getRpcPrefsForCurrentProvider,
   getUSDConversionRate,
-  getFullTxData,
-} from '../../../selectors';
-import {
   isHardwareWallet,
   getHardwareWalletType,
-} from '../../../../shared/lib/selectors/keyring';
+  getFullTxData,
+} from '../../../selectors';
 import { getHDEntropyIndex } from '../../../selectors/selectors';
 import {
   getSmartTransactionsEnabled,
@@ -78,8 +76,7 @@ export default function AwaitingSwap({
   txId,
 }) {
   const t = useContext(I18nContext);
-  const { trackEvent, createEventBuilder } = useAnalytics();
-  const segmentContext = useSegmentContext();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const hdEntropyIndex = useSelector(getHDEntropyIndex);
@@ -174,13 +171,18 @@ export default function AwaitingSwap({
         rel="noopener noreferrer"
         onClick={() => {
           trackEvent(
-            createEventBuilder(MetaMetricsEventName.SupportLinkClicked)
-              .addCategory(MetaMetricsEventCategory.Swaps)
-              .addProperties({
+            {
+              category: MetaMetricsEventCategory.Swaps,
+              event: MetaMetricsEventName.SupportLinkClicked,
+              properties: {
                 url: SUPPORT_LINK,
-                location: segmentContext.page?.title,
-              })
-              .build(),
+              },
+            },
+            {
+              contextPropsIntoEventProperties: [
+                MetaMetricsContextProp.PageTitle,
+              ],
+            },
           );
         }}
       >
@@ -203,15 +205,14 @@ export default function AwaitingSwap({
 
     if (!trackedQuotesExpiredEvent) {
       setTrackedQuotesExpiredEvent(true);
-      trackEvent(
-        createEventBuilder('Quotes Timed Out')
-          .addCategory(MetaMetricsEventCategory.Swaps)
-          .addSensitiveProperties(sensitiveProperties)
-          .addProperties({
-            hd_entropy_index: hdEntropyIndex,
-          })
-          .build(),
-      );
+      trackEvent({
+        event: 'Quotes Timed Out',
+        category: MetaMetricsEventCategory.Swaps,
+        sensitiveProperties,
+        properties: {
+          hd_entropy_index: hdEntropyIndex,
+        },
+      });
     }
   } else if (errorKey === ERROR_FETCHING_QUOTES) {
     headerText = t('swapFetchingQuotesErrorTitle');

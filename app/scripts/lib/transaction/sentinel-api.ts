@@ -95,19 +95,10 @@ export type SentinelNetworkMap = Record<string, SentinelNetwork>;
  * Returns all network data.
  */
 async function getAllSentinelNetworkFlags(): Promise<SentinelNetworkMap> {
-  try {
-    const url = `${buildUrl('ethereum-mainnet')}${ENDPOINT_NETWORKS}`;
-    const headers = await getSentinelApiHeadersAsync();
-    const response = await getFetchWithTimeout()(url, { headers });
-    const networkFlags = (await response.json()) as unknown;
-    return isSentinelNetworkMap(networkFlags) ? networkFlags : {};
-  } catch {
-    return {};
-  }
-}
-
-function isSentinelNetworkMap(value: unknown): value is SentinelNetworkMap {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  const url = `${buildUrl('ethereum-mainnet')}${ENDPOINT_NETWORKS}`;
+  const headers = await getSentinelApiHeadersAsync();
+  const response = await getFetchWithTimeout()(url, { headers });
+  return response.json();
 }
 
 /**

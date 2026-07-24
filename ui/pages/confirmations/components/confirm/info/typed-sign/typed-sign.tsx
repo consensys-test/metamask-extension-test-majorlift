@@ -46,7 +46,7 @@ const useTokenContract = () => {
   return { tokenContract, verifyingContract, spender, isPermit, chainId };
 };
 
-const TypedSignInfo = () => {
+const TypedSignInfo: React.FC = () => {
   const t = useI18nContext();
   const isSimulationSupported = useTypesSignSimulationEnabledInfo();
   const { tokenContract, verifyingContract, spender, isPermit, chainId } =

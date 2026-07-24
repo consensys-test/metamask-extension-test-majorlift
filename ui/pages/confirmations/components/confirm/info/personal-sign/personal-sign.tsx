@@ -50,7 +50,7 @@ const getMessageText = (hexString?: string) => {
   return isValidUTF8(messageText) ? messageText : hexString;
 };
 
-const PersonalSignInfo = () => {
+const PersonalSignInfo: React.FC = () => {
   const t = useI18nContext();
   const { currentConfirmation } = useConfirmContext<SignatureRequestType>();
   const useTransactionSimulations = useSelector(

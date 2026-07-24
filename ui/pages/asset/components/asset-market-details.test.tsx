@@ -3,7 +3,8 @@ import { render } from '@testing-library/react';
 import { useSelector } from 'react-redux';
 import { useMultichainSelector } from '../../../hooks/useMultichainSelector';
 import { isEvmChainId } from '../../../../shared/lib/asset-utils';
-import { getConversionRatesForNativeAsset } from '../../../../shared/lib/asset-conversion-rates';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getConversionRatesForNativeAsset } from '../../../../app/scripts/lib/util';
 import { AssetType } from '../../../../shared/constants/transaction';
 import { Asset } from '../types/asset';
 import { I18nContext } from '../../../contexts/i18n';
@@ -39,7 +40,7 @@ jest.mock('../../../../shared/lib/asset-utils', () => ({
   isEvmChainId: jest.fn(),
 }));
 
-jest.mock('../../../../shared/lib/asset-conversion-rates', () => ({
+jest.mock('../../../../app/scripts/lib/util', () => ({
   getConversionRatesForNativeAsset: jest.fn(),
 }));
 

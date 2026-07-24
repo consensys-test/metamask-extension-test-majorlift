@@ -5,14 +5,9 @@ import {
   BoxJustifyContent,
   BoxAlignItems,
   Text,
-  TextVariant,
-  TextColor,
   FontWeight,
-  ButtonBase,
-  ButtonBaseSize,
 } from '@metamask/design-system-react';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
-import { usePerpsAssetNames } from '../../../../hooks/perps/stream';
 import { PositionCard } from '../position-card';
 import { OrderCard } from '../order-card';
 import type { Position, Order } from '../types';
@@ -26,16 +21,15 @@ export type PerpsPositionsOrdersProps = {
   isCancelAllPending?: boolean;
 };
 
-export const PerpsPositionsOrders = ({
+export const PerpsPositionsOrders: React.FC<PerpsPositionsOrdersProps> = ({
   positions,
   orders,
   onCloseAllPositions,
   onCancelAllOrders,
   isCloseAllPending = false,
   isCancelAllPending = false,
-}: PerpsPositionsOrdersProps) => {
+}) => {
   const t = useI18nContext();
-  const { resolveAssetName } = usePerpsAssetNames();
   const hasPositions = positions.length > 0;
   const hasOrders = orders.length > 0;
 
@@ -65,7 +59,8 @@ export const PerpsPositionsOrders = ({
             marginBottom={2}
           >
             <Text fontWeight={FontWeight.Medium}>{t('perpsPositions')}</Text>
-            <ButtonBase
+            {/* TODO: TAT-2852 - Unhide when batch close/cancel is implemented */}
+            {/* <ButtonBase
               size={ButtonBaseSize.Sm}
               disabled={isCloseAllPending || !onCloseAllPositions}
               onClick={onCloseAllPositions}
@@ -77,15 +72,11 @@ export const PerpsPositionsOrders = ({
               }}
             >
               {t('perpsCloseAll')}
-            </ButtonBase>
+            </ButtonBase> */}
           </Box>
           <Box flexDirection={BoxFlexDirection.Column}>
             {positions.map((position) => (
-              <PositionCard
-                key={position.symbol}
-                position={position}
-                assetName={resolveAssetName(position.symbol)}
-              />
+              <PositionCard key={position.symbol} position={position} />
             ))}
           </Box>
         </Box>
@@ -124,11 +115,7 @@ export const PerpsPositionsOrders = ({
           </Box>
           <Box flexDirection={BoxFlexDirection.Column}>
             {orders.map((order) => (
-              <OrderCard
-                key={order.orderId}
-                order={order}
-                assetName={resolveAssetName(order.symbol)}
-              />
+              <OrderCard key={order.orderId} order={order} />
             ))}
           </Box>
         </Box>

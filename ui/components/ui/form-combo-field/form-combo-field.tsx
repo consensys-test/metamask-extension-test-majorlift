@@ -57,7 +57,7 @@ function Option({
   onClick: (option: FormComboFieldOption) => void;
 }) {
   const handleClick = useCallback(
-    (e: React.MouseEvent) => {
+    (e) => {
       e.preventDefault();
       e.stopPropagation();
       e.nativeEvent.stopImmediatePropagation();
@@ -147,6 +147,8 @@ function Dropdown<Option extends FormComboFieldOption>({
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function FormComboField<Option extends FormComboFieldOption>({
   hideDropdownIfNoOptions = false,
   maxDropdownHeight,

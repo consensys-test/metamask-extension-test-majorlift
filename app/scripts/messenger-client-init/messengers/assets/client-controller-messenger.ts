@@ -6,6 +6,8 @@ import {
 import { type ClientControllerMessenger } from '@metamask/client-controller';
 import { RootMessenger } from '../../../lib/messenger';
 
+export type { ClientControllerMessenger } from '@metamask/client-controller';
+
 /**
  * Get a messenger for the ClientController.
  *
@@ -18,9 +20,13 @@ export function getClientControllerMessenger(
     MessengerEvents<ClientControllerMessenger>
   >,
 ): ClientControllerMessenger {
-  const controllerMessenger: ClientControllerMessenger = new Messenger({
+  return new Messenger<
+    'ClientController',
+    MessengerActions<ClientControllerMessenger>,
+    MessengerEvents<ClientControllerMessenger>,
+    typeof messenger
+  >({
     namespace: 'ClientController',
     parent: messenger,
   });
-  return controllerMessenger;
 }

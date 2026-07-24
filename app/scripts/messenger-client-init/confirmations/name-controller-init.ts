@@ -4,9 +4,11 @@ import {
   LensNameProvider,
   NameController,
   TokenNameProvider,
-  NameControllerMessenger,
 } from '@metamask/name-controller';
-import { NameControllerInitMessenger } from '../messengers';
+import {
+  NameControllerInitMessenger,
+  NameControllerMessenger,
+} from '../messengers';
 import { MessengerClientInitFunction } from '../types';
 
 /**

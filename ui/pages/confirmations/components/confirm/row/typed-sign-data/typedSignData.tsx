@@ -33,10 +33,7 @@ export const ConfirmInfoRowTypedSignData = ({
         label={`${t('primaryType')}:`}
         style={{ paddingLeft: 0, paddingRight: 0 }}
       >
-        <ConfirmInfoRowText
-          text={primaryType}
-          data-testid="confirmation__message-primary-type"
-        />
+        <ConfirmInfoRowText text={primaryType} />
       </ConfirmInfoRow>
       <Box style={{ marginLeft: -8 }}>
         <DataTree

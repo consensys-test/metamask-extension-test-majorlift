@@ -13,7 +13,6 @@ import ContactsSettings from '../../../page-objects/pages/settings/contacts-sett
 import SettingsPage from '../../../page-objects/pages/settings/settings-page';
 import BackupAndSyncSettings from '../../../page-objects/pages/settings/backup-and-sync-settings';
 import { login } from '../../../page-objects/flows/login.flow';
-import { closeSettings } from '../../../page-objects/flows/settings.flow';
 import { skipOnFirefox } from '../helpers';
 import { arrangeContactSyncingTestUtils } from './helpers';
 
@@ -124,7 +123,7 @@ describe('Contact Syncing - Backup and Sync Settings', function () {
             );
 
           // Add a new contact via UI (like the account syncing test does)
-          await closeSettings(driver);
+          await settingsPage.clickBackButton();
           await header.openContactsPage();
           const contactsSettings = new ContactsSettings(driver);
           await contactsSettings.checkPageIsLoaded();
@@ -267,7 +266,7 @@ describe('Contact Syncing - Backup and Sync Settings', function () {
             );
 
           // Add a new contact via UI to test that syncing works when enabled
-          await closeSettings(driver);
+          await settingsPage.clickBackButton();
           await header.openContactsPage();
           const contactsSettings = new ContactsSettings(driver);
           await contactsSettings.checkPageIsLoaded();

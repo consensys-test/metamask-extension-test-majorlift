@@ -1,10 +1,7 @@
 /**
  * Local counterpart of the CI audit pipeline.  Runs `yarn audit`, downloads
- * the baseline from CloudFront, and diffs to show only release-blocking
- * advisories that are new or newly blocking relative to main.
- *
- * CI has extra PR context and can further classify those advisories as
- * actionable vs ambient by inspecting the pull request diff.
+ * the baseline from CloudFront, and diffs to show only NEW advisories
+ * introduced by your changes — matching CI behavior.
  *
  * Usage:
  *   yarn audit
@@ -17,8 +14,8 @@ import {
   AUDIT_CURRENT_FILE,
   AUDIT_RAW_DEV,
   AUDIT_RAW_PROD,
-  diffAdvisories,
-  formatAdvisoryTreeText,
+  BLOCKING_SEVERITIES,
+  extractNativeBlocks,
   readAdvisories,
   type ParsedAdvisory,
 } from './shared/audit-utils.mts';
@@ -137,30 +134,42 @@ async function main() {
     return;
   }
 
-  const { newlyBlockingAdvisories: newAdvisories } = diffAdvisories(
-    current,
-    baseline,
+  // -----------------------------------------------------------------------
+  // Step 3 — Diff: new advisories at moderate+ severity (by GHSA ID)
+  // -----------------------------------------------------------------------
+  const baselineIds = new Set(
+    baseline.map((a) => a.id).filter((id): id is number => id !== null),
+  );
+  // Advisories with null IDs are intentionally excluded — they represent
+  // malformed data that cannot be reliably diffed against the baseline.
+  const newAdvisories = current.filter(
+    (a) =>
+      a.id !== null &&
+      !baselineIds.has(a.id as number) &&
+      a.affectsProduction &&
+      BLOCKING_SEVERITIES.has(a.effectiveSeverity),
   );
 
   if (newAdvisories.length === 0) {
     console.log(
-      'yarn audit: passed — no new or newly blocking production advisories at moderate or higher severity.',
+      'yarn audit: passed — no new advisories at moderate or higher severity.',
     );
     return;
   }
 
-  // New advisories found — re-run native audit for colored output, then render
-  // the matching blocks (falling back to normalized JSON if IDs don't match).
+  // New advisories found — re-run native audit for colored output, then
+  // print only the blocks that correspond to new advisory IDs.
   const { output: nativeOutput } = captureNativeAudit();
-  const advisoryTree = formatAdvisoryTreeText(newAdvisories, nativeOutput);
+  const newIds = new Set(
+    newAdvisories.map((a) => a.id).filter((id): id is number => id !== null),
+  );
+  const matchingBlocks = extractNativeBlocks(nativeOutput, newIds);
 
   console.log(
-    `yarn audit: FAILED — ${newAdvisories.length} new or newly blocking advisor${newAdvisories.length === 1 ? 'y' : 'ies'}\n`,
+    `yarn audit: FAILED — ${newAdvisories.length} new advisor${newAdvisories.length === 1 ? 'y' : 'ies'}\n`,
   );
-  console.log(
-    'These advisories are new or newly release-blocking compared with the main baseline:\n',
-  );
-  process.stdout.write(advisoryTree);
+  console.log('Your dependency changes introduced new vulnerabilities:\n');
+  process.stdout.write(matchingBlocks.join('\n'));
   console.log(
     '\nIf a newer version of the affected package is available, upgrade to it.',
   );

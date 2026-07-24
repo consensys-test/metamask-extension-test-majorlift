@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, import-x/no-commonjs */
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { To } from 'react-router-dom';
 import {
@@ -6,7 +7,7 @@ import {
   MetaMetricsEventKeyType,
   MetaMetricsEventName,
 } from '../../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../../contexts/metametrics';
 import {
   BlockSize,
   Display,
@@ -72,10 +73,12 @@ export type SRPQuizProps = {
   };
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function SRPQuiz(props: SRPQuizProps): JSX.Element {
   const [stage, setStage] = useState<QuizStage>(QuizStage.introduction);
 
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const t = useI18nContext();
   const hdEntropyIndex = useSelector(getHDEntropyIndex);
 
@@ -285,25 +288,24 @@ export default function SRPQuiz(props: SRPQuizProps): JSX.Element {
   };
 
   // trackEvent shortcut specific to the SRP quiz
-  const trackEventSrp = useCallback(
-    (location: string) => {
-      trackEvent(
-        createEventBuilder(MetaMetricsEventName.KeyExportSelected)
-          .addCategory(MetaMetricsEventCategory.Keys)
-          .addProperties({
-            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            key_type: MetaMetricsEventKeyType.Srp,
-            location,
-            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            hd_entropy_index: hdEntropyIndex,
-          })
-          .build(),
-      );
-    },
-    [createEventBuilder, hdEntropyIndex, trackEvent],
-  );
+  const trackEventSrp = useCallback((location) => {
+    trackEvent(
+      {
+        category: MetaMetricsEventCategory.Keys,
+        event: MetaMetricsEventName.KeyExportSelected,
+        properties: {
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          key_type: MetaMetricsEventKeyType.Srp,
+          location,
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          hd_entropy_index: hdEntropyIndex,
+        },
+      },
+      {},
+    );
+  }, []);
 
   useEffect(() => {
     trackEventSrp(`stage_${stage}`); // Call MetaMetrics based on the current stage

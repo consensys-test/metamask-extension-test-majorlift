@@ -2,19 +2,20 @@ import React, { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { Hex } from '@metamask/utils';
 import {
-  Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
-import {
   getEnabledNetworksByNamespace,
   getSelectedAccount,
   getTokenSortConfig,
 } from '../../../../selectors';
 import { filterAssets } from '../util/filter';
 import { sortAssets } from '../util/sort';
+import {
+  Display,
+  FlexDirection,
+  AlignItems,
+  JustifyContent,
+} from '../../../../helpers/constants/design-system';
 import PulseLoader from '../../../ui/pulse-loader';
+import { Box } from '../../../component-library';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 
 import { useFormatters } from '../../../../hooks/useFormatters';
@@ -31,6 +32,8 @@ type DefiListProps = {
   onClick: (chainId: string, protocolId: string) => void;
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function DefiList({ onClick }: DefiListProps) {
   const t = useI18nContext();
   const enabledNetworksByNamespace = useSelector(getEnabledNetworksByNamespace);
@@ -107,10 +110,10 @@ export default function DefiList({ onClick }: DefiListProps) {
   if (sortedFilteredDefi === undefined) {
     return (
       <Box
-        flexDirection={BoxFlexDirection.Column}
-        alignItems={BoxAlignItems.Center}
-        justifyContent={BoxJustifyContent.Center}
-        className="flex"
+        display={Display.Flex}
+        flexDirection={FlexDirection.Column}
+        alignItems={AlignItems.center}
+        justifyContent={JustifyContent.center}
       >
         <PulseLoader />
       </Box>

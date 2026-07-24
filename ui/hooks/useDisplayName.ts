@@ -1,8 +1,7 @@
 import { NameOrigin, NameType } from '@metamask/name-controller';
 import { Hex, isStrictHexString } from '@metamask/utils';
 import { useSelector } from 'react-redux';
-import { useCallback, useMemo } from 'react';
-import isEqual from 'lodash/isEqual';
+import { useMemo } from 'react';
 import {
   EXPERIENCES_TYPE,
   FIRST_PARTY_CONTRACT_NAMES,
@@ -18,7 +17,6 @@ import {
   getAccountTree,
 } from '../selectors/multichain-accounts/account-tree';
 import { buildEvmCaip19AssetId } from '../../shared/lib/multichain/buildEvmCaip19AssetId';
-import { getAssetImageUrl } from '../../shared/lib/asset-utils';
 import { useNames } from './useName';
 import { TrustSignalDisplayState, useTrustSignals } from './useTrustSignals';
 import { useTokensData } from './useTokensData';
@@ -68,8 +66,16 @@ export function useDisplayNames(
 
     let name =
       accountGroupName ||
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       nameEntry?.name ||
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       firstPartyContractName ||
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       erc20Token?.name ||
       watchedNftName ||
       ensName ||
@@ -79,6 +85,8 @@ export function useDisplayNames(
 
     const displayState = getDisplayState(trustSignal?.state, hasPetname, name);
 
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const image = erc20Token?.image;
 
     const trustSignalIcon = getTrustSignalIcon(displayState);
@@ -138,16 +146,7 @@ function useERC20Tokens(
       const name =
         preferContractSymbol && token?.symbol ? token.symbol : token?.name;
 
-      // The token API omits `iconUrl` for some recognized tokens (e.g. mUSD)
-      // even though the canonical icon exists, so derive it from the address.
-      const image =
-        token &&
-        (token.iconUrl ||
-          (isStrictHexString(variation)
-            ? getAssetImageUrl(value as Hex, variation as Hex)
-            : undefined));
-
-      return { name, image: image || undefined };
+      return { name, image: token?.iconUrl };
     },
   );
 }
@@ -284,30 +283,25 @@ function useAccountGroupNames(
       .filter((item) => item.address !== null);
   }, [requests]);
 
-  const selectNamesByAddress = useCallback(
-    (state: MultichainAccountsState) => {
-      const result: Record<string, UseAccountGroupNamesResponse> = {};
-      ethereumAddresses.forEach(({ address }) => {
-        if (address) {
-          const accountGroupName = selectAccountGroupNameByInternalAccount(
-            state,
-            address,
-          );
-          const walletInfo = getWalletIdAndNameByAccountAddress(state, address);
-          const walletName = walletInfo?.name || null;
+  const namesByAddress = useSelector((state: MultichainAccountsState) => {
+    const result: Record<string, UseAccountGroupNamesResponse> = {};
+    ethereumAddresses.forEach(({ address }) => {
+      if (address) {
+        const accountGroupName = selectAccountGroupNameByInternalAccount(
+          state,
+          address,
+        );
+        const walletInfo = getWalletIdAndNameByAccountAddress(state, address);
+        const walletName = walletInfo?.name || null;
 
-          result[address] = {
-            accountGroupName,
-            walletName,
-          };
-        }
-      });
-      return result;
-    },
-    [ethereumAddresses],
-  );
-
-  const namesByAddress = useSelector(selectNamesByAddress, isEqual);
+        result[address] = {
+          accountGroupName,
+          walletName,
+        };
+      }
+    });
+    return result;
+  });
 
   return useMemo(() => {
     return requests.map(({ type, value }, index) => {

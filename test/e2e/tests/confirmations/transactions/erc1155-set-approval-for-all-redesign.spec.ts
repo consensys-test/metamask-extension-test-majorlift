@@ -1,8 +1,13 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 import { TransactionEnvelopeType } from '@metamask/transaction-controller';
+import { DAPP_URL, WINDOW_TITLES } from '../../../constants';
 import { Mockttp } from '../../../mock-e2e';
+import { Anvil } from '../../../seeder/anvil';
 import { login } from '../../../page-objects/flows/login.flow';
-import { setTokenPermissions } from '../../../page-objects/flows/token-dapp-transactions.flow';
+import SetApprovalForAllTransactionConfirmation from '../../../page-objects/pages/confirmations/set-approval-for-all-transaction-confirmation';
+import TestDapp from '../../../page-objects/pages/test-dapp';
+import ContractAddressRegistry from '../../../seeder/contract-address-registry';
+import { Driver } from '../../../webdriver/driver';
 import { withTransactionEnvelopeTypeFixtures } from '../helpers';
 import { TestSuiteArguments, mocked4BytesSetApprovalForAll } from './shared';
 
@@ -14,17 +19,11 @@ describe('Confirmation Redesign ERC1155 setApprovalForAll', function () {
       await withTransactionEnvelopeTypeFixtures(
         this.test?.fullTitle(),
         TransactionEnvelopeType.legacy,
-        async ({
-          driver,
-          contractRegistry,
-          localNodes,
-        }: TestSuiteArguments) => {
-          await login(driver, { localNode: localNodes?.[0] });
-          await setTokenPermissions(driver, {
-            assetType: 'erc1155',
-            action: 'setApprovalForAll',
+        async ({ driver, contractRegistry }: TestSuiteArguments) => {
+          await createTransactionAssertDetailsAndConfirm(
+            driver,
             contractRegistry,
-          });
+          );
         },
         mocks,
         SMART_CONTRACTS.NFTS,
@@ -40,12 +39,11 @@ describe('Confirmation Redesign ERC1155 setApprovalForAll', function () {
           contractRegistry,
           localNodes,
         }: TestSuiteArguments) => {
-          await login(driver, { localNode: localNodes?.[0] });
-          await setTokenPermissions(driver, {
-            assetType: 'erc1155',
-            action: 'setApprovalForAll',
+          await createTransactionAssertDetailsAndConfirm(
+            driver,
             contractRegistry,
-          });
+            localNodes?.[0],
+          );
         },
         mocks,
         SMART_CONTRACTS.NFTS,
@@ -56,4 +54,32 @@ describe('Confirmation Redesign ERC1155 setApprovalForAll', function () {
 
 async function mocks(server: Mockttp) {
   return [await mocked4BytesSetApprovalForAll(server)];
+}
+
+async function createTransactionAssertDetailsAndConfirm(
+  driver: Driver,
+  contractRegistry?: ContractAddressRegistry,
+  localNode?: Anvil,
+) {
+  await login(driver, { localNode });
+
+  const contractAddress = await (
+    contractRegistry as ContractAddressRegistry
+  ).getContractAddress(SMART_CONTRACTS.NFTS);
+
+  const testDapp = new TestDapp(driver);
+
+  await testDapp.openTestDappPage({ contractAddress, url: DAPP_URL });
+  await driver.switchToWindowWithTitle(WINDOW_TITLES.TestDApp);
+  await testDapp.clickERC1155SetApprovalForAllButton();
+
+  await driver.switchToWindowWithTitle(WINDOW_TITLES.Dialog);
+  const setApprovalForAllConfirmation =
+    new SetApprovalForAllTransactionConfirmation(driver);
+
+  await setApprovalForAllConfirmation.checkSetApprovalForAllTitle();
+  await setApprovalForAllConfirmation.checkSetApprovalForAllSubHeading();
+
+  await setApprovalForAllConfirmation.clickScrollToBottomButton();
+  await setApprovalForAllConfirmation.clickFooterConfirmButton();
 }

@@ -25,6 +25,7 @@ export type TransactionDetailsModalProps = {
   onClose: () => void;
 };
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function TransactionDetailsModal({
   transactionMeta,
   onClose,

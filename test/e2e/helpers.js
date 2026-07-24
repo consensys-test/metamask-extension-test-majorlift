@@ -4,8 +4,6 @@ const BigNumber = require('bignumber.js');
 const mockttp = require('mockttp');
 const detectPort = require('detect-port');
 const { difference } = require('lodash');
-// TODO: Fix environment or rename
-// eslint-disable-next-line no-redeclare
 const WebSocket = require('ws');
 const createStaticServer = require('../../development/create-static-server');
 const { setupMocking } = require('./mock-e2e');
@@ -17,12 +15,7 @@ const { PAGES } = require('./webdriver/driver');
 const { Bundler } = require('./bundler');
 const { SMART_CONTRACTS } = require('./seeder/smart-contracts');
 const { setManifestFlags } = require('./set-manifest-flags');
-const {
-  DAPP_PATHS,
-  ERC_4337_ACCOUNT,
-  HARDWARE_WALLET_ACCOUNT_ID,
-  HARDWARE_WALLET_LOCALHOST_NATIVE_ETH_HUMAN,
-} = require('./constants');
+const { DAPP_PATHS, ERC_4337_ACCOUNT } = require('./constants');
 const {
   getServerMochaToBackground,
 } = require('./background-socket/server-mocha-to-background');
@@ -33,10 +26,6 @@ const {
 } = require('./websocket/account-activity-mocks');
 const { perpsWebSocketConfig } = require('./websocket/perps-mocks');
 const { WEBSOCKET_SERVICES } = require('./websocket/constants');
-const {
-  addVirtualAuthenticator,
-  removeVirtualAuthenticator,
-} = require('./webdriver/virtual-authenticator');
 
 // Register each WebSocket service explicitly.
 WebSocketRegistry.register(solanaWebSocketConfig);
@@ -137,7 +126,7 @@ function normalizeSmartContracts(smartContract) {
  * @typedef {object} Fixtures
  * @property {import('./webdriver/driver').Driver} driver - The driver number.
  * @property {ContractAddressRegistry | undefined} contractRegistry - The contract registry.
- * @property {string | object | Array} localNodeOptions - The local node(s) and options chosen ('anvil', 'none').
+ * @property {string | object | Array} localNodeOptions - The local node(s) and options chosen ('ganache', 'anvil'...).
  * @property {mockttp.MockedEndpoint[]} mockedEndpoint - The mocked endpoint.
  * @property {Bundler} bundlerServer - The bundler server.
  * @property {mockttp.Mockttp} mockServer - The mock server.
@@ -147,59 +136,9 @@ function normalizeSmartContracts(smartContract) {
 
 /**
  * @typedef {object} UnifiedEvmAccountsApiBalances
- * @property {string} [mainnetNativeEthHuman] - Mainnet (eip155:1) native balance string for the default fixture account (Accounts API v5). Auto-populated from the local node when chainId is 1 and omitted.
- * @property {string} [localhostNativeEthHuman] - Localhost (eip155:1337) native balance string. Auto-populated from the local node when chainId is 1337 and omitted, so smart-contract deployment gas is reflected.
+ * @property {string} [mainnetNativeEthHuman] - Mainnet (eip155:1) native balance string for the default fixture account (Accounts API v5).
  * @property {{ assetId: string, balance: string }[]} [mainnetAdditionalBalances] - Extra v5 rows for mainnet (e.g. ERC-20s).
  */
-
-const LOCALHOST_EVM_CHAIN_ID_HEX = '0x539';
-const MAINNET_NATIVE_ASSET_ID = 'eip155:1/slip44:60';
-const LOCALHOST_NATIVE_ASSET_ID = 'eip155:1337/slip44:1';
-
-/**
- * Hardware wallet fixtures that enable only mainnet (not localhost) need seeded
- * mainnet balances under unified assets when the fixture expects a funded wallet.
- * Skip when the fixture explicitly zeroes the hardware wallet (e.g. overwrite
- * with localhost amount `0` and no mainnet row).
- *
- * @param {object | undefined} fixtures
- * @returns {boolean}
- */
-function shouldSeedHardwareWalletMainnetBalance(fixtures) {
-  const eip155Enabled =
-    fixtures?.data?.NetworkEnablementController?.enabledNetworkMap?.eip155;
-  if (!eip155Enabled) {
-    return false;
-  }
-  if (
-    eip155Enabled['0x1'] !== true ||
-    eip155Enabled[LOCALHOST_EVM_CHAIN_ID_HEX] === true
-  ) {
-    return false;
-  }
-
-  const hardwareAssets =
-    fixtures?.data?.AssetsController?.assetsBalance?.[
-      HARDWARE_WALLET_ACCOUNT_ID
-    ];
-  if (!hardwareAssets) {
-    return true;
-  }
-
-  if (hardwareAssets[MAINNET_NATIVE_ASSET_ID]?.amount === '0') {
-    return false;
-  }
-
-  const localhostAmount = hardwareAssets[LOCALHOST_NATIVE_ASSET_ID]?.amount;
-  if (
-    localhostAmount === '0' &&
-    hardwareAssets[MAINNET_NATIVE_ASSET_ID] === undefined
-  ) {
-    return false;
-  }
-
-  return true;
-}
 
 /**
  * @param {object} options
@@ -216,9 +155,6 @@ async function withFixtures(options, testSuite) {
     title,
     ignoredConsoleErrors = [],
     disableServerMochaToBackground = false,
-    afterLocalNodesStart = async function () {
-      // do nothing.
-    },
     testSpecificMock = function () {
       // do nothing.
     },
@@ -233,8 +169,6 @@ async function withFixtures(options, testSuite) {
     perpsWebSocketSpecificMocks = [],
     extendedTimeoutMultiplier = 1,
     unifiedEvmAccountsApiBalances,
-    virtualAuthenticator,
-    isBenchmark = false,
   } = options;
 
   // Normalize localNodeOptions
@@ -286,26 +220,10 @@ async function withFixtures(options, testSuite) {
           localNodes.push(localNode);
           break;
 
-        case 'solana':
+        case 'ganache':
           // eslint-disable-next-line n/global-require, no-case-declarations -- load this module conditionally
-          const { SolanaNode } = require('./seeder/solana/node');
-          localNode = new SolanaNode();
-          await localNode.start(nodeOptions);
-          localNodes.push(localNode);
-          break;
-
-        case 'tron':
-          // eslint-disable-next-line n/global-require, no-case-declarations -- load this module conditionally
-          const { TronNode } = require('./seeder/tron/node');
-          localNode = new TronNode();
-          await localNode.start(nodeOptions);
-          localNodes.push(localNode);
-          break;
-
-        case 'bitcoin':
-          // eslint-disable-next-line n/global-require, no-case-declarations -- load this module conditionally
-          const { BitcoinNode } = require('./seeder/bitcoin/node');
-          localNode = new BitcoinNode();
+          const { Ganache } = require('./seeder/ganache');
+          localNode = new Ganache();
           await localNode.start(nodeOptions);
           localNodes.push(localNode);
           break;
@@ -320,8 +238,6 @@ async function withFixtures(options, testSuite) {
       }
     }
 
-    await afterLocalNodesStart({ localNodes });
-
     let contractRegistry;
     let seeder;
 
@@ -334,6 +250,12 @@ async function withFixtures(options, testSuite) {
           // eslint-disable-next-line n/global-require, no-case-declarations -- load this module conditionally
           const AnvilSeeder = require('./seeder/anvil-seeder');
           seeder = new AnvilSeeder(localNodes[0].getProvider());
+          break;
+
+        case 'ganache':
+          // eslint-disable-next-line n/global-require, no-case-declarations -- load this module conditionally
+          const GanacheSeeder = require('./seeder/ganache-seeder');
+          seeder = new GanacheSeeder(localNodes[0].getProvider());
           break;
 
         default:
@@ -355,28 +277,16 @@ async function withFixtures(options, testSuite) {
       contractRegistry = seeder.getContractRegistry();
     }
 
-    const selectedAccountId =
-      fixtures?.data?.AccountsController?.internalAccounts?.selectedAccount;
-    if (
-      selectedAccountId === HARDWARE_WALLET_ACCOUNT_ID &&
-      shouldSeedHardwareWalletMainnetBalance(fixtures)
-    ) {
-      fixtures.data.AssetsController ??= {};
-      fixtures.data.AssetsController.assetsBalance ??= {};
-      fixtures.data.AssetsController.assetsBalance[HARDWARE_WALLET_ACCOUNT_ID] =
-        {
-          ...(fixtures.data.AssetsController.assetsBalance[
-            HARDWARE_WALLET_ACCOUNT_ID
-          ] ?? {}),
-          'eip155:1/slip44:60': { amount: '25' },
-        };
-    }
-
     await fixtureServer.start();
     fixtureServer.loadJsonState(fixtures, contractRegistry);
 
     if (localNodes[0] && useBundler) {
-      await initBundler(bundlerServer, localNodes[0], usePaymaster);
+      await initBundler(
+        bundlerServer,
+        localNodes[0],
+        usePaymaster,
+        localNodeOptsNormalized,
+      );
     }
 
     await phishingPageServer.start();
@@ -428,56 +338,6 @@ async function withFixtures(options, testSuite) {
       [WEBSOCKET_SERVICES.perps]: { mocks: perpsWebSocketSpecificMocks },
     });
 
-    // Sync native balances to what's actually on the node so Accounts API v5
-    // matches post-deploy gas usage (e.g. HST deploy on mainnet).
-    let effectiveUnifiedEvmAccountsApiBalances =
-      unifiedEvmAccountsApiBalances ?? {};
-    const localChainId = localNodeOptsNormalized[0]?.options.chainId ?? 1337;
-    if (localNodes[0] && localNodeOptsNormalized[0]?.type === 'anvil') {
-      const nodeBalance = Number(
-        (await localNodes[0].getBalance()).toFixed(3),
-      ).toString();
-      if (
-        localChainId === 1 &&
-        !effectiveUnifiedEvmAccountsApiBalances.mainnetNativeEthHuman
-      ) {
-        effectiveUnifiedEvmAccountsApiBalances = {
-          ...effectiveUnifiedEvmAccountsApiBalances,
-          mainnetNativeEthHuman: nodeBalance,
-        };
-      }
-      if (
-        localChainId === 1337 &&
-        !effectiveUnifiedEvmAccountsApiBalances.localhostNativeEthHuman
-      ) {
-        effectiveUnifiedEvmAccountsApiBalances = {
-          ...effectiveUnifiedEvmAccountsApiBalances,
-          localhostNativeEthHuman: nodeBalance,
-        };
-      }
-    }
-
-    if (
-      selectedAccountId === HARDWARE_WALLET_ACCOUNT_ID &&
-      localChainId === 1337 &&
-      !unifiedEvmAccountsApiBalances?.localhostNativeEthHuman
-    ) {
-      effectiveUnifiedEvmAccountsApiBalances = {
-        ...effectiveUnifiedEvmAccountsApiBalances,
-        localhostNativeEthHuman: HARDWARE_WALLET_LOCALHOST_NATIVE_ETH_HUMAN,
-      };
-    }
-    if (
-      selectedAccountId === HARDWARE_WALLET_ACCOUNT_ID &&
-      !unifiedEvmAccountsApiBalances?.mainnetNativeEthHuman &&
-      shouldSeedHardwareWalletMainnetBalance(fixtures)
-    ) {
-      effectiveUnifiedEvmAccountsApiBalances = {
-        ...effectiveUnifiedEvmAccountsApiBalances,
-        mainnetNativeEthHuman: '25',
-      };
-    }
-
     // Decide between the regular setupMocking and the passThrough version
     const mockingSetupFunction = useMockingPassThrough
       ? setupMockingPassThrough
@@ -493,7 +353,7 @@ async function withFixtures(options, testSuite) {
       chainId: localNodeOptsNormalized[0]?.options.chainId || 1337,
       ethConversionInUsd,
       monConversionInUsd,
-      unifiedEvmAccountsApiBalances: effectiveUnifiedEvmAccountsApiBalances,
+      unifiedEvmAccountsApiBalances,
     });
 
     if ((await detectPort(8000)) !== 8000) {
@@ -537,7 +397,6 @@ async function withFixtures(options, testSuite) {
     const wd = await buildWebDriver({
       ...driverOptions,
       disableServerMochaToBackground,
-      isBenchmark,
     });
 
     driver = wd.driver;
@@ -574,30 +433,18 @@ async function withFixtures(options, testSuite) {
       });
     }
 
-    const effectiveDriver = driverProxy ?? driver;
-
-    if (virtualAuthenticator) {
-      await addVirtualAuthenticator(effectiveDriver);
-    }
-
     console.log(`\nExecuting testcase: '${title}'\n`);
 
     await testSuite({
       bundlerServer,
       contractRegistry,
-      driver: effectiveDriver,
+      driver: driverProxy ?? driver,
       localNodes,
       mockedEndpoint,
       mockServer,
       extensionId,
       getNetworkReport,
       clearNetworkReport,
-      ...(virtualAuthenticator && {
-        resetVirtualAuthenticator: async () => {
-          await removeVirtualAuthenticator(effectiveDriver);
-          await addVirtualAuthenticator(effectiveDriver);
-        },
-      }),
     });
 
     const errorsAndExceptions = driver.summarizeErrorsAndExceptions();
@@ -882,11 +729,26 @@ async function getCleanAppState(driver) {
   );
 }
 
-async function initBundler(bundlerServer, localNodeServer, usePaymaster) {
+async function initBundler(
+  bundlerServer,
+  localNodeServer,
+  usePaymaster,
+  localNodeOptsNormalized,
+) {
   try {
-    // eslint-disable-next-line n/global-require -- load this module conditionally
-    const AnvilSeeder = require('./seeder/anvil-seeder');
-    const seeder = new AnvilSeeder(localNodeServer.getProvider());
+    const nodeType = localNodeOptsNormalized[0].type;
+
+    let seeder;
+
+    if (nodeType === 'ganache') {
+      // eslint-disable-next-line n/global-require -- load this module conditionally
+      const GanacheSeeder = require('./seeder/ganache-seeder');
+      seeder = new GanacheSeeder(localNodeServer.getProvider());
+    } else {
+      // eslint-disable-next-line n/global-require -- load this module conditionally
+      const AnvilSeeder = require('./seeder/anvil-seeder');
+      seeder = new AnvilSeeder(localNodeServer.getProvider());
+    }
 
     await seeder.deploySmartContract(SMART_CONTRACTS.ENTRYPOINT);
 

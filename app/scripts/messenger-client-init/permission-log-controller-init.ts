@@ -1,8 +1,6 @@
-import {
-  PermissionLogController,
-  PermissionLogControllerMessenger,
-} from '@metamask/permission-log-controller';
+import { PermissionLogController } from '@metamask/permission-log-controller';
 import { RestrictedMethods } from '../../../shared/constants/permissions';
+import { PermissionLogControllerMessenger } from './messengers';
 import { MessengerClientInitFunction } from './types';
 
 /**

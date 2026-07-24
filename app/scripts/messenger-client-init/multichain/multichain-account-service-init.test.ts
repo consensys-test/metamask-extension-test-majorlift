@@ -1,7 +1,4 @@
-import {
-  MultichainAccountService,
-  MultichainAccountServiceMessenger,
-} from '@metamask/multichain-account-service';
+import { MultichainAccountService } from '@metamask/multichain-account-service';
 import {
   ActionConstraint,
   MOCK_ANY_NAMESPACE,
@@ -14,6 +11,7 @@ import {
   getMultichainAccountServiceInitMessenger,
   getMultichainAccountServiceMessenger,
   MultichainAccountServiceInitMessenger,
+  MultichainAccountServiceMessenger,
 } from '../messengers/accounts';
 import { PreferencesControllerGetStateAction } from '../../controllers/preferences-controller';
 import { MultichainAccountServiceInit } from './multichain-account-service-init';

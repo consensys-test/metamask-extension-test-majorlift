@@ -90,9 +90,8 @@ describe('Dapp viewed Event', function () {
         dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: null,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: null,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -122,9 +121,8 @@ describe('Dapp viewed Event', function () {
         dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: validFakeMetricsId, // 1% sample rate for dapp viewed event
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: validFakeMetricsId, // 1% sample rate for dapp viewed event
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -165,9 +163,8 @@ describe('Dapp viewed Event', function () {
         dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: validFakeMetricsId,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: validFakeMetricsId,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -211,9 +208,8 @@ describe('Dapp viewed Event', function () {
         dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: validFakeMetricsId,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: validFakeMetricsId,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -260,9 +256,8 @@ describe('Dapp viewed Event', function () {
         dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: validFakeMetricsId,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: validFakeMetricsId,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -306,9 +301,8 @@ describe('Dapp viewed Event', function () {
         dappOptions: { numberOfTestDapps: 1 },
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: validFakeMetricsId,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: validFakeMetricsId,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),

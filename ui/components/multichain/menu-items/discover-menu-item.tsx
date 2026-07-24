@@ -1,15 +1,14 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useContext } from 'react';
 import { useSelector } from 'react-redux';
 import { Box } from '@metamask/design-system-react';
 import { MenuItem } from '../../ui/menu';
 import { getPortfolioUrl } from '../../../helpers/utils/portfolio';
-import { useAnalytics } from '../../../hooks/useAnalytics';
 import {
   getDataCollectionForMarketing,
-  getAnalyticsId,
-  getCompletedMetaMetricsOnboarding,
-  getOptedIn,
+  getMetaMetricsId,
+  getParticipateInMetaMetrics,
 } from '../../../selectors';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import {
   MetaMetricsEventCategory,
@@ -24,43 +23,36 @@ export const DiscoverMenuItem = ({
   closeMenu: () => void;
   metricsLocation: string;
 }) => {
-  const analyticsId = useSelector(getAnalyticsId);
-  const completedMetaMetricsOnboarding = useSelector(
-    getCompletedMetaMetricsOnboarding,
-  );
-  const isOptedIn = useSelector(getOptedIn);
-  const isMetaMetricsEnabled = completedMetaMetricsOnboarding && isOptedIn;
+  const metaMetricsId = useSelector(getMetaMetricsId);
+  const isMetaMetricsEnabled = useSelector(getParticipateInMetaMetrics);
   const isMarketingEnabled = useSelector(getDataCollectionForMarketing);
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const t = useI18nContext();
 
   const handlePortfolioOnClick = useCallback(() => {
     const url = getPortfolioUrl(
       'explore/tokens',
       'ext_portfolio_button',
-      analyticsId,
-      isMetaMetricsEnabled === true,
-      isMarketingEnabled === true,
+      metaMetricsId,
+      isMetaMetricsEnabled,
+      isMarketingEnabled,
     );
     global.platform.openTab({ url });
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.PortfolioLinkClicked)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          location: metricsLocation,
-          text: 'Portfolio',
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.PortfolioLinkClicked,
+      properties: {
+        location: metricsLocation,
+        text: 'Portfolio',
+      },
+    });
     closeMenu();
   }, [
     closeMenu,
     isMarketingEnabled,
     isMetaMetricsEnabled,
-    analyticsId,
-    metricsLocation,
+    metaMetricsId,
     trackEvent,
-    createEventBuilder,
   ]);
 
   return (

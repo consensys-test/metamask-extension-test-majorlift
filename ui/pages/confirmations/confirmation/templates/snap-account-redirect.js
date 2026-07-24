@@ -7,19 +7,18 @@ import {
 function getValues(pendingApproval, t, actions, _navigate, _data, contexts) {
   const { origin: snapId, snapName } = pendingApproval;
   const { url, message, isBlockedUrl } = pendingApproval.requestData;
-  const { trackEvent, createEventBuilder } = contexts;
+  const { trackEvent } = contexts;
 
   const trackSnapAccountEvent = (event) => {
-    trackEvent(
-      createEventBuilder(event)
-        .addCategory(MetaMetricsEventCategory.Transactions)
-        .addProperties({
-          account_type: MetaMetricsEventAccountType.Snap,
-          snap_id: snapId,
-          snap_name: snapName,
-        })
-        .build(),
-    );
+    trackEvent({
+      event,
+      category: MetaMetricsEventCategory.Transactions,
+      properties: {
+        account_type: MetaMetricsEventAccountType.Snap,
+        snap_id: snapId,
+        snap_name: snapName,
+      },
+    });
   };
 
   const hasValidNonBlockedUrl = () => {

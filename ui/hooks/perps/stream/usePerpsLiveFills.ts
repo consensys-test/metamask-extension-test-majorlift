@@ -50,6 +50,7 @@ const selectFills = (manager: PerpsStreamManager) => manager.fills;
  * ```
  */
 export function usePerpsLiveFills(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _options: UsePerpsLiveFillsOptions = {},
 ): UsePerpsLiveFillsReturn {
   const { data: fills, isInitialLoading } = usePerpsChannel(selectFills, []);

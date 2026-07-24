@@ -1,3 +1,4 @@
+/* eslint-disable jest/require-top-level-describe */
 import React from 'react';
 import PropTypes, { Validator } from 'prop-types';
 import { fireEvent, render } from '@testing-library/react';

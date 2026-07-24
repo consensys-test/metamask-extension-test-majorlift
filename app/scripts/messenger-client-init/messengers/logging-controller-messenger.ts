@@ -1,10 +1,9 @@
-import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { LoggingControllerMessenger } from '@metamask/logging-controller';
+import { Messenger } from '@metamask/messenger';
 import { RootMessenger } from '../../lib/messenger';
+
+export type LoggingControllerMessenger = ReturnType<
+  typeof getLoggingControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the
@@ -14,14 +13,10 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getLoggingControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<LoggingControllerMessenger>,
-    MessengerEvents<LoggingControllerMessenger>
-  >,
-): LoggingControllerMessenger {
-  const controllerMessenger: LoggingControllerMessenger = new Messenger({
+  messenger: RootMessenger<never, never>,
+) {
+  return new Messenger<'LoggingController', never, never, typeof messenger>({
     namespace: 'LoggingController',
     parent: messenger,
   });
-  return controllerMessenger;
 }

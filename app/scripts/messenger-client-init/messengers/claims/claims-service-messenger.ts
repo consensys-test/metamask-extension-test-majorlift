@@ -1,11 +1,25 @@
 import { Messenger, MessengerActions } from '@metamask/messenger';
 import { ClaimsServiceMessenger } from '@metamask/claims-controller';
+import { AuthenticationControllerGetBearerTokenAction } from '@metamask/profile-sync-controller/auth';
 import { RootMessenger } from '../../../lib/messenger';
 
+type AllowedActions =
+  | MessengerActions<ClaimsServiceMessenger>
+  | AuthenticationControllerGetBearerTokenAction;
+
+export type ClaimsServiceMessengerType = ReturnType<
+  typeof getClaimsServiceMessenger
+>;
+
 export function getClaimsServiceMessenger(
-  messenger: RootMessenger<MessengerActions<ClaimsServiceMessenger>, never>,
+  messenger: RootMessenger<AllowedActions>,
 ) {
-  const serviceMessenger: ClaimsServiceMessenger = new Messenger({
+  const serviceMessenger = new Messenger<
+    'ClaimsService',
+    AllowedActions,
+    never,
+    typeof messenger
+  >({
     namespace: 'ClaimsService',
     parent: messenger,
   });

@@ -1,6 +1,6 @@
 import { Driver } from '../../webdriver/driver';
 import TransactionConfirmation from '../../page-objects/pages/confirmations/transaction-confirmation';
-import ActivityTab from '../../page-objects/pages/home/activity-tab';
+import ActivityListPage from '../../page-objects/pages/home/activity-list';
 import HomePage from '../../page-objects/pages/home/homepage';
 import TestDapp from '../../page-objects/pages/test-dapp';
 import { withFixtures } from '../../helpers';
@@ -52,8 +52,8 @@ describe('Multiple transactions', function () {
         await homePage.checkPageIsLoaded();
         await homePage.goToActivityList();
 
-        const activityTab = new ActivityTab(driver);
-        await activityTab.checkConfirmedTxNumberDisplayedInActivity(2);
+        const activityListPage = new ActivityListPage(driver);
+        await activityListPage.checkConfirmedTxNumberDisplayedInActivity(2);
       },
     );
   });
@@ -101,8 +101,8 @@ describe('Multiple transactions', function () {
         await homePage.checkPageIsLoaded();
         await homePage.goToActivityList();
 
-        const activityTab = new ActivityTab(driver);
-        await activityTab.checkNoTxInActivity();
+        const activityListPage = new ActivityListPage(driver);
+        await activityListPage.checkNoTxInActivity();
       },
     );
   });

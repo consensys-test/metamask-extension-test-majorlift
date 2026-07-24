@@ -72,9 +72,7 @@ describe('CloseAmountSection', () => {
     it('renders the slider', () => {
       renderWithProvider(<CloseAmountSection {...defaultProps} />, mockStore);
 
-      expect(
-        screen.getByTestId('close-amount-slider-pct-100'),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('close-amount-slider')).toBeInTheDocument();
     });
 
     it('does not render preset percentage buttons', () => {

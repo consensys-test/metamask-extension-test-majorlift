@@ -1,6 +1,5 @@
 import React from 'react';
 import { fireEvent, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { renderWithProvider } from '../../../../../test/lib/render-helpers-navigate';
 import configureStore from '../../../../store/store';
 import mockState from '../../../../../test/data/mock-state.json';
@@ -252,18 +251,6 @@ describe('PerpsRecentActivity', () => {
     expect(mockNavigate).toHaveBeenCalledWith(PERPS_ACTIVITY_ROUTE);
   });
 
-  it('navigates to activity route when the Recent Activity header text is clicked', async () => {
-    const user = userEvent.setup();
-    renderWithProvider(
-      <PerpsRecentActivity transactions={mockTransactions} />,
-      mockStore,
-    );
-
-    await user.click(screen.getByText(messages.perpsRecentActivity.message));
-
-    expect(mockNavigate).toHaveBeenCalledWith(PERPS_ACTIVITY_ROUTE);
-  });
-
   it('calls onTransactionClick when a transaction is clicked', () => {
     const handleClick = jest.fn();
     renderWithProvider(
@@ -283,18 +270,15 @@ describe('PerpsRecentActivity', () => {
     );
   });
 
-  it('navigates to activity route when a row is tapped and no onTransactionClick is provided', () => {
+  it('renders transaction cards without onClick when onTransactionClick is not provided', () => {
     renderWithProvider(
       <PerpsRecentActivity transactions={mockTransactions} />,
       mockStore,
     );
 
     const card = screen.getByTestId('transaction-card-tx-001');
-    expect(card).toHaveClass('cursor-pointer');
-
-    fireEvent.click(card);
-
-    expect(mockNavigate).toHaveBeenCalledWith(PERPS_ACTIVITY_ROUTE);
+    // Without onClick, the card should not have cursor-pointer class
+    expect(card).not.toHaveClass('cursor-pointer');
   });
 });
 

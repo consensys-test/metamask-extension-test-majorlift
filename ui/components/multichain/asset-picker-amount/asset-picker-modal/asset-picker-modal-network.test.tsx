@@ -14,11 +14,6 @@ const mockOnClose = jest.fn();
 const mockOnNetworkChange = jest.fn();
 const mockOnBack = jest.fn();
 
-const getNetworkDisplayName = (network: { chainId: string; name: string }) =>
-  NETWORK_TO_SHORT_NETWORK_NAME_MAP[
-    network.chainId as keyof typeof NETWORK_TO_SHORT_NETWORK_NAME_MAP
-  ] ?? network.name;
-
 describe('AssetPickerModalNetwork', () => {
   const mockStore = configureStore([thunk]);
   const store = mockStore(mockState);
@@ -140,8 +135,9 @@ describe('AssetPickerModalNetwork', () => {
       store,
     );
 
-    const [mainnetNetwork] = networkProps.networks;
-    fireEvent.click(screen.getByText(getNetworkDisplayName(mainnetNetwork)));
+    fireEvent.click(
+      screen.getByText(NETWORK_TO_SHORT_NETWORK_NAME_MAP[CHAIN_IDS.MAINNET]),
+    );
     expect(mockOnBack).toHaveBeenCalledTimes(1);
     expect(mockOnNetworkChange).toHaveBeenCalledTimes(1);
   });

@@ -1,7 +1,7 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import { useI18nContext } from '../../../hooks/useI18nContext';
-import { TemplateRendererContext } from '../metamask-template-renderer/context';
+import MetaMaskTemplateRenderer from '../metamask-template-renderer';
 import { SectionShape } from '../metamask-template-renderer/section-shape';
 
 /**
@@ -26,12 +26,6 @@ import { SectionShape } from '../metamask-template-renderer/section-shape';
  */
 export default function MetaMaskTranslation({ translationKey, variables }) {
   const t = useI18nContext();
-  const MetaMaskTemplateRenderer = useContext(TemplateRendererContext);
-  if (!MetaMaskTemplateRenderer) {
-    throw new Error(
-      'MetaMaskTranslation must be rendered inside a MetaMaskTemplateRenderer subtree',
-    );
-  }
 
   return t(
     translationKey,

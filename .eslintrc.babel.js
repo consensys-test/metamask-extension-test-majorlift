@@ -1,13 +1,6 @@
-const babelPlugin = require('@babel/eslint-plugin');
-const babelParser = require('@babel/eslint-parser');
-
 module.exports = {
-  languageOptions: {
-    parser: babelParser,
-  },
-  plugins: {
-    '@babel': babelPlugin,
-  },
+  parser: '@babel/eslint-parser',
+  plugins: ['@babel'],
   rules: {
     '@babel/no-invalid-this': 'error',
     // Prettier handles this

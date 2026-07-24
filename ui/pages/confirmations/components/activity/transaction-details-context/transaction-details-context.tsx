@@ -24,6 +24,7 @@ type TransactionDetailsProviderProps = {
   transactionMeta: TransactionMeta;
 };
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function TransactionDetailsProvider({
   children,
   transactionMeta,

@@ -6,9 +6,14 @@ import React, {
   useRef,
 } from 'react';
 import { useSelector } from 'react-redux';
-import type { Token } from '@metamask/assets-controllers';
+import type {
+  Token,
+  TokenListMap,
+  TokenListToken,
+} from '@metamask/assets-controllers';
 import { isCaipChainId, isStrictHexString, type Hex } from '@metamask/utils';
 import { zeroAddress } from 'ethereumjs-util';
+import { debounce } from 'lodash';
 import {
   Modal,
   ModalContent,
@@ -29,24 +34,27 @@ import {
   JustifyContent,
 } from '../../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
-import { useDeferredValue } from '../../../../hooks/useDeferredValue';
+import { Toast, ToastContainer } from '../../toast';
 
 import { AssetType } from '../../../../../shared/constants/transaction';
 import {
   getAllTokens,
   getSelectedEvmInternalAccount,
   getTokenExchangeRates,
+  getTokenList,
+  getUseExternalServices,
+  hasCreatedSolanaAccount,
 } from '../../../../selectors';
 import { getRenderableTokenData } from '../../../../hooks/useTokensToSearch';
 import {
-  ARC_USDC_TOKEN_ADDRESS,
   CHAIN_ID_TOKEN_IMAGE_MAP,
-  CHAIN_IDS,
   NETWORK_TO_NAME_MAP,
 } from '../../../../../shared/constants/network';
 import { useMultichainBalances } from '../../../../hooks/useMultichainBalances';
 import { AvatarType } from '../../avatar-group/avatar-group.types';
 import { NETWORK_TO_SHORT_NETWORK_NAME_MAP } from '../../../../../shared/constants/bridge';
+import { useAsyncResult } from '../../../../hooks/useAsync';
+import { fetchTopAssetsList } from '../../../../pages/swaps/swaps.util';
 import { useMultichainSelector } from '../../../../hooks/useMultichainSelector';
 import { getNativeTokenName } from '../../../../ducks/bridge/utils';
 import {
@@ -60,14 +68,19 @@ import {
   getMultichainSelectedAccountCachedBalance,
   getMultichainIsEvm,
 } from '../../../../selectors/multichain';
+import { MultichainNetworks } from '../../../../../shared/constants/multichain/networks';
 import { Numeric } from '../../../../../shared/lib/Numeric';
-import { isTronSpecialAsset } from '../../../../../shared/lib/asset-utils';
+import {
+  isEvmChainId,
+  isTronSpecialAsset,
+} from '../../../../../shared/lib/asset-utils';
 
 import { useAssetMetadata } from './hooks/useAssetMetadata';
 import type { ERC20Asset, NativeAsset, AssetWithDisplayData } from './types';
 import AssetList from './AssetList';
 import { Search } from './asset-picker-modal-search';
 import { AssetPickerModalNetwork } from './asset-picker-modal-network';
+import { SolanaAccountCreationPrompt } from './solana-account-creation-prompt';
 
 type AssetPickerModalProps = {
   header: JSX.Element | string | null;
@@ -108,6 +121,8 @@ type AssetPickerModalProps = {
 
 const MAX_UNOWNED_TOKENS_RENDERED = 30;
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function AssetPickerModal({
   header,
   isOpen,
@@ -129,21 +144,37 @@ export function AssetPickerModal({
   hideSearch = false,
 }: AssetPickerModalProps) {
   const t = useI18nContext();
+  const [showSolanaAccountCreatedToast, setShowSolanaAccountCreatedToast] =
+    useState(false);
+
+  const prevNeedsSolanaAccountRef = useRef(false);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  const debouncedSetSearchQuery = useCallback(
+    debounce((value) => {
+      setDebouncedSearchQuery(value);
+    }, 200),
+    [],
+  );
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Cleanup abort controller on unmount
+  // Cleanup abort controller and debounce on unmount
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
       abortControllerRef.current = null;
+      debouncedSetSearchQuery.cancel();
     };
   }, []);
 
+  useEffect(() => {
+    debouncedSetSearchQuery(searchQuery);
+  }, [searchQuery, debouncedSetSearchQuery]);
+
   const handleAssetChange = useCallback(
-    (newAsset: Parameters<typeof onAssetChange>[0]) => {
+    (newAsset) => {
       onAssetChange(newAsset);
       setSearchQuery('');
     },
@@ -172,6 +203,28 @@ export function AssetPickerModal({
   const conversionRate = useMultichainSelector(getMultichainConversionRate);
   const currentCurrency = useSelector(getMultichainCurrentCurrency);
 
+  // Default to false before the code fence is enabled (will not render the prompt)
+  let needsSolanaAccount = false;
+  let hasSolanaAccount = false;
+
+  // Check if we need to show the Solana account creation UI when Solana is selected
+  hasSolanaAccount = useSelector(hasCreatedSolanaAccount);
+  needsSolanaAccount =
+    !hasSolanaAccount && selectedNetwork.chainId === MultichainNetworks.SOLANA;
+
+  // watches for needsSolanaAccount changes to show the Solana Account created toast
+  useEffect(() => {
+    if (
+      prevNeedsSolanaAccountRef.current === true &&
+      !needsSolanaAccount &&
+      hasSolanaAccount &&
+      showSolanaAccountCreatedToast === false
+    ) {
+      setShowSolanaAccountCreatedToast(true);
+    }
+    prevNeedsSolanaAccountRef.current = needsSolanaAccount;
+  }, [needsSolanaAccount, hasSolanaAccount, showSolanaAccountCreatedToast]);
+
   const { address: selectedEvmAddress } = useSelector(
     getSelectedEvmInternalAccount,
   );
@@ -192,6 +245,19 @@ export function AssetPickerModal({
   const { assetsWithBalance: multichainTokensWithBalance } =
     useMultichainBalances();
 
+  const evmTokenMetadataByAddress = useSelector(getTokenList) as TokenListMap;
+
+  const allowExternalServices = useSelector(getUseExternalServices);
+  // Swaps top tokens
+  const { value: topTokens } = useAsyncResult<
+    { address: Hex }[] | undefined
+  >(async () => {
+    if (allowExternalServices && selectedNetwork?.chainId) {
+      return await fetchTopAssetsList(selectedNetwork.chainId);
+    }
+    return undefined;
+  }, [selectedNetwork?.chainId, allowExternalServices]);
+
   /**
    * Generates a list of tokens sorted in this order
    * - native tokens with balance
@@ -200,6 +266,8 @@ export function AssetPickerModal({
    * - matches URL token parameter
    * - matches search query
    * - detected tokens (without balance)
+   * - popularity
+   * - all other tokens
    */
   const tokenListGenerator = useCallback(
     function* (
@@ -210,33 +278,19 @@ export function AssetPickerModal({
       ) => boolean,
     ): Generator<
       | AssetWithDisplayData<NativeAsset>
-      | (Token & {
+      | ((Token | TokenListToken) & {
           chainId: string;
           balance?: string;
           string?: string;
         })
     > {
-      // On Arc the native gas token IS USDC, so the USDC ERC20 (0x3600…) is a
-      // display duplicate. Hide it from the picker so only the native token is
-      // selectable; native tokens (empty/zero address) are never affected.
-      const addToken = (
-        symbol: string,
-        address?: null | string,
-        tokenChainId?: string,
-      ) =>
-        shouldAddToken(symbol, address, tokenChainId) &&
-        !(
-          tokenChainId === CHAIN_IDS.ARC &&
-          (address ?? '').toLowerCase() === ARC_USDC_TOKEN_ADDRESS
-        );
-
       // Yield multichain tokens with balances
       for (const token of multichainTokensWithBalance) {
         // Filter out Tron special assets (resources, staking state, etc.)
         if (isTronSpecialAsset(token.assetId)) {
           continue;
         }
-        if (addToken(token.symbol, token.address, token.chainId)) {
+        if (shouldAddToken(token.symbol, token.address, token.chainId)) {
           yield token.isNative
             ? {
                 ...token,
@@ -284,7 +338,32 @@ export function AssetPickerModal({
       }
 
       for (const token of allDetectedTokens) {
-        if (addToken(token.symbol, token.address, currentChainId)) {
+        if (shouldAddToken(token.symbol, token.address, currentChainId)) {
+          yield { ...token, chainId: currentChainId };
+        }
+      }
+
+      // Return early when SOLANA is selected since blocked and top tokens are not available
+      // All available solana tokens are in the multichainTokensWithBalance results
+      if (!isEvmChainId(selectedNetwork?.chainId)) {
+        return;
+      }
+
+      // For EVM tokens only
+      // topTokens are sorted by popularity
+      for (const topToken of topTokens ?? []) {
+        const token: TokenListToken =
+          evmTokenMetadataByAddress?.[topToken.address];
+        if (
+          token &&
+          shouldAddToken(token.symbol, token.address, currentChainId)
+        ) {
+          yield { ...token, chainId: currentChainId };
+        }
+      }
+
+      for (const token of Object.values(evmTokenMetadataByAddress)) {
+        if (shouldAddToken(token.symbol, token.address, currentChainId)) {
           yield { ...token, chainId: currentChainId };
         }
       }
@@ -298,6 +377,8 @@ export function AssetPickerModal({
       selectedNetwork?.chainId,
       multichainTokensWithBalance,
       allDetectedTokens,
+      topTokens,
+      evmTokenMetadataByAddress,
     ],
   );
 
@@ -319,7 +400,7 @@ export function AssetPickerModal({
       address?: string | null,
       tokenChainId?: string,
     ) => {
-      const trimmedSearchQuery = deferredSearchQuery.trim().toLowerCase();
+      const trimmedSearchQuery = debouncedSearchQuery.trim().toLowerCase();
       const isSymbolMatch = symbol?.toLowerCase().includes(trimmedSearchQuery);
       // only check for matching address if search term has 6 characters or more
       // users are expected to copy and paste addresses instead of typing them
@@ -360,6 +441,7 @@ export function AssetPickerModal({
               token.address
                 ? ({
                     ...token,
+                    ...evmTokenMetadataByAddress[token.address.toLowerCase()],
                     type: AssetType.token,
                   } as AssetWithDisplayData<ERC20Asset>)
                 : token,
@@ -367,6 +449,7 @@ export function AssetPickerModal({
               conversionRate,
               currentCurrency,
               token.chainId,
+              evmTokenMetadataByAddress,
             )
           : (token as unknown as AssetWithDisplayData<ERC20Asset>);
 
@@ -380,7 +463,7 @@ export function AssetPickerModal({
         filteredTokens.push(tokenWithBalanceData);
       }
 
-      if (filteredTokens.length >= MAX_UNOWNED_TOKENS_RENDERED) {
+      if (filteredTokens.length > MAX_UNOWNED_TOKENS_RENDERED) {
         break;
       }
     }
@@ -388,13 +471,14 @@ export function AssetPickerModal({
     return filteredTokens;
   }, [
     currentChainId,
-    deferredSearchQuery,
+    debouncedSearchQuery,
     isMultiselectEnabled,
     selectedChainIds,
     selectedNetwork?.chainId,
     customTokenListGenerator,
     tokenListGenerator,
     action,
+    evmTokenMetadataByAddress,
     tokenConversionRates,
     conversionRate,
     currentCurrency,
@@ -461,6 +545,41 @@ export function AssetPickerModal({
             {header}
           </Text>
         </ModalHeader>
+        {showSolanaAccountCreatedToast && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 15,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '16px',
+            }}
+          >
+            <ToastContainer>
+              <Toast
+                text={t('bridgeSolanaAccountCreated')}
+                onClose={() => setShowSolanaAccountCreatedToast(false)}
+                startAdornment={
+                  <img
+                    src="/images/solana-logo.svg"
+                    alt="Solana Logo"
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '4px',
+                    }}
+                  />
+                }
+                autoHideTime={5000}
+                onAutoHideToast={() => setShowSolanaAccountCreatedToast(false)}
+              />
+            </ToastContainer>
+          </div>
+        )}
         {sendingAsset?.image && sendingAsset?.symbol && (
           <Box
             display={Display.Flex}
@@ -513,29 +632,36 @@ export function AssetPickerModal({
           </Box>
         )}
         <Box className="modal-tab__wrapper">
-          {!hideSearch && (
-            <Search
-              searchQuery={searchQuery}
-              onChange={(value) => {
-                // Cancel previous asset metadata fetch
-                abortControllerRef.current?.abort();
-                setSearchQuery(() => value);
-              }}
-              autoFocus={autoFocus}
-            />
+          {/* Show Solana account creation prompt if the destination is Solana but no Solana account exists */}
+          {needsSolanaAccount ? (
+            <SolanaAccountCreationPrompt />
+          ) : (
+            <>
+              {!hideSearch && (
+                <Search
+                  searchQuery={searchQuery}
+                  onChange={(value) => {
+                    // Cancel previous asset metadata fetch
+                    abortControllerRef.current?.abort();
+                    setSearchQuery(() => value);
+                  }}
+                  autoFocus={autoFocus}
+                />
+              )}
+              <AssetList
+                network={network}
+                handleAssetChange={handleAssetChange}
+                asset={asset}
+                tokenList={displayedTokens}
+                isTokenListLoading={isTokenListLoading}
+                assetItemProps={{
+                  isTitleNetworkName: false,
+                  isTitleHidden: false,
+                }}
+                isDestinationToken={isDestinationToken}
+              />
+            </>
           )}
-          <AssetList
-            network={network}
-            handleAssetChange={handleAssetChange}
-            asset={asset}
-            tokenList={displayedTokens}
-            isTokenListLoading={isTokenListLoading}
-            assetItemProps={{
-              isTitleNetworkName: false,
-              isTitleHidden: false,
-            }}
-            isDestinationToken={isDestinationToken}
-          />
         </Box>
       </ModalContent>
     </Modal>

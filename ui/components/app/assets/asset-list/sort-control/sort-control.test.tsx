@@ -3,34 +3,10 @@ import { screen, fireEvent } from '@testing-library/react';
 import { useSelector } from 'react-redux';
 import { setTokenSortConfig } from '../../../../../store/actions';
 import { renderWithProvider } from '../../../../../../test/lib/render-helpers-navigate';
-import { getTokenSortConfig } from '../../../../../selectors';
+import { MetaMetricsContext } from '../../../../../contexts/metametrics';
+import { getPreferences } from '../../../../../selectors';
 import { getCurrentCurrency } from '../../../../../ducks/metamask/metamask';
-import {
-  MetaMetricsEventCategory,
-  MetaMetricsEventName,
-} from '../../../../../../shared/constants/metametrics';
-import mockState from '../../../../../../test/data/mock-state.json';
-import configureStore from '../../../../../store/store';
-
 import SortControl from './sort-control';
-
-jest.mock('../../../../../hooks/useAnalytics', () => {
-  const mockTrackEvent = jest.fn();
-
-  return {
-    useAnalytics: () => ({
-      createEventBuilder: jest.requireActual(
-        '../../../../../../shared/lib/analytics/create-event-builder',
-      ).createEventBuilder,
-      trackEvent: mockTrackEvent,
-    }),
-    mockTrackEvent,
-  };
-});
-
-const getMockTrackEvent = () =>
-  jest.requireMock('../../../../../hooks/useAnalytics')
-    .mockTrackEvent as jest.Mock;
 
 // Mock the sortAssets utility
 jest.mock('../../util/sort', () => ({
@@ -57,9 +33,17 @@ jest.mock('react-redux', () => {
 const mockHandleClose = jest.fn();
 
 describe('SortControl', () => {
+  const mockTrackEvent = jest.fn();
+  const mockMetaMetricsContext = {
+    trackEvent: mockTrackEvent,
+    bufferedTrace: jest.fn(),
+    bufferedEndTrace: jest.fn(),
+    onboardingParentContext: { current: null },
+  };
+
   const renderComponent = () => {
     (useSelector as jest.Mock).mockImplementation((selector) => {
-      if (selector === getTokenSortConfig) {
+      if (selector === getPreferences) {
         return {
           key: 'tokenFiatAmount',
           sortCallback: 'stringNumeric',
@@ -72,26 +56,16 @@ describe('SortControl', () => {
       return undefined;
     });
 
-    const store = configureStore({
-      ...mockState,
-      metamask: {
-        ...mockState.metamask,
-        analyticsId: 'test-analytics-id',
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
-      },
-    });
-
     return renderWithProvider(
-      <SortControl handleClose={mockHandleClose} />,
-      store,
+      <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
+        <SortControl handleClose={mockHandleClose} />
+      </MetaMetricsContext.Provider>,
     );
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    getMockTrackEvent().mockClear();
     mockDispatch.mockClear();
+    mockTrackEvent.mockClear();
     (setTokenSortConfig as jest.Mock).mockClear();
   });
 
@@ -100,9 +74,6 @@ describe('SortControl', () => {
 
     expect(screen.getByTestId('sortByAlphabetically')).toBeInTheDocument();
     expect(screen.getByTestId('sortByDecliningBalance')).toBeInTheDocument();
-    expect(screen.getByTestId('sortByDecliningBalance__button')).toHaveClass(
-      'selectable-list-item--selected',
-    );
   });
 
   it('dispatches setTokenSortConfig with expected config, and tracks event when Alphabetically is clicked', () => {
@@ -120,18 +91,15 @@ describe('SortControl', () => {
       order: 'asc',
     });
 
-    expect(getMockTrackEvent()).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: MetaMetricsEventName.TokenSortPreference,
-        properties: {
-          category: MetaMetricsEventCategory.Settings,
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          token_sort_preference: 'title',
-        },
-        sensitiveProperties: {},
-      }),
-    );
+    expect(mockTrackEvent).toHaveBeenCalledWith({
+      category: 'Settings',
+      event: 'Token Sort Preference Updated',
+      properties: {
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        token_sort_preference: 'title',
+      },
+    });
   });
 
   it('dispatches setTokenSortConfig with expected config, and tracks event when Declining balance is clicked', () => {
@@ -149,17 +117,14 @@ describe('SortControl', () => {
       order: 'dsc',
     });
 
-    expect(getMockTrackEvent()).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: MetaMetricsEventName.TokenSortPreference,
-        properties: {
-          category: MetaMetricsEventCategory.Settings,
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          token_sort_preference: 'tokenFiatAmount',
-        },
-        sensitiveProperties: {},
-      }),
-    );
+    expect(mockTrackEvent).toHaveBeenCalledWith({
+      category: 'Settings',
+      event: 'Token Sort Preference Updated',
+      properties: {
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        token_sort_preference: 'tokenFiatAmount',
+      },
+    });
   });
 });

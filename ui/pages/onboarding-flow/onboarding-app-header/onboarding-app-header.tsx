@@ -32,21 +32,24 @@ import {
   ONBOARDING_COMPLETION_ROUTE,
   ONBOARDING_WELCOME_ROUTE,
 } from '../../../helpers/constants/routes';
-import { getEnvironmentType } from '../../../../shared/lib/environment-type';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getEnvironmentType } from '../../../../app/scripts/lib/util';
 import { ENVIRONMENT_TYPE_SIDEPANEL } from '../../../../shared/constants/app';
-import { useOnboardingSearchParams } from '../hooks/useOnboardingSearchParams';
 
 type OnboardingAppHeaderProps = {
   isWelcomePage: boolean;
   location: RouterLocation;
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function OnboardingAppHeader({
   isWelcomePage = false,
   location,
 }: OnboardingAppHeaderProps) {
   const dispatch = useDispatch();
-  const { pathname } = location;
+  const { pathname, search } = location;
   const t = useI18nContext();
   const currentLocale = useSelector(getCurrentLocale);
   const localeOptions = locales.map((locale) => {
@@ -56,8 +59,9 @@ export default function OnboardingAppHeader({
     };
   });
 
-  const { isFromReminder, isFromSettingsSecurity } =
-    useOnboardingSearchParams();
+  const searchParams = new URLSearchParams(search);
+  const isFromReminder = searchParams.get('isFromReminder');
+  const isFromSettingsSecurity = searchParams.get('isFromSettingsSecurity');
   const isFromSettingsSRPBackup = isFromReminder || isFromSettingsSecurity;
 
   // We don't wanna show the logo and locale dropdown in the sidepanel view

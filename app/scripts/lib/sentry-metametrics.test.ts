@@ -1,6 +1,6 @@
 import type { Client, Event as SentryEvent, EventHint } from '@sentry/types';
 
-import type { AnalyticsParticipation } from './sentry-get-state';
+import type { MetaMetricsParticipation } from './sentry-get-state';
 import { metaMetricsIntegration } from './sentry-metametrics';
 
 const stubHint = {} as EventHint;
@@ -14,10 +14,10 @@ describe('metaMetricsIntegration', () => {
   });
 
   function createIntegration(
-    getAnalyticsState: () => Promise<AnalyticsParticipation>,
+    getMetaMetricsState: () => Promise<MetaMetricsParticipation>,
   ) {
     return metaMetricsIntegration({
-      getAnalyticsState,
+      getMetaMetricsState,
       log,
     });
   }
@@ -25,8 +25,7 @@ describe('metaMetricsIntegration', () => {
   describe('processEvent', () => {
     it('returns null and logs when MetaMetrics is disabled', async () => {
       const integration = createIntegration(async () => ({
-        completedMetaMetricsOnboarding: true,
-        optedIn: false,
+        participateInMetaMetrics: false,
       }));
       const event: SentryEvent = { message: 'err' };
       const { processEvent } = integration;
@@ -52,11 +51,10 @@ describe('metaMetricsIntegration', () => {
       expect(log).toHaveBeenCalledWith('Event dropped as metrics disabled');
     });
 
-    it('attaches user.id from getAnalyticsState when opted in', async () => {
+    it('attaches user.id from getMetaMetricsState when opted in', async () => {
       const integration = createIntegration(async () => ({
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
-        analyticsId: 'metrics-id-from-async',
+        participateInMetaMetrics: true,
+        metaMetricsId: 'metrics-id-from-async',
       }));
       const event: SentryEvent = { message: 'err' };
       const { processEvent } = integration;
@@ -69,11 +67,10 @@ describe('metaMetricsIntegration', () => {
       expect(log).not.toHaveBeenCalled();
     });
 
-    it('does not set user when opted in but analyticsId is missing', async () => {
+    it('does not set user when opted in but metaMetricsId is missing', async () => {
       const integration = createIntegration(async () => ({
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
-        analyticsId: undefined,
+        participateInMetaMetrics: true,
+        metaMetricsId: undefined,
       }));
       const event: SentryEvent = { message: 'err' };
       const { processEvent } = integration;

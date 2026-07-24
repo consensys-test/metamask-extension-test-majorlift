@@ -16,7 +16,10 @@ import {
 import { isSnapPreinstalled } from '../../../../shared/lib/snaps/snaps';
 import { getSnapName } from '../../../../shared/lib/accounts/snaps';
 import { showAccountCreationDialog, snapKeyringBuilder } from './snap-keyring';
-import { SnapKeyringBuilderMessenger } from './types';
+import {
+  SnapKeyringBuilderAllowActions,
+  SnapKeyringBuilderMessenger,
+} from './types';
 
 const mockAddRequest = jest.fn();
 const mockStartFlow = jest.fn();
@@ -31,17 +34,6 @@ const mockSetSelectedAccount = jest.fn();
 const mockSetAccountName = jest.fn();
 const mockRemoveAccountHelper = jest.fn();
 const mockTrackEvent = jest.fn();
-jest.mock('../../controllers/analytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../../shared/lib/analytics/create-event-builder',
-  );
-
-  return {
-    createEventBuilder,
-    trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
-  };
-});
-
 const mockGetAccountByAddress = jest.fn();
 const mockListMultichainAccounts = jest.fn();
 const mockLocale = 'en';
@@ -93,7 +85,12 @@ const createControllerMessenger = ({
   account?: InternalAccount;
 } = {}): SnapKeyringBuilderMessenger => {
   const rootMessenger = getRootMessenger();
-  const messenger: SnapKeyringBuilderMessenger = new Messenger({
+  const messenger = new Messenger<
+    'SnapKeyring',
+    SnapKeyringBuilderAllowActions,
+    never,
+    typeof rootMessenger
+  >({
     namespace: 'SnapKeyring',
     parent: rootMessenger,
   });
@@ -148,12 +145,6 @@ const createControllerMessenger = ({
       case 'AccountsController:getAccountByAddress':
         return mockGetAccountByAddress.mockReturnValue(account)(params);
 
-      case 'KeyringController:persistAllKeyrings':
-        return mockPersistKeyringHelper();
-
-      case 'AccountsController:updateAccounts':
-        return undefined;
-
       case 'AccountsController:listMultichainAccounts':
         return mockListMultichainAccounts.mockReturnValue([])();
 
@@ -182,9 +173,6 @@ const createControllerMessenger = ({
       case 'RemoteFeatureFlagController:getState':
         return mockRemoteFeatureFlagsGetStateRequest(params);
 
-      case 'LegacyBackgroundApiService:removeAccount':
-        return mockRemoveAccountHelper(...params);
-
       default:
         throw new Error(
           `MOCK_FAIL - unsupported messenger call: ${actionType}`,
@@ -210,7 +198,11 @@ const createSnapKeyringBuilder = ({
     remoteFeatureFlags: {},
   } as RemoteFeatureFlagControllerState);
 
-  return snapKeyringBuilder(createControllerMessenger());
+  return snapKeyringBuilder(createControllerMessenger(), {
+    persistKeyringHelper: mockPersistKeyringHelper,
+    removeAccountHelper: mockRemoveAccountHelper,
+    trackEvent: mockTrackEvent,
+  });
 };
 
 /**
@@ -285,9 +277,9 @@ describe('Snap Keyring Methods', () => {
       expect(mockPersistKeyringHelper).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledTimes(3);
       expect(mockTrackEvent).toHaveBeenNthCalledWith(1, {
-        name: MetaMetricsEventName.AddSnapAccountSuccessViewed,
+        category: MetaMetricsEventCategory.Accounts,
+        event: MetaMetricsEventName.AddSnapAccountSuccessViewed,
         properties: {
-          category: MetaMetricsEventCategory.Accounts,
           // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
           // eslint-disable-next-line @typescript-eslint/naming-convention
           account_type: 'snap',
@@ -298,12 +290,11 @@ describe('Snap Keyring Methods', () => {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           snap_name: mockSnapName,
         },
-        sensitiveProperties: {},
       });
       expect(mockTrackEvent).toHaveBeenNthCalledWith(2, {
-        name: MetaMetricsEventName.AddSnapAccountSuccessClicked,
+        category: MetaMetricsEventCategory.Accounts,
+        event: MetaMetricsEventName.AddSnapAccountSuccessClicked,
         properties: {
-          category: MetaMetricsEventCategory.Accounts,
           // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
           // eslint-disable-next-line @typescript-eslint/naming-convention
           account_type: 'snap',
@@ -314,12 +305,11 @@ describe('Snap Keyring Methods', () => {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           snap_name: mockSnapName,
         },
-        sensitiveProperties: {},
       });
       expect(mockTrackEvent).toHaveBeenNthCalledWith(3, {
-        name: MetaMetricsEventName.AccountAdded,
+        category: MetaMetricsEventCategory.Accounts,
+        event: MetaMetricsEventName.AccountAdded,
         properties: {
-          category: MetaMetricsEventCategory.Accounts,
           // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
           // eslint-disable-next-line @typescript-eslint/naming-convention
           account_type: 'snap',
@@ -333,7 +323,6 @@ describe('Snap Keyring Methods', () => {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           is_suggested_name: false,
         },
-        sensitiveProperties: {},
       });
       expect(mockShowSuccess).toHaveBeenCalledTimes(1);
       expect(mockSetAccountName).not.toHaveBeenCalled();
@@ -359,9 +348,9 @@ describe('Snap Keyring Methods', () => {
       expect(mockPersistKeyringHelper).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenNthCalledWith(1, {
-        name: MetaMetricsEventName.AccountAdded,
+        category: MetaMetricsEventCategory.Accounts,
+        event: MetaMetricsEventName.AccountAdded,
         properties: {
-          category: MetaMetricsEventCategory.Accounts,
           // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
           // eslint-disable-next-line @typescript-eslint/naming-convention
           account_type: 'snap',
@@ -375,7 +364,6 @@ describe('Snap Keyring Methods', () => {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           is_suggested_name: false,
         },
-        sensitiveProperties: {},
       });
       expect(mockSetAccountName).not.toHaveBeenCalled();
       expect(mockEndFlow).toHaveBeenCalledTimes(0);

@@ -12,24 +12,10 @@ import {
   getMockTypedSignConfirmState,
 } from '../../../../../../test/data/confirmations/helper';
 import { renderWithConfirmContextProvider } from '../../../../../../test/lib/confirmations/render-helpers';
-import { createEventBuilder } from '../../../../../../shared/lib/analytics/create-event-builder';
+import { MetaMetricsContext } from '../../../../../contexts/metametrics';
 import configureStore from '../../../../../store/store';
 import { enLocale as messages } from '../../../../../../test/lib/i18n-helpers';
 import HeaderInfo from './header-info';
-
-const mockTrackEvent = jest.fn();
-
-jest.mock('../../../../../hooks/useAnalytics', () => {
-  const { createEventBuilder: actualCreateEventBuilder } = jest.requireActual(
-    '../../../../../../shared/lib/analytics/create-event-builder',
-  );
-  return {
-    useAnalytics: () => ({
-      trackEvent: mockTrackEvent,
-      createEventBuilder: actualCreateEventBuilder,
-    }),
-  };
-});
 
 const mockStore = getMockTypedSignConfirmState();
 
@@ -100,21 +86,23 @@ describe('Header', () => {
 
     cases.forEach(({ description, store, expectedEvent }) => {
       it(`sends "${MetaMetricsEventName.AccountDetailsOpened}" metametric ${description}`, () => {
-        mockTrackEvent.mockClear();
+        const mockTrackEvent = jest.fn();
+        const mockMetaMetricsContext = {
+          trackEvent: mockTrackEvent,
+          bufferedTrace: jest.fn(),
+          bufferedEndTrace: jest.fn(),
+          onboardingParentContext: { current: null },
+        };
         const { getByLabelText } = renderWithConfirmContextProvider(
-          <HeaderInfo />,
+          <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
+            <HeaderInfo />
+          </MetaMetricsContext.Provider>,
           configureStore(store),
         );
         const accountInfoIcon = getByLabelText(messages.accountDetails.message);
         fireEvent.click(accountInfoIcon);
 
-        expect(mockTrackEvent).toHaveBeenNthCalledWith(
-          1,
-          createEventBuilder(expectedEvent.event)
-            .addCategory(expectedEvent.category)
-            .addProperties(expectedEvent.properties)
-            .build(),
-        );
+        expect(mockTrackEvent).toHaveBeenNthCalledWith(1, expectedEvent);
       });
     });
   });

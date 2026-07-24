@@ -2,17 +2,15 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  Box,
-  BoxAlignItems,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
-import { IconName, IconSize, Text } from '../../component-library';
+import { Box, IconName, IconSize, Text } from '../../component-library';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { MenuItem } from '../../ui/menu';
 import {
+  AlignItems,
   BlockSize,
+  Display,
+  FlexDirection,
+  JustifyContent,
   TextVariant,
 } from '../../../helpers/constants/design-system';
 import ConnectedAccountsListOptions from '../connected-accounts-list/connected-accounts-list-options';
@@ -63,16 +61,18 @@ export default function ConnectedSnaps({ connectedSubjects }) {
       {connectedSubjects.map((subject) => (
         <Box
           key={subject.origin}
-          className="flex connected-snaps-list__content-row"
+          className="connected-snaps-list__content-row"
           width={BlockSize.Full}
-          flexDirection={BoxFlexDirection.Row}
+          display={Display.Flex}
+          flexDirection={FlexDirection.Row}
           padding={4}
-          justifyContent={BoxJustifyContent.Between}
+          justifyContent={JustifyContent.spaceBetween}
         >
           <Box
-            className="flex connected-snaps-list__subject-info"
+            className="connected-snaps-list__subject-info"
             gap={4}
-            alignItems={BoxAlignItems.Center}
+            display={Display.Flex}
+            alignItems={AlignItems.center}
           >
             <SnapIcon snapId={subject.origin} avatarSize={IconSize.Md} />
             <Text

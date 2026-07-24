@@ -1,8 +1,9 @@
 import React from 'react';
-import { Box, BoxBackgroundColor } from '@metamask/design-system-react';
+import { Box } from '../../components/component-library';
 import { PermissionPageContainerContent } from '../../components/app/permission-page-container';
 import PermissionsConnectFooter from '../../components/app/permissions-connect-footer';
 import { PageContainerFooter } from '../../components/ui/page-container';
+import { BackgroundColor } from '../../helpers/constants/design-system';
 
 export default {
   title: 'Pages/PermissionsConnect',
@@ -24,7 +25,7 @@ export const PermissionPageContainerComponent = () => {
       />
       <Box
         className="permission-approval-container__footers"
-        backgroundColor={BoxBackgroundColor.BackgroundAlternative}
+        backgroundColor={BackgroundColor.backgroundAlternative}
       >
         <PermissionsConnectFooter />
         <PageContainerFooter

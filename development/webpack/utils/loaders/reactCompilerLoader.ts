@@ -116,6 +116,7 @@ export function getReactCompilerLoader(
         loader: getWrapperPath(),
         options: {
           ...defineReactCompilerLoaderOption(reactCompilerOptions),
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           __verbose: verbose,
         },
       }

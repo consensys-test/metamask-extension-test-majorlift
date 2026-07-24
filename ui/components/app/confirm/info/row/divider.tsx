@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const ConfirmInfoRowDivider = () => {
+export const ConfirmInfoRowDivider: React.FC = () => {
   return (
     <div style={{ paddingTop: '8px', paddingBottom: '8px' }}>
       <div

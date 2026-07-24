@@ -55,16 +55,6 @@ export type AppStateControllerSetLastViewedUserSurveyAction = {
   handler: AppStateController['setLastViewedUserSurvey'];
 };
 
-/**
- * Sets whether the unlock screen should suppress automatic passkey WebAuthn.
- *
- * @param suppressed - When true, auto passkey unlock is suppressed.
- */
-export type AppStateControllerSetPasskeyAutoUnlockSuppressedAction = {
-  type: `AppStateController:setPasskeyAutoUnlockSuppressed`;
-  handler: AppStateController['setPasskeyAutoUnlockSuppressed'];
-};
-
 export type AppStateControllerSetNewPrivacyPolicyToastClickedOrClosedAction = {
   type: `AppStateController:setNewPrivacyPolicyToastClickedOrClosed`;
   handler: AppStateController['setNewPrivacyPolicyToastClickedOrClosed'];
@@ -273,17 +263,6 @@ export type AppStateControllerClearPollingTokensAction = {
 export type AppStateControllerSetHasShownMultichainAccountsIntroModalAction = {
   type: `AppStateController:setHasShownMultichainAccountsIntroModal`;
   handler: AppStateController['setHasShownMultichainAccountsIntroModal'];
-};
-
-/**
- * Sets whether the user has seen (and therefore dismissed) the Perps tab
- * "New" badge.
- *
- * @param value - Whether the Perps tab badge has been seen
- */
-export type AppStateControllerSetPerpsTabBadgeSeenAction = {
-  type: `AppStateController:setPerpsTabBadgeSeen`;
-  handler: AppStateController['setPerpsTabBadgeSeen'];
 };
 
 /**
@@ -582,7 +561,6 @@ export type AppStateControllerMethodActions =
   | AppStateControllerSetRecoveryPhraseReminderHasBeenShownAction
   | AppStateControllerSetOnboardingDateAction
   | AppStateControllerSetLastViewedUserSurveyAction
-  | AppStateControllerSetPasskeyAutoUnlockSuppressedAction
   | AppStateControllerSetNewPrivacyPolicyToastClickedOrClosedAction
   | AppStateControllerSetNewPrivacyPolicyToastShownDateAction
   | AppStateControllerSetPna25AcknowledgedAction
@@ -606,7 +584,6 @@ export type AppStateControllerMethodActions =
   | AppStateControllerRemovePollingTokenAction
   | AppStateControllerClearPollingTokensAction
   | AppStateControllerSetHasShownMultichainAccountsIntroModalAction
-  | AppStateControllerSetPerpsTabBadgeSeenAction
   | AppStateControllerSetMusdConversionEducationSeenAction
   | AppStateControllerAddMusdConversionDismissedCtaKeyAction
   | AppStateControllerSetProductTourAction

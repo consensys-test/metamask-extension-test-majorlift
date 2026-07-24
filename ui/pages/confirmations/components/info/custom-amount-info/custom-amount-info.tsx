@@ -1,5 +1,6 @@
 import React, { ReactNode, useCallback } from 'react';
 import type { TransactionMeta } from '@metamask/transaction-controller';
+import { TransactionType } from '@metamask/transaction-controller';
 import { Box, Text } from '../../../../../components/component-library';
 import {
   Display,
@@ -18,16 +19,20 @@ import {
   PayTokenAmount,
   PayTokenAmountSkeleton,
 } from '../../pay-token-amount/pay-token-amount';
-import { PayWithRow } from '../../rows/pay-with-row/pay-with-row';
+import {
+  PayWithRow,
+  PayWithRowSkeleton,
+} from '../../rows/pay-with-row/pay-with-row';
 import { BridgeFeeRow } from '../../rows/bridge-fee-row/bridge-fee-row';
 import { BridgeTimeRow } from '../../rows/bridge-time-row/bridge-time-row';
 import { TotalRow } from '../../rows/total-row/total-row';
 import { ConfirmInfoRowSize } from '../../../../../components/app/confirm/info/row/row';
-import { ReceiveRow } from '../../rows/receive-row/receive-row';
 import {
-  isPerpsWithdrawTransaction,
-  isPostQuoteWithdrawTransaction,
-} from '../../../../../../shared/lib/transactions.utils';
+  PercentageButtons,
+  PercentageButtonsSkeleton,
+} from '../../percentage-buttons';
+import { ReceiveRow } from '../../rows/receive-row/receive-row';
+import { isPerpsWithdrawTransaction } from '../../../../../../shared/lib/transactions.utils';
 import { useTransactionCustomAmount } from '../../../hooks/transactions/useTransactionCustomAmount';
 import { useTransactionCustomAmountAlerts } from '../../../hooks/transactions/useTransactionCustomAmountAlerts';
 import { useAutomaticTransactionPayToken } from '../../../hooks/pay/useAutomaticTransactionPayToken';
@@ -66,17 +71,14 @@ export type CustomAmountInfoProps = {
    * When true, it disables MetaMask Pay for transactions that just need custom amount input
    */
   disablePay?: boolean;
+  hasMax?: boolean;
   hidePayTokenAmount?: boolean;
-  /**
-   * When true, pre-fills the amount field with the max balance on load.
-   */
-  prefillMaxOnLoad?: boolean;
   preferredToken?: SetPayTokenRequest;
-  overrideBottomContent?: (hasInput: boolean) => ReactNode;
-  overrideCenterContent?: (amountHuman: string, hasInput: boolean) => ReactNode;
+  overrideBottomContent?: ReactNode;
+  overrideCenterContent?: (amountHuman: string) => ReactNode;
 };
 
-export const CustomAmountInfo = React.memo(
+export const CustomAmountInfo: React.FC<CustomAmountInfoProps> = React.memo(
   ({
     balanceUsdOverride,
     children,
@@ -84,12 +86,12 @@ export const CustomAmountInfo = React.memo(
     currency,
     disableAutomaticToken,
     disablePay,
+    hasMax,
     hidePayTokenAmount,
     overrideBottomContent,
     overrideCenterContent,
-    prefillMaxOnLoad,
     preferredToken,
-  }: CustomAmountInfoProps) => {
+  }) => {
     useAutomaticTransactionPayToken({
       disable: Boolean(disablePay) || Boolean(disableAutomaticToken),
       preferredToken,
@@ -98,29 +100,35 @@ export const CustomAmountInfo = React.memo(
 
     const { currentConfirmation } = useConfirmContext<TransactionMeta>();
     const availableTokens = useTransactionPayAvailableTokens();
-    const isPostQuoteWithdraw =
-      isPostQuoteWithdrawTransaction(currentConfirmation);
-    // Post-quote withdrawals (e.g. Perps) source funds off-chain, not from a
-    // wallet token, so the amount input stays usable without wallet tokens.
-    const hasTokens = availableTokens.length > 0 || isPostQuoteWithdraw;
+    const hasTokens = availableTokens.length > 0;
     const primaryRequiredToken = useTransactionPayPrimaryRequiredToken();
     const isAwaitingRequiredToken = !disablePay && !primaryRequiredToken;
 
     const { disableUpdate } = useTransactionCustomAmountAlerts();
 
-    const { amountFiat, amountHuman, hasInput, updatePendingAmount } =
-      useTransactionCustomAmount({
-        balanceUsdOverride,
-        currency,
-        disableUpdate,
-        prefillMaxOnLoad,
-      });
+    const {
+      amountFiat,
+      amountHuman,
+      updatePendingAmount,
+      updatePendingAmountPercentage,
+    } = useTransactionCustomAmount({
+      balanceUsdOverride,
+      currency,
+      disableUpdate,
+    });
 
     const handleAmountChange = useCallback(
       (value: string) => {
         updatePendingAmount(value);
       },
       [updatePendingAmount],
+    );
+
+    const handlePercentageClick = useCallback(
+      (percentage: number) => {
+        updatePendingAmountPercentage(percentage);
+      },
+      [updatePendingAmountPercentage],
     );
 
     if (!currentConfirmation || isAwaitingRequiredToken) {
@@ -140,22 +148,16 @@ export const CustomAmountInfo = React.memo(
           amountHuman={amountHuman}
           currency={currency}
           disablePay={disablePay}
-          hasInput={hasInput}
+          hasMax={hasMax}
           hasTokens={hasTokens}
           hidePayTokenAmount={hidePayTokenAmount}
           onAmountChange={handleAmountChange}
+          onPercentageClick={handlePercentageClick}
           overrideCenterContent={overrideCenterContent}
         >
           {children}
         </CenterContainer>
-        <AlertMessage />
-        {overrideBottomContent?.(hasInput) ?? (
-          <BottomContainer
-            amountFiat={amountFiat}
-            disablePay={disablePay}
-            hasTokens={hasTokens}
-          />
-        )}
+        {overrideBottomContent ?? <BottomContainer amountFiat={amountFiat} />}
       </Box>
     );
   },
@@ -181,11 +183,12 @@ type CenterContainerProps = {
   children?: ReactNode;
   currency?: string;
   disablePay?: boolean;
-  hasInput: boolean;
+  hasMax?: boolean;
   hasTokens: boolean;
   hidePayTokenAmount?: boolean;
   onAmountChange: (value: string) => void;
-  overrideCenterContent?: (amountHuman: string, hasInput: boolean) => ReactNode;
+  onPercentageClick: (percentage: number) => void;
+  overrideCenterContent?: (amountHuman: string) => ReactNode;
 };
 
 function CenterContainer({
@@ -195,10 +198,11 @@ function CenterContainer({
   children,
   currency,
   disablePay,
-  hasInput,
+  hasMax,
   hasTokens,
   hidePayTokenAmount,
   onAmountChange,
+  onPercentageClick,
   overrideCenterContent,
 }: CenterContainerProps) {
   return (
@@ -219,7 +223,7 @@ function CenterContainer({
       />
 
       {overrideCenterContent ? (
-        overrideCenterContent(amountHuman, hasInput)
+        overrideCenterContent(amountHuman)
       ) : (
         <Box
           display={Display.Flex}
@@ -231,8 +235,16 @@ function CenterContainer({
             <PayTokenAmount amountHuman={amountHuman} disabled={!hasTokens} />
           )}
           {children}
+          {disablePay !== true && hasTokens && (
+            <PayWithRow variant={ConfirmInfoRowSize.Small} />
+          )}
         </Box>
       )}
+
+      {hasTokens && hasMax && (
+        <PercentageButtons onPercentageClick={onPercentageClick} />
+      )}
+      <AlertMessage />
     </Box>
   );
 }
@@ -248,26 +260,31 @@ function CenterContainerSkeleton() {
       style={{ flex: 1 }}
     >
       <CustomAmountSkeleton />
-      <PayTokenAmountSkeleton />
+      <Box
+        display={Display.Flex}
+        flexDirection={FlexDirection.Column}
+        alignItems={AlignItems.center}
+        gap={2}
+      >
+        <PayTokenAmountSkeleton />
+        <PayWithRowSkeleton />
+      </Box>
+      <PercentageButtonsSkeleton />
     </Box>
   );
 }
 
-function BottomContainer({
-  amountFiat,
-  disablePay,
-  hasTokens,
-}: {
-  amountFiat: string;
-  disablePay?: boolean;
-  hasTokens: boolean;
-}) {
+function BottomContainer({ amountFiat }: { amountFiat: string }) {
   const t = useI18nContext();
   const isResultReady = useIsResultReady();
   const { hideResults } = useTransactionCustomAmountAlerts();
   const { currentConfirmation } = useConfirmContext<TransactionMeta>();
 
   const isPerpsWithdraw = isPerpsWithdrawTransaction(currentConfirmation);
+
+  if (!isResultReady || hideResults) {
+    return null;
+  }
 
   return (
     <Box
@@ -276,25 +293,20 @@ function BottomContainer({
       gap={2}
       paddingBottom={4}
     >
-      {disablePay !== true && hasTokens && <PayWithRow />}
-      {isResultReady && !hideResults && (
-        <>
-          <BridgeFeeRow
-            variant={ConfirmInfoRowSize.Small}
-            tooltipDescription={
-              isPerpsWithdraw ? t('perpsWithdrawTooltip') : undefined
-            }
-          />
-          <BridgeTimeRow rowVariant={ConfirmInfoRowSize.Small} />
-          {isPerpsWithdraw ? (
-            <ReceiveRow
-              inputAmountUsd={amountFiat}
-              variant={ConfirmInfoRowSize.Small}
-            />
-          ) : (
-            <TotalRow variant={ConfirmInfoRowSize.Small} />
-          )}
-        </>
+      <BridgeFeeRow
+        variant={ConfirmInfoRowSize.Small}
+        tooltipDescription={
+          isPerpsWithdraw ? t('perpsWithdrawTooltip') : undefined
+        }
+      />
+      <BridgeTimeRow rowVariant={ConfirmInfoRowSize.Small} />
+      {isPerpsWithdraw ? (
+        <ReceiveRow
+          inputAmountUsd={amountFiat}
+          variant={ConfirmInfoRowSize.Small}
+        />
+      ) : (
+        <TotalRow variant={ConfirmInfoRowSize.Small} />
       )}
     </Box>
   );

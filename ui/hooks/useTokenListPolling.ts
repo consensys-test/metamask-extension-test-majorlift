@@ -9,8 +9,10 @@ import {
   tokenListStartPolling,
   tokenListStopPollingByPollingToken,
 } from '../store/actions';
-import { getCompletedOnboarding } from '../ducks/metamask/metamask';
-import { getIsUnlocked } from '../ducks/metamask/base-selectors';
+import {
+  getCompletedOnboarding,
+  getIsUnlocked,
+} from '../ducks/metamask/metamask';
 import useMultiPolling from './useMultiPolling';
 
 const useTokenListPolling = () => {
@@ -29,6 +31,8 @@ const useTokenListPolling = () => {
 
   useMultiPolling({
     startPolling: tokenListStartPolling,
+    // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31879
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     stopPollingByPollingToken: tokenListStopPollingByPollingToken,
     input: enabled ? enabledChainIds : [],
   });

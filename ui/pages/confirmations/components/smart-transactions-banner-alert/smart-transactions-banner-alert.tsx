@@ -30,14 +30,8 @@ type SmartTransactionsBannerAlertProps = {
   marginType?: MarginType;
 };
 
-const selectAlertEnabled = (state: {
-  metamask: { alertEnabledness?: { [key: string]: boolean } };
-}) =>
-  state.metamask.alertEnabledness?.[AlertTypes.smartTransactionsMigration] !==
-  false;
-
-export const SmartTransactionsBannerAlert = React.memo(
-  ({ marginType = 'default' }: SmartTransactionsBannerAlertProps) => {
+export const SmartTransactionsBannerAlert: React.FC<SmartTransactionsBannerAlertProps> =
+  React.memo(({ marginType = 'default' }) => {
     const t = useI18nContext();
 
     let currentConfirmation;
@@ -48,7 +42,14 @@ export const SmartTransactionsBannerAlert = React.memo(
       currentConfirmation = null;
     }
 
-    const alertEnabled = useSelector(selectAlertEnabled);
+    const alertEnabled = useSelector(
+      (state: {
+        metamask: { alertEnabledness?: { [key: string]: boolean } };
+      }) =>
+        state.metamask.alertEnabledness?.[
+          AlertTypes.smartTransactionsMigration
+        ] !== false,
+    );
 
     const smartTransactionsOptIn = useSelector(
       getSmartTransactionsOptInStatusInternal,
@@ -133,8 +134,7 @@ export const SmartTransactionsBannerAlert = React.memo(
         </BannerAlert>
       </Box>
     );
-  },
-);
+  });
 
 SmartTransactionsBannerAlert.displayName = 'SmartTransactionsBannerAlert';
 

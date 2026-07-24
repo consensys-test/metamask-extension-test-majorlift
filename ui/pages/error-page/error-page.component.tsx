@@ -1,17 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 
-import {
-  Box,
-  BoxAlignItems,
-  BoxBackgroundColor,
-  BoxFlexDirection,
-  BoxJustifyContent,
-} from '@metamask/design-system-react';
-import { getCompletedMetaMetricsOnboarding, getOptedIn } from '../../selectors';
+import { getParticipateInMetaMetrics } from '../../selectors';
 import { useI18nContext } from '../../hooks/useI18nContext';
 import {
   BannerAlert,
+  Box,
   Icon,
   IconName,
   IconSize,
@@ -27,7 +21,9 @@ import {
 } from '../../components/component-library';
 import {
   AlignItems,
+  BackgroundColor,
   BlockSize,
+  BorderRadius,
   Display,
   FlexDirection,
   IconColor,
@@ -51,13 +47,9 @@ type ErrorPageProps = {
   };
 };
 
-const ErrorPage = ({ error }: ErrorPageProps) => {
+const ErrorPage: React.FC<ErrorPageProps> = ({ error }) => {
   const t = useI18nContext();
-  const completedMetaMetricsOnboarding = useSelector(
-    getCompletedMetaMetricsOnboarding,
-  );
-  const isOptedIn = useSelector(getOptedIn);
-  const isMetaMetricsEnabled = completedMetaMetricsOnboarding && isOptedIn;
+  const isMetaMetricsEnabled = useSelector(getParticipateInMetaMetrics);
 
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -101,9 +93,10 @@ const ErrorPage = ({ error }: ErrorPageProps) => {
     <section className="error-page">
       <section className="error-page__inner-wrapper">
         <Box
-          className="flex error-page__header"
-          flexDirection={BoxFlexDirection.Column}
-          alignItems={BoxAlignItems.Center}
+          className="error-page__header"
+          display={Display.Flex}
+          flexDirection={FlexDirection.Column}
+          alignItems={AlignItems.center}
         >
           <Icon
             name={IconName.Danger}
@@ -134,12 +127,14 @@ const ErrorPage = ({ error }: ErrorPageProps) => {
         </Text>
 
         <Box
-          className="flex rounded-lg error-page__error-message-wrapper"
+          borderRadius={BorderRadius.LG}
           marginBottom={2}
           marginTop={2}
-          backgroundColor={BoxBackgroundColor.ErrorMuted}
-          flexDirection={BoxFlexDirection.Column}
+          backgroundColor={BackgroundColor.errorMuted}
+          display={Display.Flex}
+          flexDirection={FlexDirection.Column}
           padding={2}
+          className="error-page__error-message-wrapper"
         >
           {error.message ? (
             <Text
@@ -214,7 +209,7 @@ const ErrorPage = ({ error }: ErrorPageProps) => {
                 />
               </ModalBody>
               <ModalFooter>
-                <Box className="flex" gap={4}>
+                <Box display={Display.Flex} gap={4}>
                   <Button
                     variant={ButtonVariant.Secondary}
                     width={BlockSize.Half}
@@ -275,10 +270,11 @@ const ErrorPage = ({ error }: ErrorPageProps) => {
           />
         )}
         <Box
-          className="flex w-full"
-          flexDirection={BoxFlexDirection.Column}
-          alignItems={BoxAlignItems.Center}
-          justifyContent={BoxJustifyContent.Center}
+          width={BlockSize.Full}
+          display={Display.Flex}
+          flexDirection={FlexDirection.Column}
+          alignItems={AlignItems.center}
+          justifyContent={JustifyContent.center}
           marginTop={4}
         >
           {isMetaMetricsEnabled && (

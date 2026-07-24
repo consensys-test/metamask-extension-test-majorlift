@@ -36,21 +36,6 @@ import { getIsSeedlessOnboardingFeatureEnabled } from '../../../shared/lib/envir
 import { useSidePanelEnabled } from '../../hooks/useSidePanelEnabled';
 import OnboardingFlow from './onboarding-flow';
 
-const mockTrackEvent = jest.fn();
-
-jest.mock('../../hooks/useAnalytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../shared/lib/analytics/create-event-builder',
-  );
-
-  return {
-    useAnalytics: () => ({
-      trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
-      createEventBuilder,
-    }),
-  };
-});
-
 // Mock mmLazy to return a synchronous component instead of React.lazy.
 // React 17's lazy resolution fires a state update after test cleanup unmounts
 // the tree, producing a spurious "state update on unmounted component" warning.
@@ -76,10 +61,8 @@ jest.mock('../unlock-page', () => {
 
   return function mockUnlock({
     onSubmit,
-    navigateAfterUnlock,
   }: {
     onSubmit: (password: string) => Promise<void>;
-    navigateAfterUnlock?: () => Promise<void>;
   }) {
     const [password, setPassword] = reactModule.useState('');
 
@@ -90,13 +73,7 @@ jest.mock('../unlock-page', () => {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-        <button
-          data-testid="unlock-submit"
-          onClick={async () => {
-            await onSubmit(password);
-            await navigateAfterUnlock?.();
-          }}
-        >
+        <button data-testid="unlock-submit" onClick={() => onSubmit(password)}>
           Unlock
         </button>
       </div>
@@ -137,17 +114,6 @@ jest.mock('./creation-successful/wallet-ready-animation', () => ({
   // eslint-disable-next-line @typescript-eslint/naming-convention
   __esModule: true,
   default: () => <div data-testid="wallet-ready-animation" />,
-}));
-
-const mockCompleteOnboarding = jest.fn().mockResolvedValue(undefined);
-
-jest.mock('./hooks/useOnboardingCompletion', () => ({
-  useOnboardingCompletion: () => ({
-    completeOnboarding: mockCompleteOnboarding,
-    markCompletionPageSeen: jest.fn(),
-    isSidePanelOpen: false,
-    setIsSidePanelOpen: jest.fn(),
-  }),
 }));
 
 // Mock the useBackupAndSync hook to avoid thunk dispatch issues
@@ -281,7 +247,7 @@ describe('Onboarding Flow', () => {
     jest.clearAllMocks();
   });
 
-  it('should route to the default route when completedOnboarding and seedPhraseBackedUp is true', async () => {
+  it('should route to the default route when completedOnboarding and seedPhraseBackedUp is true', () => {
     const completedOnboardingState = {
       metamask: {
         completedOnboarding: true,
@@ -319,10 +285,8 @@ describe('Onboarding Flow', () => {
       ONBOARDING_ROUTE,
     );
 
-    await waitFor(() => {
-      expect(mockUseNavigate).toHaveBeenCalledWith(DEFAULT_ROUTE, {
-        replace: true,
-      });
+    expect(mockUseNavigate).toHaveBeenCalledWith(DEFAULT_ROUTE, {
+      replace: true,
     });
   });
 
@@ -492,9 +456,7 @@ describe('Onboarding Flow', () => {
         expect(setCompletedOnboardingWithSidepanel).toHaveBeenCalled();
       });
 
-      expect(
-        container.querySelector('.loading-overlay'),
-      ).not.toBeInTheDocument();
+      expect(container.querySelector('.loading-overlay')).toBeInTheDocument();
       expect(mockUseNavigate).not.toHaveBeenCalled();
 
       sidepanelCompletion.resolve();
@@ -503,6 +465,11 @@ describe('Onboarding Flow', () => {
         expect(mockUseNavigate).toHaveBeenCalledWith(DEFAULT_ROUTE, {
           replace: true,
         });
+      });
+      await waitFor(() => {
+        expect(
+          container.querySelector('.loading-overlay'),
+        ).not.toBeInTheDocument();
       });
     });
 
@@ -538,18 +505,17 @@ describe('Onboarding Flow', () => {
         expect(setCompletedOnboarding).toHaveBeenCalled();
       });
 
-      expect(
-        container.querySelector('.loading-overlay'),
-      ).not.toBeInTheDocument();
+      expect(container.querySelector('.loading-overlay')).toBeInTheDocument();
       expect(mockUseNavigate).not.toHaveBeenCalled();
 
       onboardingCompletion.resolve();
 
       await waitFor(() => {
-        expect(mockUseNavigate).toHaveBeenCalledWith(DEFAULT_ROUTE, {
-          replace: true,
-        });
+        expect(
+          container.querySelector('.loading-overlay'),
+        ).not.toBeInTheDocument();
       });
+      expect(mockUseNavigate).not.toHaveBeenCalled();
     });
   });
 
@@ -575,45 +541,6 @@ describe('Onboarding Flow', () => {
       const creationSuccessful = queryByTestId('wallet-ready');
       expect(creationSuccessful).toBeInTheDocument();
     });
-  });
-
-  it('redirects locked return visits on the completion route to unlock', async () => {
-    renderWithProvider(
-      <OnboardingFlowWithRouteContext />,
-      createStore({
-        hasSeenOnboardingCompletionPage: true,
-        completedOnboarding: false,
-        isInitialized: true,
-        isUnlocked: false,
-      }),
-      ONBOARDING_COMPLETION_ROUTE,
-    );
-
-    await waitFor(() => {
-      expect(mockUseNavigate).toHaveBeenCalledWith(ONBOARDING_UNLOCK_ROUTE, {
-        replace: true,
-      });
-    });
-  });
-
-  it('auto-completes onboarding after unlock when the completion page was seen', async () => {
-    const { getByTestId } = renderUnlockPage({
-      hasSeenOnboardingCompletionPage: true,
-      completedOnboarding: false,
-      isInitialized: true,
-      isUnlocked: true,
-      firstTimeFlowType: FirstTimeFlowType.create,
-    });
-
-    fireEvent.click(getByTestId('unlock-submit'));
-
-    await waitFor(() => {
-      expect(mockCompleteOnboarding).toHaveBeenCalledWith(true);
-    });
-    expect(mockUseNavigate).not.toHaveBeenCalledWith(
-      ONBOARDING_COMPLETION_ROUTE,
-      expect.anything(),
-    );
   });
 
   it('should render onboarding Login page screen', async () => {

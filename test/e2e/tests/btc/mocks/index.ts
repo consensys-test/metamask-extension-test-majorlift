@@ -1,4 +1,4 @@
-export { mockInitialFullScan, mockEmptyInitialFullScan } from './esplora';
+export { mockInitialFullScan } from './esplora';
 export {
   mockExchangeRates,
   mockCurrencyExchangeRates,
@@ -29,4 +29,3 @@ export {
   MOCK_BRIDGE_QUOTE_BTC_TO_ETH,
 } from './bridge';
 export type { BridgeMockOptions } from './bridge';
-export * from './blockstream';

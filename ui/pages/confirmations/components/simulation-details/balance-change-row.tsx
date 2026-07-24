@@ -1,10 +1,5 @@
 import React from 'react';
 import {
-  Box as DSBox,
-  BoxAlignItems,
-  BoxFlexDirection,
-} from '@metamask/design-system-react';
-import {
   AlignItems,
   Display,
   FlexDirection,
@@ -39,26 +34,23 @@ import { IndividualFiatDisplay } from './fiat-display';
  * @param props.isFirstRow
  * @param props.hasIncomingTokens
  * @param props.confirmationId
- * @param props.labelChildren
  */
-export const BalanceChangeRow = ({
-  label,
-  showFiat,
-  balanceChange,
-  labelColor,
-  labelChildren,
-  isFirstRow,
-  hasIncomingTokens,
-  confirmationId,
-}: {
+export const BalanceChangeRow: React.FC<{
   label?: string;
   showFiat?: boolean;
   balanceChange: BalanceChange;
   labelColor?: TextColor;
-  labelChildren?: React.ReactNode;
   isFirstRow?: boolean;
   hasIncomingTokens?: boolean;
   confirmationId?: string;
+}> = ({
+  label,
+  showFiat,
+  balanceChange,
+  labelColor,
+  isFirstRow,
+  hasIncomingTokens,
+  confirmationId,
 }) => {
   const t = useI18nContext();
 
@@ -92,20 +84,13 @@ export const BalanceChangeRow = ({
     }
 
     return (
-      <DSBox
-        flexDirection={BoxFlexDirection.Row}
-        alignItems={BoxAlignItems.Center}
-        gap={1}
+      <Text
+        style={{ whiteSpace: 'nowrap' }}
+        color={labelColor ?? TextColor.textAlternative}
+        variant={TextVariant.bodyMdMedium}
       >
-        <Text
-          style={{ whiteSpace: 'nowrap' }}
-          color={labelColor ?? TextColor.textAlternative}
-          variant={TextVariant.bodyMdMedium}
-        >
-          {label}
-        </Text>
-        {labelChildren}
-      </DSBox>
+        {label}
+      </Text>
     );
   };
 

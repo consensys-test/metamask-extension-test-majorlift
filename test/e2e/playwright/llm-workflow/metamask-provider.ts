@@ -19,6 +19,7 @@ import {
   ErrorCodes,
   generateSessionId,
   knowledgeStore,
+  MockServerCapability,
 } from '@metamask/client-mcp-core';
 import type {
   CreateMetaMaskContextOptions,
@@ -88,6 +89,10 @@ export class MetaMaskSessionManager implements ISessionManager {
     return this.workflowContext?.stateSnapshot;
   }
 
+  private getMockServerCapability(): MockServerCapability | undefined {
+    return this.workflowContext?.mockServer;
+  }
+
   setContext(
     context: 'e2e' | 'prod',
     options?: CreateMetaMaskContextOptions | CreateMetaMaskProdContextOptions,
@@ -128,6 +133,9 @@ export class MetaMaskSessionManager implements ISessionManager {
     if (this.workflowContext.fixture) {
       stops.push(this.workflowContext.fixture.stop().catch(() => undefined));
     }
+    if (this.workflowContext.mockServer) {
+      stops.push(this.workflowContext.mockServer.stop().catch(() => undefined));
+    }
     if (this.workflowContext.chain) {
       stops.push(this.workflowContext.chain.stop().catch(() => undefined));
     }
@@ -159,6 +167,9 @@ export class MetaMaskSessionManager implements ISessionManager {
     }
     if (this.getStateSnapshotCapability()) {
       availableCapabilities.push('stateSnapshot');
+    }
+    if (this.getMockServerCapability()) {
+      availableCapabilities.push('mockServer');
     }
 
     return {
@@ -375,6 +386,7 @@ export class MetaMaskSessionManager implements ISessionManager {
 
     const fixtureCapability = this.getMetaMaskFixtureCapability();
     const chainCapability = this.getChainCapability();
+    const mockServerCapability = this.getMockServerCapability();
     const contractSeedingCapability = this.getContractSeedingCapability();
 
     if (!isProdMode && !fixtureCapability) {
@@ -393,6 +405,7 @@ export class MetaMaskSessionManager implements ISessionManager {
     const startedCapabilities: {
       fixture?: boolean;
       chain?: boolean;
+      mockServer?: boolean;
     } = {};
 
     let launcher: MetaMaskExtensionLauncher | undefined;
@@ -421,6 +434,16 @@ export class MetaMaskSessionManager implements ISessionManager {
         startedCapabilities.chain = true;
       }
 
+      let proxyServer: string | undefined;
+      if (mockServerCapability) {
+        await mockServerCapability.start();
+        startedCapabilities.mockServer = true;
+
+        if (mockServerCapability.isRunning()) {
+          proxyServer = `127.0.0.1:${mockServerCapability.getPort()}`;
+        }
+      }
+
       if (contractSeedingCapability) {
         contractSeedingCapability.initialize();
 
@@ -434,6 +457,7 @@ export class MetaMaskSessionManager implements ISessionManager {
         stateMode,
         slowMo: input.slowMo ?? 0,
         extensionPath,
+        proxyServer,
         manifestFlags: resolvedFixturePort
           ? {
               testing: {
@@ -450,6 +474,7 @@ export class MetaMaskSessionManager implements ISessionManager {
         startedCapabilities,
         launcher,
         fixtureCapability,
+        mockServerCapability,
         chainCapability,
       );
       throw error;
@@ -516,15 +541,19 @@ export class MetaMaskSessionManager implements ISessionManager {
   }
 
   private async rollbackStartedCapabilities(
-    started: { fixture?: boolean; chain?: boolean },
+    started: { fixture?: boolean; chain?: boolean; mockServer?: boolean },
     launcher: MetaMaskExtensionLauncher | undefined,
     fixtureCapability: FixtureCapability | undefined,
+    mockServerCapability: MockServerCapability | undefined,
     chainCapability: ChainCapability | undefined,
   ): Promise<void> {
     const stops: Promise<void>[] = [];
 
     if (launcher) {
       stops.push(launcher.cleanup().catch(() => undefined));
+    }
+    if (started.mockServer && mockServerCapability) {
+      stops.push(mockServerCapability.stop().catch(() => undefined));
     }
     if (started.fixture && fixtureCapability) {
       stops.push(fixtureCapability.stop().catch(() => undefined));
@@ -552,6 +581,15 @@ export class MetaMaskSessionManager implements ISessionManager {
       stops.push(
         fixtureCapability.stop().catch((e) => {
           console.warn('Failed to stop fixture server:', e);
+        }),
+      );
+    }
+
+    const mockServerCapability = this.getMockServerCapability();
+    if (mockServerCapability) {
+      stops.push(
+        mockServerCapability.stop().catch((e) => {
+          console.warn('Failed to stop mock server:', e);
         }),
       );
     }

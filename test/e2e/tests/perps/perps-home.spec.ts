@@ -2,10 +2,10 @@ import { Suite } from 'mocha';
 import { withFixtures } from '../../helpers';
 import { Driver } from '../../webdriver/driver';
 import { login } from '../../page-objects/flows/login.flow';
-import { PerpsTab } from '../../page-objects/pages/home/perps-tab';
+import { PerpsHomePage } from '../../page-objects/pages/perps/perps-home-page';
 import { PerpsMarketDetailPage } from '../../page-objects/pages/perps/perps-market-detail-page';
 import { PerpsMarketListPage } from '../../page-objects/pages/perps/perps-market-list-page';
-import { getPerpsConfigEligible } from './perps-fixture-config';
+import { getConfig } from './helpers';
 
 /**
  * Perps E2E tests.
@@ -21,17 +21,17 @@ describe('Perps', function (this: Suite) {
   it.skip('shows list of open positions', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver, { validateBalance: false });
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForPositionsSection();
-        await perpsTab.waitForPositionCardsCount(9);
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForPositionsSection();
+        await perpsHomePage.waitForPositionCardsCount(9);
 
-        await perpsTab.waitForPositionCard('ETH');
+        await perpsHomePage.waitForPositionCard('ETH');
       },
     );
   });
@@ -40,14 +40,14 @@ describe('Perps', function (this: Suite) {
   it.skip('opens order flow and submits a long market order', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver, { validateBalance: false });
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForPositionsSection();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForPositionsSection();
 
         const marketListPage = new PerpsMarketListPage(driver);
         await marketListPage.navigateToMarketList();
@@ -67,17 +67,17 @@ describe('Perps', function (this: Suite) {
   it.skip('opens add funds from Perps home', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver, { validateBalance: false });
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForBalanceSection();
-        await perpsTab.clickAddFunds();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForBalanceSection();
+        await perpsHomePage.clickAddFunds();
         // Add funds flow not implemented yet; test verifies button is visible and clickable
-        await perpsTab.waitForBalanceSection();
+        await perpsHomePage.waitForBalanceSection();
       },
     );
   });
@@ -86,17 +86,17 @@ describe('Perps', function (this: Suite) {
   it.skip('opens withdraw from Perps home', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver, { validateBalance: false });
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForBalanceSection();
-        await perpsTab.clickWithdraw();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForBalanceSection();
+        await perpsHomePage.clickWithdraw();
         // Withdraw flow not implemented yet; test verifies button is visible and clickable
-        await perpsTab.waitForBalanceSection();
+        await perpsHomePage.waitForBalanceSection();
       },
     );
   });
@@ -105,14 +105,14 @@ describe('Perps', function (this: Suite) {
   it.skip('explore crypto: search by type and sort by volume, search field', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver, { validateBalance: false });
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForBalanceSection();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForBalanceSection();
 
         const marketListPage = new PerpsMarketListPage(driver);
         await marketListPage.navigateToMarketList();
@@ -128,16 +128,16 @@ describe('Perps', function (this: Suite) {
   it.skip('learn basics of perps tutorial (go through it)', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver, { validateBalance: false });
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForBalanceSection();
-        await perpsTab.clickLearnBasics();
-        await perpsTab.goThroughTutorialModal();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForBalanceSection();
+        await perpsHomePage.clickLearnBasics();
+        await perpsHomePage.goThroughTutorialModal();
       },
     );
   });
@@ -146,14 +146,14 @@ describe('Perps', function (this: Suite) {
   it.skip('Modify button visible on market with position (only checks button, like Close)', async function () {
     await withFixtures(
       {
-        ...getPerpsConfigEligible(this.test?.fullTitle()),
+        ...getConfig(this.test?.fullTitle()),
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver, { validateBalance: false });
 
-        const perpsTab = new PerpsTab(driver);
-        await perpsTab.navigateToPerpsHome();
-        await perpsTab.waitForPositionsSection();
+        const perpsHomePage = new PerpsHomePage(driver);
+        await perpsHomePage.navigateToPerpsHome();
+        await perpsHomePage.waitForPositionsSection();
 
         const marketListPage = new PerpsMarketListPage(driver);
         await marketListPage.navigateToMarketList();

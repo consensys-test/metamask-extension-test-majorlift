@@ -1,17 +1,13 @@
 import {
   GatorPermissionsController,
-  type GatorPermissionsControllerMessenger,
   type GatorPermissionsControllerConfig,
 } from '@metamask/gator-permissions-controller';
 import { assertIsValidSnapId } from '@metamask/snaps-utils';
 import { MessengerClientInitFunction } from '../types';
-import { getEnabledAdvancedPermissions } from '../../../../shared/lib/gator-permissions/feature-flags';
+import { getEnabledAdvancedPermissions } from '../../../../shared/lib/environment';
+import { GatorPermissionsControllerMessenger } from '../messengers/gator-permissions';
 
-const createGatorPermissionsConfig = (
-  remoteFeatureFlagControllerState: Parameters<
-    typeof getEnabledAdvancedPermissions
-  >[0],
-): GatorPermissionsControllerConfig => {
+const createGatorPermissionsConfig = (): GatorPermissionsControllerConfig => {
   const gatorPermissionsProviderSnapId =
     process.env.GATOR_PERMISSIONS_PROVIDER_SNAP_ID;
 
@@ -29,9 +25,7 @@ const createGatorPermissionsConfig = (
     }
   }
 
-  const supportedPermissionTypes = getEnabledAdvancedPermissions(
-    remoteFeatureFlagControllerState,
-  );
+  const supportedPermissionTypes = getEnabledAdvancedPermissions();
 
   const config: GatorPermissionsControllerConfig = {
     supportedPermissionTypes,
@@ -47,14 +41,10 @@ const createGatorPermissionsConfig = (
 export const GatorPermissionsControllerInit: MessengerClientInitFunction<
   GatorPermissionsController,
   GatorPermissionsControllerMessenger
-> = ({ controllerMessenger, getMessengerClient, persistedState }) => {
-  const remoteFeatureFlagController = getMessengerClient(
-    'RemoteFeatureFlagController',
-  );
-
+> = ({ controllerMessenger, persistedState }) => {
   const messengerClient = new GatorPermissionsController({
     messenger: controllerMessenger,
-    config: createGatorPermissionsConfig(remoteFeatureFlagController.state),
+    config: createGatorPermissionsConfig(),
     state: persistedState.GatorPermissionsController,
   });
 

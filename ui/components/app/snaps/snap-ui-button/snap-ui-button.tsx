@@ -1,4 +1,4 @@
-import React, { MouseEvent as ReactMouseEvent } from 'react';
+import React, { FunctionComponent, MouseEvent as ReactMouseEvent } from 'react';
 import classnames from 'clsx';
 import { ButtonType, UserInputEventType } from '@metamask/snaps-sdk';
 import {
@@ -15,7 +15,6 @@ import { useSnapInterfaceContext } from '../../../../contexts/snaps';
 
 export type SnapUIButtonProps = {
   name?: string;
-  variant?: 'primary' | 'destructive';
   textVariant: ButtonLinkProps<'button'>['variant'];
   loading?: boolean;
 };
@@ -26,21 +25,19 @@ const COLORS = {
   disabled: TextColor.textMuted,
 };
 
-export const SnapUIButton = ({
+export const SnapUIButton: FunctionComponent<
+  SnapUIButtonProps & ButtonLinkProps<'button'>
+> = ({
   name,
   children,
   type = ButtonType.Button,
-  variant: variantProp,
+  variant = 'primary',
   disabled = false,
   loading = false,
   className = '',
   textVariant,
   ...props
-}: React.PropsWithChildren<
-  SnapUIButtonProps & Omit<ButtonLinkProps<'button'>, 'variant'>
->) => {
-  const variant: 'primary' | 'destructive' = variantProp ?? 'primary';
-
+}) => {
   const { handleEvent } = useSnapInterfaceContext();
 
   const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
@@ -56,7 +53,7 @@ export const SnapUIButton = ({
 
   const overriddenVariant = disabled ? 'disabled' : variant;
 
-  const color = COLORS[overriddenVariant];
+  const color = COLORS[overriddenVariant as keyof typeof COLORS];
 
   return (
     <Text

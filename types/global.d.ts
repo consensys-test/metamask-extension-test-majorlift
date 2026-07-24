@@ -1,5 +1,9 @@
 // Many of the state hooks return untyped raw state.
 
+// In order for variables to be considered on the global scope they must be
+// declared using var and not const or let, which is why this rule is disabled
+/* eslint-disable no-var */
+
 import * as Sentry from '@sentry/browser';
 import {
   Success,
@@ -18,7 +22,7 @@ import {
   OffscreenCommunicationTarget,
   TrezorAction,
 } from '../shared/constants/offscreen-communication';
-import type { Preferences } from '../shared/types/preferences';
+import type { Preferences } from '../app/scripts/controllers/preferences-controller';
 import type ExtensionPlatform from '../app/scripts/platforms/extension';
 import type { ExtensionLazyListener } from '../app/scripts/lib/extension-lazy-listener/extension-lazy-listener';
 import type {
@@ -255,7 +259,7 @@ type StateHooks = {
   getMostRecentPersistedState?: () => any;
   // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getPersistedState: (options?: { reportErrors?: boolean }) => Promise<any>;
+  getPersistedState: () => Promise<any>;
   getBackupState?: () => Promise<Backup | null>;
   // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31973
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

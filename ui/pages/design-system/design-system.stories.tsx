@@ -49,7 +49,7 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj;
 
-const WalletHome = () => {
+const WalletHome: React.FC = () => {
   return (
     <Box className="min-h-screen md:flex md:items-center md:justify-center md:bg-alternative md:py-4">
       {/* Container Expanded View */}

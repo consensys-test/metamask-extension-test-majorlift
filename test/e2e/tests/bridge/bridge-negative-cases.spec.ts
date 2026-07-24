@@ -3,7 +3,7 @@ import { withFixtures } from '../../helpers';
 import { login } from '../../page-objects/flows/login.flow';
 import HomePage from '../../page-objects/pages/home/homepage';
 import BridgeQuotePage from '../../page-objects/pages/bridge/quote-page';
-import ActivityTab from '../../page-objects/pages/home/activity-tab';
+import ActivityListPage from '../../page-objects/pages/home/activity-list';
 import {
   enterBridgeQuote,
   getBridgeNegativeCasesFixtures,
@@ -164,13 +164,12 @@ describe('Bridge functionality', function (this: Suite) {
 
         await bridgePage.submitQuote();
         await bridgePage.approveModalIfPresent();
-        await driver.clickElementSafe({ text: 'View activity' });
-        await homePage.goToActivityList();
+        await driver.clickElement({ text: 'View activity' });
 
-        const activityTab = new ActivityTab(driver);
-        await activityTab.checkPendingBridgeTransactionActivity();
-        await activityTab.checkBridgeTransactionDetails(
-          'Bridging ETH',
+        const activityList = new ActivityListPage(driver);
+        await activityList.checkPendingBridgeTransactionActivity();
+        await activityList.checkBridgeTransactionDetails(
+          'Bridged to Linea',
           true,
           'pending',
           '1',
@@ -208,10 +207,10 @@ describe('Bridge functionality', function (this: Suite) {
         await bridgePage.submitQuoteAndDismiss();
         await homePage.goToActivityList();
 
-        const activityTab = new ActivityTab(driver);
-        await activityTab.checkFailedTxNumberDisplayedInActivity();
-        await activityTab.checkBridgeTransactionDetails(
-          'Bridge failed',
+        const activityList = new ActivityListPage(driver);
+        await activityList.checkFailedTxNumberDisplayedInActivity();
+        await activityList.checkBridgeTransactionDetails(
+          'Bridged to Linea',
           true,
           'failed',
           '1',
@@ -249,10 +248,10 @@ describe('Bridge functionality', function (this: Suite) {
         await bridgePage.submitQuoteAndDismiss();
         await homePage.goToActivityList();
 
-        const activityTab = new ActivityTab(driver);
-        await activityTab.checkFailedTxNumberDisplayedInActivity();
-        await activityTab.checkBridgeTransactionDetails(
-          'Bridge failed',
+        const activityList = new ActivityListPage(driver);
+        await activityList.checkFailedTxNumberDisplayedInActivity();
+        await activityList.checkBridgeTransactionDetails(
+          'Bridged to Linea',
           true,
           'failed',
           '1',

@@ -1,5 +1,3 @@
-const ENVIRONMENT = require('../../shared/constants/build-environment.json');
-
 /**
  * The build target. This descrbes the overall purpose of the build.
  *
@@ -12,6 +10,19 @@ const BUILD_TARGETS = {
   PROD: 'prod',
   TEST: 'test',
   TEST_DEV: 'testDev',
+};
+
+/**
+ * The build environment. This describes the environment this build was produced in.
+ */
+const ENVIRONMENT = {
+  DEVELOPMENT: 'development',
+  PRODUCTION: 'production',
+  OTHER: 'other',
+  PULL_REQUEST: 'pull-request',
+  RELEASE_CANDIDATE: 'release-candidate',
+  STAGING: 'staging',
+  TESTING: 'testing',
 };
 
 const TASKS = {

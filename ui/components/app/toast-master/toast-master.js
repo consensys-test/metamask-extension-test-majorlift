@@ -1,4 +1,6 @@
-import React, { memo, useEffect, useState } from 'react';
+/* eslint-disable react/prop-types -- TODO: upgrade to TypeScript */
+
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -6,10 +8,10 @@ import {
   AvatarNetworkSize,
 } from '@metamask/design-system-react';
 import { PRODUCT_TYPES } from '@metamask/subscription-controller';
-import { useAnalytics } from '../../../hooks/useAnalytics';
 import { SECOND } from '../../../../shared/constants/time';
 import { ENVIRONMENT_TYPE_SIDEPANEL } from '../../../../shared/constants/app';
-import { getEnvironmentType } from '../../../../shared/lib/environment-type';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { getEnvironmentType } from '../../../../app/scripts/lib/util';
 import { PRIVACY_POLICY_LINK } from '../../../../shared/lib/ui-utils';
 import {
   BorderRadius,
@@ -35,7 +37,12 @@ import {
 import { Icon, IconName, IconSize } from '../../component-library';
 import { Toast, ToastContainer } from '../../multichain';
 import { SurveyToast } from '../../ui/survey-toast';
-import { StorageWriteErrorType } from '../../../../shared/constants/app-state';
+import { PerpsDepositToast } from '../perps/perps-deposit-toast';
+import {
+  ClaimSubmitToastType,
+  StorageWriteErrorType,
+} from '../../../../shared/constants/app-state';
+import { MerklClaimToast, MusdConversionToast } from '../musd';
 import { PerpsWithdrawToast } from '../perps/perps-withdraw-toast';
 import { getDappActiveNetwork } from '../../../selectors/dapp';
 import {
@@ -53,6 +60,7 @@ import {
   isCryptoPaymentMethod,
 } from '../../../pages/shield/transaction-shield/types';
 import { useSubscriptionMetrics } from '../../../hooks/shield/metrics/useSubscriptionMetrics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -64,7 +72,7 @@ import {
 } from '../../../../shared/constants/subscriptions';
 import {
   selectShowPrivacyPolicyToast,
-  selectNewPrivacyPolicyToastShownDate,
+  selectClaimSubmitToast,
   selectShowShieldPausedToast,
   selectShowShieldEndingToast,
   selectShowStorageErrorToast,
@@ -75,22 +83,12 @@ import {
 import {
   setNewPrivacyPolicyToastClickedOrClosed,
   setNewPrivacyPolicyToastShownDate,
+  setShowClaimSubmitToast,
   setShowInfuraSwitchToast,
   setShieldPausedToastLastClickedOrClosed,
   setShieldEndingToastLastClickedOrClosed,
   dismissSidePanelMigrationToast,
 } from './utils';
-
-// Memoized to prevent re-renders when ToastMaster re-renders due to location changes.
-const MemoizedSurveyToast = memo(SurveyToast);
-const MemoizedPrivacyPolicyToast = memo(PrivacyPolicyToast);
-const MemoizedPermittedNetworkToast = memo(PermittedNetworkToast);
-const MemoizedInfuraSwitchToast = memo(InfuraSwitchToast);
-const MemoizedPerpsWithdrawToast = memo(PerpsWithdrawToast);
-const MemoizedShieldPausedToast = memo(ShieldPausedToast);
-const MemoizedShieldEndingToast = memo(ShieldEndingToast);
-const MemoizedSidePanelMigrationToast = memo(SidePanelMigrationToast);
-const MemoizedStorageErrorToast = memo(StorageErrorToast);
 
 export function ToastMaster() {
   const location = useLocation();
@@ -105,18 +103,24 @@ export function ToastMaster() {
   const onPerpsScreen = currentPathname.startsWith(PERPS_ROUTE);
   const onSettingsScreen = currentPathname.startsWith(SETTINGS_ROUTE);
 
+  // Storage error toast should show on ALL screens
+  const storageErrorToast = <StorageErrorToast />;
+
   if (onHomeScreen) {
     return (
       <ToastContainer>
-        <MemoizedStorageErrorToast />
-        <MemoizedSurveyToast />
-        <MemoizedPrivacyPolicyToast />
-        <MemoizedPermittedNetworkToast />
-        <MemoizedInfuraSwitchToast />
-        <MemoizedPerpsWithdrawToast />
-        <MemoizedShieldPausedToast />
-        <MemoizedShieldEndingToast />
-        <MemoizedSidePanelMigrationToast />
+        {storageErrorToast}
+        <SurveyToast />
+        <PrivacyPolicyToast />
+        <PermittedNetworkToast />
+        <InfuraSwitchToast />
+        <PerpsDepositToast />
+        <MerklClaimToast />
+        <MusdConversionToast />
+        <PerpsWithdrawToast />
+        <ShieldPausedToast />
+        <ShieldEndingToast />
+        <SidePanelMigrationToast />
       </ToastContainer>
     );
   }
@@ -124,8 +128,9 @@ export function ToastMaster() {
   if (onPerpsScreen) {
     return (
       <ToastContainer>
-        <MemoizedStorageErrorToast />
-        <MemoizedPerpsWithdrawToast />
+        {storageErrorToast}
+        <PerpsDepositToast />
+        <PerpsWithdrawToast />
       </ToastContainer>
     );
   }
@@ -133,7 +138,8 @@ export function ToastMaster() {
   if (onSettingsScreen) {
     return (
       <ToastContainer>
-        <MemoizedStorageErrorToast />
+        {storageErrorToast}
+        <ClaimSubmitToast />
       </ToastContainer>
     );
   }
@@ -141,11 +147,7 @@ export function ToastMaster() {
   // On other screens, only render ToastContainer if storage error toast should show
   // ToastContainer provides essential CSS styling (position: fixed, z-index, etc.)
   if (shouldShowStorageErrorToast) {
-    return (
-      <ToastContainer>
-        <MemoizedStorageErrorToast />
-      </ToastContainer>
-    );
+    return <ToastContainer>{storageErrorToast}</ToastContainer>;
   }
 
   return null;
@@ -154,10 +156,8 @@ export function ToastMaster() {
 function PrivacyPolicyToast() {
   const t = useI18nContext();
 
-  const showPrivacyPolicyToast = useSelector(selectShowPrivacyPolicyToast);
-  const newPrivacyPolicyToastShownDate = useSelector(
-    selectNewPrivacyPolicyToastShownDate,
-  );
+  const { showPrivacyPolicyToast, newPrivacyPolicyToastShownDate } =
+    useSelector(selectShowPrivacyPolicyToast);
 
   // If the privacy policy toast is shown, and there is no date set, set it
   if (showPrivacyPolicyToast && !newPrivacyPolicyToastShownDate) {
@@ -266,6 +266,138 @@ function InfuraSwitchToast() {
     )
   );
 }
+
+const ClaimSubmitToast = () => {
+  const t = useI18nContext();
+  const dispatch = useDispatch();
+
+  const showClaimSubmitToast = useSelector(selectClaimSubmitToast);
+  const autoHideToastDelay = 5 * SECOND;
+
+  const isSuccess = showClaimSubmitToast === ClaimSubmitToastType.Success;
+  const isDraftSaved = showClaimSubmitToast === ClaimSubmitToastType.DraftSaved;
+  const isDraftSaveFailed =
+    showClaimSubmitToast === ClaimSubmitToastType.DraftSaveFailed;
+  const isErrored = showClaimSubmitToast === ClaimSubmitToastType.Errored;
+  const isDraftDeleted =
+    showClaimSubmitToast === ClaimSubmitToastType.DraftDeleted;
+  const isDraftDeleteFailed =
+    showClaimSubmitToast === ClaimSubmitToastType.DraftDeleteFailed;
+
+  const description = useMemo(() => {
+    if (isSuccess) {
+      return t('shieldClaimSubmitSuccessDescription');
+    }
+    if (isDraftSaved) {
+      return t('shieldClaimDraftSavedDescription');
+    }
+    if (isDraftSaveFailed) {
+      return t('shieldClaimDraftSaveFailedDescription');
+    }
+    if (isDraftDeleted) {
+      return t('shieldClaimDeleteDraftDescription');
+    }
+    if (isDraftDeleteFailed) {
+      return t('shieldClaimDraftDeleteFailedDescription');
+    }
+    if (isErrored) {
+      return '';
+    }
+    return showClaimSubmitToast;
+  }, [
+    isSuccess,
+    isDraftSaved,
+    isDraftSaveFailed,
+    isErrored,
+    isDraftDeleted,
+    isDraftDeleteFailed,
+    showClaimSubmitToast,
+    t,
+  ]);
+
+  const toastText = useMemo(() => {
+    if (isSuccess) {
+      return t('shieldClaimSubmitSuccess');
+    }
+    if (isDraftSaved) {
+      return t('shieldClaimDraftSaved');
+    }
+    if (isDraftSaveFailed) {
+      return t('shieldClaimDraftSaveFailed');
+    }
+    if (isDraftDeleted) {
+      return t('shieldClaimDeletedDraft');
+    }
+    if (isDraftDeleteFailed) {
+      return t('shieldClaimDraftDeleteFailed');
+    }
+    return t('shieldClaimSubmitError');
+  }, [
+    isSuccess,
+    isDraftSaved,
+    isDraftSaveFailed,
+    isDraftDeleted,
+    isDraftDeleteFailed,
+    t,
+  ]);
+
+  const dataTestId = useMemo(() => {
+    if (isSuccess) {
+      return 'claim-submit-toast-success';
+    }
+    if (isDraftSaved) {
+      return 'claim-draft-saved-toast';
+    }
+    if (isDraftSaveFailed) {
+      return 'claim-draft-save-failed-toast';
+    }
+    if (isDraftDeleted) {
+      return 'claim-draft-deleted-toast';
+    }
+    if (isDraftDeleteFailed) {
+      return 'claim-draft-delete-failed-toast';
+    }
+    return 'claim-submit-toast-error';
+  }, [
+    isSuccess,
+    isDraftSaved,
+    isDraftSaveFailed,
+    isDraftDeleted,
+    isDraftDeleteFailed,
+  ]);
+
+  return (
+    showClaimSubmitToast !== null && (
+      <Toast
+        dataTestId={dataTestId}
+        key="claim-submit-toast"
+        text={toastText}
+        description={description}
+        startAdornment={
+          <Icon
+            name={
+              isSuccess || isDraftSaved || isDraftDeleted
+                ? IconName.CheckBold
+                : IconName.CircleX
+            }
+            color={
+              isSuccess || isDraftSaved || isDraftDeleted
+                ? IconColor.successDefault
+                : IconColor.errorDefault
+            }
+          />
+        }
+        autoHideTime={autoHideToastDelay}
+        onAutoHideToast={() => {
+          dispatch(setShowClaimSubmitToast(null));
+        }}
+        onClose={() => {
+          dispatch(setShowClaimSubmitToast(null));
+        }}
+      />
+    )
+  );
+};
 
 function ShieldPausedToast() {
   const t = useI18nContext();
@@ -402,7 +534,7 @@ function ShieldEndingToast() {
 function StorageErrorToast() {
   const t = useI18nContext();
   const navigate = useNavigate();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const [isDismissed, setIsDismissed] = useState(false);
   const [hasTrackedView, setHasTrackedView] = useState(false);
 
@@ -423,33 +555,28 @@ function StorageErrorToast() {
   // Track "Viewed" event when toast becomes visible
   useEffect(() => {
     if (shouldShow && !hasTrackedView) {
-      trackEvent(
-        createEventBuilder(MetaMetricsEventName.StorageErrorToastViewed)
-          .addCategory(MetaMetricsEventCategory.Error)
-          .build(),
-      );
+      trackEvent({
+        event: MetaMetricsEventName.StorageErrorToastViewed,
+        category: MetaMetricsEventCategory.Error,
+      });
       setHasTrackedView(true);
     }
-  }, [shouldShow, hasTrackedView, trackEvent, createEventBuilder]);
+  }, [shouldShow, hasTrackedView, trackEvent]);
 
   const handleRevealSrpClick = () => {
-    trackEvent(
-      createEventBuilder(
-        MetaMetricsEventName.StorageErrorToastBackupSrpButtonPressed,
-      )
-        .addCategory(MetaMetricsEventCategory.Error)
-        .build(),
-    );
+    trackEvent({
+      event: MetaMetricsEventName.StorageErrorToastBackupSrpButtonPressed,
+      category: MetaMetricsEventCategory.Error,
+    });
     setIsDismissed(true);
     navigate(REVEAL_SEED_ROUTE, { state: { skipQuiz: true } });
   };
 
   const handleClose = () => {
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.StorageErrorToastDismissed)
-        .addCategory(MetaMetricsEventCategory.Error)
-        .build(),
-    );
+    trackEvent({
+      event: MetaMetricsEventName.StorageErrorToastDismissed,
+      category: MetaMetricsEventCategory.Error,
+    });
     setIsDismissed(true);
   };
 

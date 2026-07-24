@@ -6,7 +6,6 @@
  */
 
 import type { MetaMaskReduxState } from '../../store/store';
-import { EMPTY_ARRAY } from '../shared';
 
 /**
  * Select whether the mUSD conversion education screen has been seen
@@ -24,6 +23,4 @@ export const selectMusdConversionEducationSeen = (
  */
 export const selectMusdConversionDismissedCtaKeys = (
   state: MetaMaskReduxState,
-): readonly string[] =>
-  state.metamask.musdConversionDismissedCtaKeys ??
-  (EMPTY_ARRAY as readonly string[]);
+): string[] => state.metamask.musdConversionDismissedCtaKeys ?? [];

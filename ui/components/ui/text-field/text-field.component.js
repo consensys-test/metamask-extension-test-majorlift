@@ -1,6 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import MaterialTextField from '@mui/material/TextField';
+import { withStyles } from '@material-ui/core/styles';
+import MaterialTextField from '@material-ui/core/TextField';
 
 /**
  * @deprecated The `<TextField />` component has been deprecated in favor of the new `<TextField>` component from the component-library.
@@ -20,37 +21,109 @@ const inputLabelBase = {
 
 const fontFamily = ['"Geist"', 'Helvetica', 'Arial', 'sans-serif'].join(', ');
 
+const styles = {
+  materialLabel: {
+    '&$materialFocused': {
+      color: 'var(--color-text-alternative)',
+    },
+    '&$materialError': {
+      color: 'var(--color-text-alternative)',
+    },
+    fontWeight: '400',
+    color: 'var(--color-text-alternative)',
+  },
+  materialFocused: {},
+  materialUnderline: {
+    '&:before': {
+      borderBottom: '1px solid var(--color-text-default) !important', // Visible bottom border
+    },
+    '&:after': {
+      borderBottom: `2px solid var(--color-primary-default)`, // Animated bottom border
+    },
+  },
+  materialError: {},
+  materialWhitePaddedRoot: {
+    color: 'var(--color-text-alternative)',
+  },
+  materialWhitePaddedInput: {
+    padding: '8px',
+
+    '&::placeholder': {
+      color: 'var(--color-text-alternative)',
+    },
+  },
+  materialWhitePaddedFocused: {
+    color: 'var(--color-background-default)',
+  },
+  materialWhitePaddedUnderline: {
+    '&:after': {
+      borderBottom: '2px solid var(--color-background-default)', // @TODO: Replace with border-muted ?
+    },
+  },
+  // Non-material styles
+  formLabel: {
+    fontFamily,
+    '&$formLabelFocused': {
+      color: 'var(--color-text-alternative)',
+    },
+    '&$materialError': {
+      color: 'var(--color-text-alternative)',
+    },
+  },
+  formLabelFocused: {},
+  inputFocused: {},
+  inputRoot: {
+    fontFamily,
+    'label + &': {
+      marginTop: '9px',
+    },
+    backgroundColor: 'var(--color-background-default)',
+    border: '1px solid var(--color-border-default)',
+    color: 'var(--color-text-default)',
+    height: '48px',
+    padding: '0 16px',
+    display: 'flex',
+    alignItems: 'center',
+    '&$inputFocused': {
+      border: '1px solid var(--color-primary-default)',
+    },
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+  },
+  largeInputLabel: {
+    ...inputLabelBase,
+    fontSize: '1rem',
+  },
+  inputLabel: {
+    ...inputLabelBase,
+    fontSize: '.75rem',
+  },
+  inputMultiline: {
+    lineHeight: 'initial !important',
+  },
+};
+
 const getMaterialThemeInputProps = ({
   dir,
+  classes: { materialLabel, materialFocused, materialError, materialUnderline },
   startAdornment,
   endAdornment,
   min,
   max,
   autoComplete,
 }) => ({
-  variant: 'standard',
   InputLabelProps: {
-    sx: {
-      '&.Mui-focused': {
-        color: 'var(--color-text-alternative)',
-      },
-      '&.Mui-error': {
-        color: 'var(--color-text-alternative)',
-      },
-      fontWeight: '400',
-      color: 'var(--color-text-alternative)',
+    classes: {
+      root: materialLabel,
+      focused: materialFocused,
+      error: materialError,
     },
   },
   InputProps: {
     startAdornment,
     endAdornment,
-    sx: {
-      '&:before': {
-        borderBottom: '1px solid var(--color-text-default) !important', // Visible bottom border
-      },
-      '&:after': {
-        borderBottom: `2px solid var(--color-primary-default)`, // Animated bottom border
-      },
+    classes: {
+      underline: materialUnderline,
     },
     inputProps: {
       dir,
@@ -63,30 +136,26 @@ const getMaterialThemeInputProps = ({
 
 const getMaterialWhitePaddedThemeInputProps = ({
   dir,
+  classes: {
+    materialWhitePaddedRoot,
+    materialWhitePaddedFocused,
+    materialWhitePaddedInput,
+    materialWhitePaddedUnderline,
+  },
   startAdornment,
   endAdornment,
   min,
   max,
   autoComplete,
 }) => ({
-  variant: 'standard',
   InputProps: {
     startAdornment,
     endAdornment,
-    sx: {
-      color: 'var(--color-text-alternative)',
-      '&.Mui-focused': {
-        color: 'var(--color-background-default)',
-      },
-      '& .MuiInputBase-input': {
-        padding: '8px',
-        '&::placeholder': {
-          color: 'var(--color-text-alternative)',
-        },
-      },
-      '&:after': {
-        borderBottom: '2px solid var(--color-background-default)', // @TODO: Replace with border-muted ?
-      },
+    classes: {
+      root: materialWhitePaddedRoot,
+      focused: materialWhitePaddedFocused,
+      input: materialWhitePaddedInput,
+      underline: materialWhitePaddedUnderline,
     },
     inputProps: {
       dir,
@@ -99,6 +168,16 @@ const getMaterialWhitePaddedThemeInputProps = ({
 
 const getBorderedThemeInputProps = ({
   dir,
+  classes: {
+    formLabel,
+    formLabelFocused,
+    materialError,
+    largeInputLabel,
+    inputLabel,
+    inputRoot,
+    input,
+    inputFocused,
+  },
   largeLabel,
   startAdornment,
   endAdornment,
@@ -108,39 +187,20 @@ const getBorderedThemeInputProps = ({
 }) => ({
   InputLabelProps: {
     shrink: true,
-    sx: {
-      ...(largeLabel ? { fontSize: '1rem' } : { fontSize: '.75rem' }),
-      ...inputLabelBase,
-      fontFamily,
-      '&.Mui-focused': {
-        color: 'var(--color-text-alternative)',
-      },
-      '&.Mui-error': {
-        color: 'var(--color-text-alternative)',
-      },
+    className: largeLabel ? largeInputLabel : inputLabel,
+    classes: {
+      root: formLabel,
+      focused: formLabelFocused,
+      error: materialError,
     },
   },
-  variant: 'standard',
   InputProps: {
     startAdornment,
     endAdornment,
-    sx: {
-      fontFamily,
-      'label + &': {
-        marginTop: '9px',
-      },
-      backgroundColor: 'var(--color-background-default)',
-      border: '1px solid var(--color-border-default)',
-      color: 'var(--color-text-default)',
-      height: '48px',
-      padding: '0 16px',
-      display: 'flex',
-      alignItems: 'center',
-      '&.Mui-focused': {
-        border: '1px solid var(--color-primary-default)',
-      },
-      borderRadius: '8px',
-      fontSize: '0.875rem',
+    classes: {
+      root: inputRoot,
+      input,
+      focused: inputFocused,
     },
     inputProps: {
       dir,
@@ -160,12 +220,13 @@ const themeToInputProps = {
 
 const TextField = ({
   'data-testid': dataTestId,
-  error = null,
-  theme = 'bordered',
+  error,
+  classes,
+  theme,
   startAdornment,
   endAdornment,
   largeLabel,
-  dir = 'auto',
+  dir,
   min,
   max,
   autoComplete,
@@ -173,6 +234,7 @@ const TextField = ({
   ...textFieldProps
 }) => {
   const inputProps = themeToInputProps[theme]({
+    classes,
     startAdornment,
     endAdornment,
     largeLabel,
@@ -203,6 +265,12 @@ const TextField = ({
   );
 };
 
+TextField.defaultProps = {
+  error: null,
+  dir: 'auto',
+  theme: 'bordered',
+};
+
 TextField.propTypes = {
   /**
    * A test ID that gets set on the input element
@@ -212,6 +280,10 @@ TextField.propTypes = {
    * Show error message
    */
   error: PropTypes.oneOfType([PropTypes.string, PropTypes.element]),
+  /**
+   * Add custom CSS class
+   */
+  classes: PropTypes.object,
   dir: PropTypes.string,
   /**
    * Give theme to the text field
@@ -238,4 +310,4 @@ TextField.propTypes = {
   onPaste: PropTypes.func,
 };
 
-export default TextField;
+export default withStyles(styles)(TextField);

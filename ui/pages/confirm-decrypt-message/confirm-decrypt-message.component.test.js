@@ -12,21 +12,8 @@ import {
   cancelDecryptMsg,
 } from '../../store/actions';
 import { useScrollRequired } from '../../hooks/useScrollRequired';
+import { MetaMetricsContext } from '../../contexts/metametrics';
 import ConfirmDecryptMessage from './confirm-decrypt-message.component';
-
-const mockTrackEvent = jest.fn();
-
-jest.mock('../../hooks/useAnalytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../shared/lib/analytics/create-event-builder',
-  );
-  return {
-    useAnalytics: () => ({
-      trackEvent: mockTrackEvent,
-      createEventBuilder,
-    }),
-  };
-});
 
 const messageIdMock = '12345';
 
@@ -106,6 +93,13 @@ describe('ConfirmDecryptMessage Component', () => {
   const mockDecryptMsgInline = jest.mocked(decryptMsgInline);
   const mockDecryptMsg = jest.mocked(decryptMsg);
   const mockUseScrollRequired = jest.mocked(useScrollRequired);
+  const mockTrackEvent = jest.fn();
+  const mockMetaMetricsContext = {
+    trackEvent: mockTrackEvent,
+    bufferedTrace: jest.fn(),
+    bufferedEndTrace: jest.fn(),
+    onboardingParentContext: { current: null },
+  };
 
   let store;
 
@@ -128,7 +122,12 @@ describe('ConfirmDecryptMessage Component', () => {
   });
 
   const renderAndUnlockMessage = async () => {
-    const result = renderWithProvider(<ConfirmDecryptMessage />, store);
+    const result = renderWithProvider(
+      <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
+        <ConfirmDecryptMessage />
+      </MetaMetricsContext.Provider>,
+      store,
+    );
 
     const unlockButton = result.getByTestId('message-lock');
     unlockButton.click();
@@ -169,7 +168,12 @@ describe('ConfirmDecryptMessage Component', () => {
   });
 
   it('decrypt button calls decrypt action and calls metric event', async () => {
-    const { getByText } = renderWithProvider(<ConfirmDecryptMessage />, store);
+    const { getByText } = renderWithProvider(
+      <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
+        <ConfirmDecryptMessage />
+      </MetaMetricsContext.Provider>,
+      store,
+    );
 
     const confirmButton = getByText(messages.decrypt.message);
     confirmButton.click();
@@ -180,7 +184,12 @@ describe('ConfirmDecryptMessage Component', () => {
   });
 
   it('cancel button calls cancel action and calls metric event', async () => {
-    const { getByText } = renderWithProvider(<ConfirmDecryptMessage />, store);
+    const { getByText } = renderWithProvider(
+      <MetaMetricsContext.Provider value={mockMetaMetricsContext}>
+        <ConfirmDecryptMessage />
+      </MetaMetricsContext.Provider>,
+      store,
+    );
 
     const confirmButton = getByText(messages.cancel.message);
     confirmButton.click();

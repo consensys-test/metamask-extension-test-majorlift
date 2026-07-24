@@ -20,6 +20,7 @@ const getNetworkConfigurationByNetworkClientId = jest.fn();
 
 const createMiddleware = (
   args: {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     dappSwapMetricsFlag?: {
       enabled: boolean;
       bridge_quote_fees: number;
@@ -31,6 +32,7 @@ const createMiddleware = (
     fetchQuotes,
     setDappSwapComparisonData,
     getNetworkConfigurationByNetworkClientId,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     dappSwapMetricsFlag: {
       enabled: true,
       bridge_quote_fees: 250,
@@ -66,6 +68,7 @@ describe('DappSwapMiddleware', () => {
   it('does not fetch quotes if dapp swap is not enabled', async () => {
     fetchQuotes.mockReturnValueOnce(mockBridgeQuotes);
     const { middlewareFunction } = createMiddleware({
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       dappSwapMetricsFlag: {
         enabled: false,
         bridge_quote_fees: 250,
@@ -235,6 +238,7 @@ describe('DappSwapMiddleware', () => {
   it('does not fetch quotes if origin is not in the list of allowed origins', async () => {
     fetchQuotes.mockReturnValueOnce(mockBridgeQuotes);
     const { middlewareFunction } = createMiddleware({
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       dappSwapMetricsFlag: {
         enabled: true,
         bridge_quote_fees: 250,

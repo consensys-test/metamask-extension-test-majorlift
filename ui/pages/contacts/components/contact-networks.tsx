@@ -3,11 +3,14 @@ import { useSelector } from 'react-redux';
 import { NetworkConfiguration } from '@metamask/network-controller';
 import {
   Box,
+  BoxAlignItems,
   BoxFlexDirection,
   Text,
   TextVariant,
   TextColor,
   FontWeight,
+  AvatarNetwork,
+  AvatarNetworkSize,
 } from '@metamask/design-system-react';
 import {
   ModalOverlay,
@@ -15,17 +18,11 @@ import {
   ModalHeader,
   Modal,
 } from '../../../components/component-library';
-import { NetworkListItem } from '../../../components/multichain';
 import { getNetworkConfigurationsByChainId } from '../../../../shared/lib/selectors/networks';
+import { TEST_CHAINS } from '../../../../shared/constants/network';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { NETWORK_TO_SHORT_NETWORK_NAME_MAP } from '../../../../shared/constants/bridge';
 import { getImageForChainId } from '../../../selectors/multichain';
-import { getNetworkSections } from '../../../helpers/utils/network-sections';
-import { getIsNetworkManagementEnabled } from '../../../selectors/multichain/feature-flags';
-import {
-  NetworkSelectionModal,
-  type NetworkSelectionSection,
-} from '../../../components/app/assets/asset-list/asset-list-control-bar/home-network-filter-modal';
 
 export const ContactNetworks = ({
   isOpen,
@@ -39,55 +36,71 @@ export const ContactNetworks = ({
   onSelect?: (chainId: string) => void;
 }) => {
   const t = useI18nContext();
-  const isNetworkManagementEnabled = useSelector(getIsNetworkManagementEnabled);
 
   const networkConfigurations = useSelector(getNetworkConfigurationsByChainId);
-  const networkSections = useMemo(
+  const [nonTestNetworks, testNetworks] = useMemo(
     () =>
-      getNetworkSections(
-        Object.values(networkConfigurations) as NetworkConfiguration[],
+      Object.entries(networkConfigurations).reduce(
+        ([nonTest, test], [chainId, config]) => {
+          const isTest = (TEST_CHAINS as string[]).includes(chainId);
+          (isTest ? test : nonTest).push(config);
+          return [nonTest, test];
+        },
+        [[] as NetworkConfiguration[], [] as NetworkConfiguration[]],
       ),
     [networkConfigurations],
   );
 
-  const sharedModalSections = useMemo<NetworkSelectionSection[]>(
-    () =>
-      networkSections.map((section) => ({
-        key: section.key,
-        title: section.titleKey ? t(section.titleKey) : undefined,
-        items: section.items.map(({ name, chainId }) => {
-          const displayName =
-            NETWORK_TO_SHORT_NETWORK_NAME_MAP[
-              chainId as unknown as keyof typeof NETWORK_TO_SHORT_NETWORK_NAME_MAP
-            ] ?? name;
+  const renderNetworkRow = (
+    name: string,
+    chainId: string,
+    iconSrc: string | undefined,
+  ) => {
+    const displayName =
+      NETWORK_TO_SHORT_NETWORK_NAME_MAP[
+        chainId as unknown as keyof typeof NETWORK_TO_SHORT_NETWORK_NAME_MAP
+      ] ?? name;
+    const selected = selectedChainId === chainId;
 
-          return {
-            key: chainId,
-            chainId,
-            name: displayName,
-            iconSrc: getImageForChainId(chainId),
-            selected: selectedChainId === chainId,
-            onClick: () => {
-              onSelect?.(chainId);
-              onClose();
-            },
-            testId: `contact-network-filter-${chainId}`,
-          };
-        }),
-      })),
-    [networkSections, onClose, onSelect, selectedChainId, t],
-  );
-
-  if (isNetworkManagementEnabled) {
     return (
-      <NetworkSelectionModal
-        isOpen={isOpen}
-        onClose={onClose}
-        title={t('bridgeSelectNetwork')}
-        sections={sharedModalSections}
-      />
+      <Box
+        key={chainId}
+        flexDirection={BoxFlexDirection.Row}
+        alignItems={BoxAlignItems.Center}
+        gap={2}
+        padding={4}
+        className={`flex cursor-pointer ${
+          selected ? 'bg-background-muted' : 'bg-transparent'
+        }`}
+        onClick={() => {
+          onSelect?.(chainId);
+          onClose();
+        }}
+        data-testid={`network-list-item-${chainId}`}
+      >
+        <AvatarNetwork
+          size={AvatarNetworkSize.Sm}
+          name={displayName}
+          src={iconSrc}
+          className="rounded-md"
+        />
+        <Text
+          variant={TextVariant.BodyMd}
+          color={TextColor.TextDefault}
+          fontWeight={selected ? FontWeight.Medium : undefined}
+          ellipsis
+          className="min-w-0 flex-1"
+        >
+          {displayName}
+        </Text>
+      </Box>
     );
-  }
+  };
+
+  const renderNetworkList = (networks: { name: string; chainId: string }[]) =>
+    networks.map(({ name, chainId }) =>
+      renderNetworkRow(name, chainId, getImageForChainId(chainId)),
+    );
 
   return (
     <Modal
@@ -96,58 +109,35 @@ export const ContactNetworks = ({
       className="multichain-asset-picker__network-modal"
     >
       <ModalOverlay />
-      <ModalContent
-        padding={0}
-        modalDialogProps={{ padding: 0, height: '100%' }}
-      >
+      <ModalContent modalDialogProps={{ padding: 0 }}>
         <ModalHeader onBack={onClose} onClose={onClose}>
           {t('bridgeSelectNetwork')}
         </ModalHeader>
         <Box
           flexDirection={BoxFlexDirection.Column}
-          className="flex min-h-0 w-full flex-1 flex-col overflow-auto"
+          className="flex w-full flex-col overflow-auto"
         >
-          {networkSections.map((section, index) => (
+          <Box
+            flexDirection={BoxFlexDirection.Column}
+            className="flex w-full flex-col"
+          >
+            {renderNetworkList(nonTestNetworks)}
+
             <Box
-              key={section.key}
               flexDirection={BoxFlexDirection.Column}
-              className="flex w-full flex-col"
+              className="flex flex-col"
             >
-              {index > 0 ? (
-                <hr className="mx-4 mt-2 w-[calc(100%-32px)] border-0 border-t border-border-muted" />
-              ) : null}
-              {section.titleKey ? (
-                <Text
-                  variant={TextVariant.BodyMd}
-                  fontWeight={FontWeight.Medium}
-                  color={TextColor.TextAlternative}
-                  className="px-4 pb-2 pt-4"
-                >
-                  {t(section.titleKey)}
-                </Text>
-              ) : null}
-              {section.items.map(({ name, chainId }) => {
-                const displayName =
-                  NETWORK_TO_SHORT_NETWORK_NAME_MAP[
-                    chainId as unknown as keyof typeof NETWORK_TO_SHORT_NETWORK_NAME_MAP
-                  ] ?? name;
-                return (
-                  <NetworkListItem
-                    key={chainId}
-                    chainId={chainId}
-                    name={displayName}
-                    iconSrc={getImageForChainId(chainId)}
-                    selected={selectedChainId === chainId}
-                    onClick={() => {
-                      onSelect?.(chainId);
-                      onClose();
-                    }}
-                    focus={false}
-                  />
-                );
-              })}
+              <Text
+                variant={TextVariant.BodyMd}
+                fontWeight={FontWeight.Medium}
+                color={TextColor.TextDefault}
+                className="p-4"
+              >
+                {t('testnets')}
+              </Text>
+              {renderNetworkList(testNetworks)}
             </Box>
-          ))}
+          </Box>
         </Box>
       </ModalContent>
     </Modal>

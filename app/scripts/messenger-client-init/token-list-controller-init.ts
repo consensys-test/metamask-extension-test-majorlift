@@ -1,10 +1,9 @@
-import {
-  TokenListController,
-  TokenListControllerMessenger,
-} from '@metamask/assets-controllers';
-import { getIsDeprecatedController } from '../../../shared/lib/assets-unify-state/remote-feature-flag';
+import { TokenListController } from '@metamask/assets-controllers';
 import { MessengerClientInitFunction } from './types';
-import { TokenListControllerInitMessenger } from './messengers';
+import {
+  TokenListControllerMessenger,
+  TokenListControllerInitMessenger,
+} from './messengers';
 import { getGlobalChainId } from './init-utils';
 
 export const TokenListControllerInit: MessengerClientInitFunction<
@@ -18,15 +17,6 @@ export const TokenListControllerInit: MessengerClientInitFunction<
     messenger: controllerMessenger,
     state: persistedState.TokenListController,
     chainId: getGlobalChainId(initMessenger),
-    isDeprecated: () => {
-      const { remoteFeatureFlags } = initMessenger.call(
-        'RemoteFeatureFlagController:getState',
-      );
-      return getIsDeprecatedController(
-        remoteFeatureFlags,
-        'TokenListController',
-      );
-    },
   });
 
   // Initialize the controller to load cached token lists from storage.

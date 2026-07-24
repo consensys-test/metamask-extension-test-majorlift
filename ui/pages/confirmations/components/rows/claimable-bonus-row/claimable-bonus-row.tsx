@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   FontWeight,
   IconColor,
@@ -22,7 +22,7 @@ import {
   MUSD_CONVERSION_APY,
   MUSD_CONVERSION_BONUS_TERMS_OF_USE,
 } from '../../../../../components/app/musd/constants';
-import { useAnalytics } from '../../../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -36,7 +36,7 @@ export function ClaimableBonusRow({
   rowVariant = ConfirmInfoRowSize.Default,
 }: Readonly<ClaimableBonusRowProps>) {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const isLoading = useIsTransactionPayLoading();
 
   const isSmall = rowVariant === ConfirmInfoRowSize.Small;
@@ -58,8 +58,7 @@ export function ClaimableBonusRow({
       rowVariant={rowVariant}
       labelChildren={
         <InfoPopoverTooltip
-          position={PopoverPosition.Top}
-          offset={[0, 32]}
+          position={PopoverPosition.TopStart}
           iconName={IconName.Question}
           iconColor={IconColor.IconAlternative}
           iconMarginLeft={1}
@@ -86,14 +85,11 @@ export function ClaimableBonusRow({
                       url: MUSD_CONVERSION_BONUS_TERMS_OF_USE,
                     };
 
-                    trackEvent(
-                      createEventBuilder(
-                        MetaMetricsEventName.MusdBonusTermsOfUsePressed,
-                      )
-                        .addCategory(MetaMetricsEventCategory.MusdConversion)
-                        .addProperties(properties)
-                        .build(),
-                    );
+                    trackEvent({
+                      event: MetaMetricsEventName.MusdBonusTermsOfUsePressed,
+                      category: MetaMetricsEventCategory.MusdConversion,
+                      properties,
+                    });
                   }}
                 >
                   {t('musdTermsApply')}
@@ -107,7 +103,7 @@ export function ClaimableBonusRow({
       <Text
         variant={TextVariant.BodyMd}
         fontWeight={isSmall ? undefined : FontWeight.Medium}
-        color={TextColor.SuccessDefault}
+        color={TextColor.TextAlternative}
         data-testid="claimable-bonus-value"
       >
         {`${MUSD_CONVERSION_APY}%`}

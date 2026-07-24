@@ -85,6 +85,7 @@ const generateAppState = (overrides) => ({
       name: null,
     },
   },
+  warning: null,
   ...overrides,
 });
 

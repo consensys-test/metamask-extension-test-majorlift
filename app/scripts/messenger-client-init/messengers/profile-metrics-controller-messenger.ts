@@ -6,20 +6,26 @@ import {
 } from '@metamask/messenger';
 import { RootMessenger } from '../../lib/messenger';
 
+type AllowedActions = MessengerActions<ProfileMetricsControllerMessenger>;
+
+type AllowedEvents = MessengerEvents<ProfileMetricsControllerMessenger>;
+
 /**
  * Create a messenger restricted to the allowed actions and events of the
- * profile metrics controller.
+ * accounts controller.
  *
  * @param messenger - The base messenger used to create the restricted
  * messenger.
  */
 export function getProfileMetricsControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<ProfileMetricsControllerMessenger>,
-    MessengerEvents<ProfileMetricsControllerMessenger>
-  >,
+  messenger: RootMessenger<AllowedActions, AllowedEvents>,
 ) {
-  const controllerMessenger: ProfileMetricsControllerMessenger = new Messenger({
+  const controllerMessenger = new Messenger<
+    'ProfileMetricsController',
+    AllowedActions,
+    AllowedEvents,
+    typeof messenger
+  >({
     namespace: 'ProfileMetricsController',
     parent: messenger,
   });
@@ -28,8 +34,6 @@ export function getProfileMetricsControllerMessenger(
     actions: [
       'AccountsController:getState',
       'ProfileMetricsService:submitMetrics',
-      'ProfileMetricsService:fetchNonces',
-      'ProofOfOwnershipService:sign',
     ],
     events: [
       'AccountsController:accountAdded',

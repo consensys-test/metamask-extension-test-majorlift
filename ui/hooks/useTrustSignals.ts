@@ -3,7 +3,6 @@
 
 import { useSelector } from 'react-redux';
 import { NameType } from '@metamask/name-controller';
-import isEqual from 'lodash/isEqual';
 import { getAddressSecurityAlertResponse } from '../selectors';
 import {
   ResultType,
@@ -61,58 +60,56 @@ export function useTrustSignals(
 ): TrustSignalResult[] {
   const t = useI18nContext();
 
-  return useSelector(
-    (state) =>
-      requests.map(({ value, type, chainId }) => {
-        if (type !== NameType.ETHEREUM_ADDRESS) {
-          return {
-            state: TrustSignalDisplayState.Unknown,
-            label: null,
-          };
-        }
-
-        if (!chainId) {
-          return {
-            state: TrustSignalDisplayState.Unknown,
-            label: null,
-          };
-        }
-
-        const supportedEVMChain = mapChainIdToSupportedEVMChain(chainId);
-        if (!supportedEVMChain) {
-          return {
-            state: TrustSignalDisplayState.Unknown,
-            label: null,
-          };
-        }
-
-        const cacheKey = createCacheKey(supportedEVMChain, value);
-
-        const securityAlertResponse = getAddressSecurityAlertResponse(
-          state,
-          cacheKey,
-        );
-
-        if (!securityAlertResponse) {
-          return {
-            state: TrustSignalDisplayState.Unknown,
-            label: null,
-          };
-        }
-
-        const trustState = getTrustState(securityAlertResponse);
-
-        const label =
-          trustState === TrustSignalDisplayState.Malicious
-            ? t('nameModalTitleMalicious')
-            : securityAlertResponse.label || null;
-
+  return useSelector((state) =>
+    requests.map(({ value, type, chainId }) => {
+      if (type !== NameType.ETHEREUM_ADDRESS) {
         return {
-          state: trustState,
-          label,
+          state: TrustSignalDisplayState.Unknown,
+          label: null,
         };
-      }),
-    isEqual,
+      }
+
+      if (!chainId) {
+        return {
+          state: TrustSignalDisplayState.Unknown,
+          label: null,
+        };
+      }
+
+      const supportedEVMChain = mapChainIdToSupportedEVMChain(chainId);
+      if (!supportedEVMChain) {
+        return {
+          state: TrustSignalDisplayState.Unknown,
+          label: null,
+        };
+      }
+
+      const cacheKey = createCacheKey(supportedEVMChain, value);
+
+      const securityAlertResponse = getAddressSecurityAlertResponse(
+        state,
+        cacheKey,
+      );
+
+      if (!securityAlertResponse) {
+        return {
+          state: TrustSignalDisplayState.Unknown,
+          label: null,
+        };
+      }
+
+      const trustState = getTrustState(securityAlertResponse);
+
+      const label =
+        trustState === TrustSignalDisplayState.Malicious
+          ? t('nameModalTitleMalicious')
+          : securityAlertResponse.label || null;
+
+      return {
+        state: trustState,
+        label,
+      };
+    }),
   );
 }
 

@@ -4,27 +4,29 @@ import {
   MessengerEvents,
 } from '@metamask/messenger';
 import { SmartTransactionsControllerMessenger } from '@metamask/smart-transactions-controller';
+import { MetaMetricsControllerTrackEventAction } from '../../controllers/metametrics-controller-method-action-types';
 import { RootMessenger } from '../../lib/messenger';
 
 /**
  * Get the messenger for the smart transactions controller. This is scoped to the
  * actions and events that the smart transactions controller is allowed to handle.
  *
- * @param messenger - The root messenger.
+ * @param rootMessenger - The root messenger.
  * @returns The SmartTransactionsControllerMessenger.
  */
 export function getSmartTransactionsControllerMessenger(
-  messenger: RootMessenger<
+  rootMessenger: RootMessenger,
+): SmartTransactionsControllerMessenger {
+  const controllerMessenger = new Messenger<
+    'SmartTransactionsController',
     MessengerActions<SmartTransactionsControllerMessenger>,
-    MessengerEvents<SmartTransactionsControllerMessenger>
-  >,
-) {
-  const controllerMessenger: SmartTransactionsControllerMessenger =
-    new Messenger({
-      namespace: 'SmartTransactionsController',
-      parent: messenger,
-    });
-  messenger.delegate({
+    MessengerEvents<SmartTransactionsControllerMessenger>,
+    RootMessenger
+  >({
+    namespace: 'SmartTransactionsController',
+    parent: rootMessenger,
+  });
+  rootMessenger.delegate({
     messenger: controllerMessenger,
     actions: [
       'AuthenticationController:getBearerToken',
@@ -33,7 +35,7 @@ export function getSmartTransactionsControllerMessenger(
       'RemoteFeatureFlagController:getState',
       'TransactionController:getNonceLock',
       'TransactionController:getTransactions',
-      'TransactionController:failTransaction',
+      'TransactionController:updateTransaction',
     ],
     events: [
       'NetworkController:stateChange',
@@ -43,7 +45,8 @@ export function getSmartTransactionsControllerMessenger(
   return controllerMessenger;
 }
 
-type AllowedInitializationActions = never;
+export type AllowedInitializationActions =
+  MetaMetricsControllerTrackEventAction;
 
 export type SmartTransactionsControllerInitMessenger = ReturnType<
   typeof getSmartTransactionsControllerInitMessenger
@@ -71,7 +74,7 @@ export function getSmartTransactionsControllerInitMessenger(
   });
   messenger.delegate({
     messenger: controllerInitMessenger,
-    actions: [],
+    actions: ['MetaMetricsController:trackEvent'],
   });
   return controllerInitMessenger;
 }

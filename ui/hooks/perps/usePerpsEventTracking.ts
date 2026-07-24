@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { Json } from '@metamask/utils';
 import { PERPS_EVENT_PROPERTY } from '../../../shared/constants/perps-events';
+import { MetaMetricsContext } from '../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../shared/constants/metametrics';
-import { useAnalytics } from '../useAnalytics';
 
 export type UsePerpsEventTrackingDeclarativeOptions = {
   eventName: MetaMetricsEventName;
@@ -38,26 +38,21 @@ export function usePerpsEventTracking(
 export function usePerpsEventTracking(
   options?: UsePerpsEventTrackingDeclarativeOptions,
 ): { track: PerpsTrackEventFn } | void {
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const hasFiredDeclarativeRef = useRef(false);
-
-  const buildPerpsEvent = useCallback(
-    (eventName: MetaMetricsEventName, properties?: Record<string, Json>) =>
-      createEventBuilder(eventName)
-        .addCategory(MetaMetricsEventCategory.Perps)
-        .addProperties({
-          ...properties,
-          [PERPS_EVENT_PROPERTY.TIMESTAMP]: Date.now(),
-        })
-        .build(),
-    [createEventBuilder],
-  );
 
   const track = useCallback<PerpsTrackEventFn>(
     (eventName, properties) => {
-      trackEvent(buildPerpsEvent(eventName, properties));
+      trackEvent({
+        event: eventName,
+        category: MetaMetricsEventCategory.Perps,
+        properties: {
+          ...properties,
+          [PERPS_EVENT_PROPERTY.TIMESTAMP]: Date.now(),
+        },
+      });
     },
-    [buildPerpsEvent, trackEvent],
+    [trackEvent],
   );
 
   const imperativeApi = useMemo(() => ({ track }), [track]);
@@ -93,8 +88,15 @@ export function usePerpsEventTracking(
     }
 
     hasFiredDeclarativeRef.current = true;
-    trackEvent(buildPerpsEvent(eventName, properties));
-  }, [options, trackEvent, buildPerpsEvent]);
+    trackEvent({
+      event: eventName,
+      category: MetaMetricsEventCategory.Perps,
+      properties: {
+        ...properties,
+        [PERPS_EVENT_PROPERTY.TIMESTAMP]: Date.now(),
+      },
+    });
+  }, [options, trackEvent]);
 
   if (options) {
     return undefined;

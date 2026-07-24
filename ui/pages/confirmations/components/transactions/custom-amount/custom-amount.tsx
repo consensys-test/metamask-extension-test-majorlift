@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 import { useSelector } from 'react-redux';
-import { Skeleton } from '@metamask/design-system-react';
 import {
   Display,
   FlexDirection,
@@ -11,6 +10,7 @@ import {
   TextAlign,
 } from '../../../../../helpers/constants/design-system';
 import { Box, Text } from '../../../../../components/component-library';
+import { Skeleton } from '../../../../../components/component-library/skeleton';
 import { getCurrencySymbol } from '../../../../../helpers/utils/common.util';
 import { getCurrentCurrency } from '../../../../../ducks/metamask/metamask';
 import {
@@ -28,27 +28,27 @@ export type CustomAmountProps = {
   onChange?: (value: string) => void;
 };
 
-function getFontSize(displayWidth: number): string {
-  if (displayWidth <= 8) {
+function getFontSize(length: number): string {
+  if (length <= 8) {
     return '64px';
   }
-  if (displayWidth <= 13) {
+  if (length <= 13) {
     return '40px';
   }
-  if (displayWidth <= 18) {
+  if (length <= 18) {
     return '30px';
   }
   return '20px';
 }
 
-function getLineHeight(displayWidth: number): string {
-  if (displayWidth <= 8) {
+function getLineHeight(length: number): string {
+  if (length <= 8) {
     return '70px';
   }
-  if (displayWidth <= 13) {
+  if (length <= 13) {
     return '44px';
   }
-  if (displayWidth <= 18) {
+  if (length <= 18) {
     return '33px';
   }
   return '22px';
@@ -67,7 +67,7 @@ function getTextColor(
   return TextColor.textDefault;
 }
 
-export const CustomAmountSkeleton = () => (
+export const CustomAmountSkeleton: React.FC = () => (
   <Box
     display={Display.Flex}
     flexDirection={FlexDirection.Row}
@@ -80,7 +80,7 @@ export const CustomAmountSkeleton = () => (
   </Box>
 );
 
-export const CustomAmount = React.memo(
+export const CustomAmount: React.FC<CustomAmountProps> = React.memo(
   ({
     amountFiat,
     autoFocus = false,
@@ -89,7 +89,7 @@ export const CustomAmount = React.memo(
     hasAlert = false,
     isLoading,
     onChange,
-  }: CustomAmountProps) => {
+  }) => {
     const isMaxAmount = useTransactionPayIsMaxAmount();
     const isQuotesLoading = useIsTransactionPayLoading();
     const selectedCurrency = useSelector(getCurrentCurrency);
@@ -102,7 +102,6 @@ export const CustomAmount = React.memo(
     // as a full ch over-allocates (visible cursor gap); counting them as 0
     // under-allocates (text gets clipped when overflowing the input).
     const amountWidth = amountLength - decimalSeparatorCount * 0.5;
-    const displayWidth = amountWidth + Math.max(1, fiatSymbol.length);
 
     const showLoader = isLoading || (isMaxAmount && isQuotesLoading);
 
@@ -120,8 +119,8 @@ export const CustomAmount = React.memo(
       return <CustomAmountSkeleton />;
     }
 
-    const fontSize = getFontSize(displayWidth);
-    const lineHeight = getLineHeight(displayWidth);
+    const fontSize = getFontSize(amountLength);
+    const lineHeight = getLineHeight(amountLength);
     const textColor = getTextColor(hasAlert, disabled);
 
     return (

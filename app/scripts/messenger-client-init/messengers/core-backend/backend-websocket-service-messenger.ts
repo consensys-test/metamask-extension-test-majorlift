@@ -11,6 +11,10 @@ import { RootMessenger } from '../../../lib/messenger';
 export type BackendWebSocketServiceMessenger =
   BackendPlatformWebSocketServiceMessenger;
 
+type Actions = MessengerActions<BackendWebSocketServiceMessenger>;
+
+type Events = MessengerEvents<BackendWebSocketServiceMessenger>;
+
 /**
  * Get a restricted messenger for the Backend Platform WebSocket service.
  * This is scoped to backend platform operations and services.
@@ -19,12 +23,14 @@ export type BackendWebSocketServiceMessenger =
  * @returns The restricted messenger.
  */
 export function getBackendWebSocketServiceMessenger(
-  messenger: RootMessenger<
-    MessengerActions<BackendWebSocketServiceMessenger>,
-    MessengerEvents<BackendWebSocketServiceMessenger>
-  >,
+  messenger: RootMessenger<Actions, Events>,
 ): BackendPlatformWebSocketServiceMessenger {
-  const serviceMessenger: BackendWebSocketServiceMessenger = new Messenger({
+  const serviceMessenger = new Messenger<
+    'BackendWebSocketService',
+    Actions,
+    Events,
+    typeof messenger
+  >({
     namespace: 'BackendWebSocketService',
     parent: messenger,
   });
@@ -42,13 +48,13 @@ export function getBackendWebSocketServiceMessenger(
   return serviceMessenger;
 }
 
-type AllowedInitializationActions =
-  | RemoteFeatureFlagControllerGetStateAction
-  | AuthenticationControllerGetBearerTokenAction;
-
 export type BackendWebSocketServiceInitMessenger = ReturnType<
   typeof getBackendWebSocketServiceInitMessenger
 >;
+
+type AllowedInitializationActions =
+  | RemoteFeatureFlagControllerGetStateAction
+  | AuthenticationControllerGetBearerTokenAction;
 
 export function getBackendWebSocketServiceInitMessenger(
   messenger: RootMessenger<AllowedInitializationActions, never>,

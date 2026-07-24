@@ -21,7 +21,7 @@ jest.mock('../transactions/useTransactionNativeTicker', () => ({
   useTransactionNativeTicker: () => 'ETH',
 }));
 
-jest.mock('../../../../store/actions/update-transaction-gas-fees', () => ({
+jest.mock('../../../../store/actions', () => ({
   updateTransactionGasFees: jest.fn(),
 }));
 

@@ -1,11 +1,10 @@
 import { strict as assert } from 'assert';
 import { Suite } from 'mocha';
 import { MockedEndpoint, Mockttp } from 'mockttp';
-import { MOCK_ANALYTICS_ID } from '../../constants';
+import { MOCK_META_METRICS_ID } from '../../constants';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
 import { getEventPayloads, withFixtures } from '../../helpers';
 import { login } from '../../page-objects/flows/login.flow';
-import { closeSettings } from '../../page-objects/flows/settings.flow';
 import HeaderNavbar from '../../page-objects/pages/header-navbar';
 import HomePage from '../../page-objects/pages/home/homepage';
 import PrivacySettings from '../../page-objects/pages/settings/privacy-settings';
@@ -44,7 +43,7 @@ const mockSegment = async (mockServer: Mockttp) => {
         JSON.stringify({
           regulationType: 'DELETE_ONLY',
           subjectType: 'USER_ID',
-          subjectIds: [MOCK_ANALYTICS_ID],
+          subjectIds: [MOCK_META_METRICS_ID],
         }),
       )
       .thenCallback(() => ({
@@ -80,9 +79,8 @@ describe('Delete MetaMetrics Data', function (this: Suite) {
       {
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            metaMetricsId: MOCK_META_METRICS_ID,
+            participateInMetaMetrics: true,
           })
           .build(),
         title: this.test?.fullTitle(),
@@ -123,7 +121,7 @@ describe('Delete MetaMetrics Data', function (this: Suite) {
           environment_type: 'fullscreen',
         });
 
-        await closeSettings(driver);
+        await settingsPage.clickBackButton();
         await new HomePage(driver).checkPageIsLoaded();
         await headerNavbar.openSettingsPage();
         await settingsPage.checkPageIsLoaded();
@@ -143,9 +141,8 @@ describe('Delete MetaMetrics Data', function (this: Suite) {
       {
         fixtures: new FixtureBuilderV2()
           .withMetaMetricsController({
-            analyticsId: MOCK_ANALYTICS_ID,
-            completedMetaMetricsOnboarding: true,
-            optedIn: false,
+            metaMetricsId: MOCK_META_METRICS_ID,
+            participateInMetaMetrics: false,
           })
           .build(),
         title: this.test?.fullTitle(),

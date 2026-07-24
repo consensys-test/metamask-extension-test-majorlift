@@ -33,7 +33,6 @@ import { fetchHistoricalPerformanceDataFromMain } from './historical-comparison'
 import type { HistoricalBaselineReference } from './historical-comparison';
 import {
   applyGatingPolicy,
-  applyNoiseTolerance,
   compareBenchmarkEntries,
   formatDeltaPercent,
   scaleThresholdsForBrowser,
@@ -126,10 +125,7 @@ export function runComparison(
         thresholdConfig,
         baselineMetrics,
       );
-      const comparison = applyNoiseTolerance(
-        applyGatingPolicy(rawComparison, GATED_METRICS),
-        results,
-      );
+      const comparison = applyGatingPolicy(rawComparison, GATED_METRICS);
 
       if (parsed) {
         comparison.source = `${parsed.browser}-${parsed.buildType}`;
@@ -251,23 +247,8 @@ export function buildMetricLines(
         }
 
         if (isIssue) {
-          if (absoluteSeverity) {
-            // Absolute-gate driven: report the ceiling and measured value, not
-            // the relative delta (which may be a stale/incomparable baseline —
-            // even an improvement). Never present a relative improvement as the
-            // reason for the red/yellow.
-            const violation = comparison.absoluteViolations.find(
-              (v) => v.metricId === metric && v.percentile === pKey,
-            );
-            details.push(
-              violation
-                ? `${pKey}: ${formatValue(violation.value)} (absolute ceiling exceeded, limit ${formatValue(violation.threshold)})`
-                : `${pKey}: ${formatValue(rel.current)} (absolute ceiling exceeded)`,
-            );
-          } else {
-            const delta = formatDeltaPercent(rel.deltaPercent);
-            details.push(`${pKey}: ${formatValue(rel.current)} (${delta})`);
-          }
+          const delta = formatDeltaPercent(rel.deltaPercent);
+          details.push(`${pKey}: ${formatValue(rel.current)} (${delta})`);
           hasIssue = true;
           displayIcon = updateDisplayIcon(icon, displayIcon);
         }

@@ -7,7 +7,6 @@ import { renderWithProvider } from '../../../../../test/lib/render-helpers-navig
 import configureStore from '../../../../store/store';
 import { submitRequestToBackground } from '../../../../store/background-connection';
 import { OrderEntry } from './order-entry';
-import { resetSizeDenominations } from './components/amount-input/size-denomination-store';
 
 jest.mock('../../../../hooks/perps/useUserHistory', () => ({
   useUserHistory: () => ({
@@ -32,7 +31,6 @@ jest.mock('../../../../hooks/perps/usePerpsMarketInfo', () => ({
 }));
 
 jest.mock('../../../../hooks/perps/usePerpsOrderFees', () => ({
-  ...jest.requireActual('../../../../hooks/perps/usePerpsOrderFees'),
   usePerpsOrderFees: () => ({ feeRate: 0.00145, isLoading: false }),
 }));
 
@@ -57,7 +55,6 @@ describe('OrderEntry', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    resetSizeDenominations();
     jest.mocked(submitRequestToBackground).mockImplementation((method) => {
       function immediate<ResolvedValue>(
         value: ResolvedValue,
@@ -174,7 +171,7 @@ describe('OrderEntry', () => {
       expect(input).toHaveValue('1000.00');
     });
 
-    it('shows token conversion when the denomination is toggled to the asset', () => {
+    it('shows token conversion when amount is entered', () => {
       renderWithProvider(<OrderEntry {...defaultProps} />, mockStore);
 
       const container = screen.getByTestId('amount-input-field');
@@ -184,11 +181,10 @@ describe('OrderEntry', () => {
         target: { value: '45250' },
       });
 
-      // Toggle the single field into asset denomination to view the equivalent.
-      fireEvent.click(screen.getByTestId('toggle-denomination'));
-
+      const tokenContainer = screen.getByTestId('amount-input-token-field');
+      const tokenInput = tokenContainer.querySelector('input');
       // Amount is treated as position size (TAT-2684 fix), so token = size / price = $45250 / $45250 = 1 BTC
-      expect(input).toHaveValue('1');
+      expect(tokenInput).toHaveValue('1');
     });
   });
 
@@ -205,13 +201,6 @@ describe('OrderEntry', () => {
   describe('order summary', () => {
     it('shows dash when no amount entered', () => {
       renderWithProvider(<OrderEntry {...defaultProps} />, mockStore);
-
-      const container = screen.getByTestId('amount-input-field');
-      const input = container.querySelector('input');
-      expect(input).not.toBeNull();
-      fireEvent.change(input as HTMLInputElement, {
-        target: { value: '' },
-      });
 
       const dashElements = screen.getAllByText('-');
       expect(dashElements.length).toBeGreaterThanOrEqual(3);
@@ -323,21 +312,6 @@ describe('OrderEntry', () => {
       expect(screen.getByTestId('amount-input-field')).toBeInTheDocument();
     });
 
-    it('shows current position size in modify mode', () => {
-      renderWithProvider(
-        <OrderEntry
-          {...defaultProps}
-          mode="modify"
-          existingPosition={existingPosition}
-        />,
-        mockStore,
-      );
-
-      expect(
-        screen.getByTestId('perps-current-position-size-value'),
-      ).toHaveTextContent('2.5 BTC');
-    });
-
     it('shows leverage slider in modify mode', () => {
       renderWithProvider(
         <OrderEntry
@@ -420,9 +394,7 @@ describe('OrderEntry', () => {
       expect(
         screen.getByText(messages.perpsAvailableToClose.message),
       ).toBeInTheDocument();
-      expect(
-        screen.getByTestId('close-amount-slider-pct-100'),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('close-amount-slider')).toBeInTheDocument();
     });
 
     it('hides amount input in close mode', () => {
@@ -520,40 +492,6 @@ describe('OrderEntry', () => {
   });
 
   describe('limit order mode', () => {
-    it('uses the shared order type toggle to select Limit', () => {
-      const onOrderTypeChange = jest.fn();
-      renderWithProvider(
-        <OrderEntry
-          {...defaultProps}
-          orderType="market"
-          onOrderTypeChange={onOrderTypeChange}
-        />,
-        mockStore,
-      );
-
-      fireEvent.click(screen.getByTestId('order-type-limit'));
-
-      expect(onOrderTypeChange).toHaveBeenCalledWith('limit');
-      expect(screen.getByTestId('limit-price-input')).toBeInTheDocument();
-    });
-
-    it('hides the order type toggle in close mode', () => {
-      renderWithProvider(
-        <OrderEntry
-          {...defaultProps}
-          mode="close"
-          existingPosition={{
-            size: '2.5',
-            leverage: 3,
-            entryPrice: '2850.00',
-          }}
-        />,
-        mockStore,
-      );
-
-      expect(screen.queryByTestId('order-type-toggle')).not.toBeInTheDocument();
-    });
-
     it('shows limit price input when orderType is limit', () => {
       renderWithProvider(
         <OrderEntry {...defaultProps} orderType="limit" />,

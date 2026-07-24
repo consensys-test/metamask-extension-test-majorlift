@@ -1,9 +1,12 @@
+import { Messenger } from '@metamask/messenger';
+import { MultichainNetworkControllerGetStateAction } from '@metamask/multichain-network-controller';
 import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { NetworkEnablementControllerMessenger } from '@metamask/network-enablement-controller';
+  NetworkControllerGetStateAction,
+  NetworkControllerStateChangeEvent,
+  NetworkControllerNetworkRemovedEvent,
+  NetworkControllerNetworkAddedEvent,
+} from '@metamask/network-controller';
+import { TransactionControllerTransactionSubmittedEvent } from '@metamask/transaction-controller';
 import { AccountsControllerSelectedAccountChangeEvent } from '@metamask/accounts-controller';
 import {
   AccountTreeControllerGetAccountsFromSelectedAccountGroupAction,
@@ -11,17 +14,32 @@ import {
 } from '@metamask/account-tree-controller';
 import { RootMessenger } from '../../../lib/messenger';
 
+type Actions =
+  | NetworkControllerGetStateAction
+  | MultichainNetworkControllerGetStateAction;
+
+type Events =
+  | NetworkControllerNetworkAddedEvent
+  | NetworkControllerNetworkRemovedEvent
+  | NetworkControllerStateChangeEvent
+  | TransactionControllerTransactionSubmittedEvent;
+
+export type NetworkEnablementControllerMessenger = ReturnType<
+  typeof getNetworkEnablementControllerMessenger
+>;
+
 export function getNetworkEnablementControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<NetworkEnablementControllerMessenger>,
-    MessengerEvents<NetworkEnablementControllerMessenger>
-  >,
-): NetworkEnablementControllerMessenger {
-  const controllerMessenger: NetworkEnablementControllerMessenger =
-    new Messenger({
-      namespace: 'NetworkEnablementController',
-      parent: messenger,
-    });
+  messenger: RootMessenger<Actions, Events>,
+) {
+  const controllerMessenger = new Messenger<
+    'NetworkEnablementController',
+    Actions,
+    Events,
+    typeof messenger
+  >({
+    namespace: 'NetworkEnablementController',
+    parent: messenger,
+  });
   messenger.delegate({
     messenger: controllerMessenger,
     actions: [

@@ -1,4 +1,5 @@
 import { ApprovalType } from '@metamask/controller-utils';
+import { SMART_TRANSACTION_CONFIRMATION_TYPES } from '../../shared/constants/app';
 import {
   type ApprovalsMetaMaskState,
   getApprovalFlows,
@@ -69,13 +70,6 @@ describe('approval selectors', () => {
       const result = getApprovalFlows(mockedState);
 
       expect(result).toStrictEqual(mockedState.metamask.approvalFlows);
-    });
-
-    it('should return same reference when state has not changed (memoization)', () => {
-      const result1 = getApprovalFlows(mockedState);
-      const result2 = getApprovalFlows(mockedState);
-
-      expect(result1).toBe(result2);
     });
   });
 
@@ -193,28 +187,80 @@ describe('approval selectors', () => {
   });
 
   describe('selectPendingApprovalsForNavigation', () => {
-    it('deduplicates watch NFT approvals', () => {
-      const watchNftApproval = {
-        id: 'nft-1',
-        origin: 'origin',
-        time: Date.now(),
-        type: ApprovalType.WatchAsset,
-        requestData: { asset: { tokenId: '1' } },
-        requestState: null,
-        expectsResult: false,
-      };
+    it('filters hidden smart transaction status approvals when skip flag is enabled', () => {
       const state = {
         metamask: {
           ...mockedState.metamask,
+          remoteFeatureFlags: {
+            extensionSkipTransactionStatusPage: true,
+          },
           pendingApprovals: {
-            'nft-1': watchNftApproval,
-            'nft-2': { ...watchNftApproval, id: 'nft-2', time: Date.now() + 1 },
+            stx: {
+              id: 'stx',
+              origin: 'origin',
+              time: Date.now() - 1,
+              type: SMART_TRANSACTION_CONFIRMATION_TYPES.showSmartTransactionStatusPage,
+              requestData: {},
+              requestState: {
+                txId: '0x1',
+                smartTransaction: { status: 'pending' },
+              },
+              expectsResult: false,
+            },
+            tx: {
+              id: 'tx',
+              origin: 'origin',
+              time: Date.now(),
+              type: ApprovalType.Transaction,
+              requestData: {},
+              requestState: null,
+              expectsResult: false,
+            },
           },
         },
       };
 
       expect(selectPendingApprovalsForNavigation(state)).toStrictEqual([
-        watchNftApproval,
+        state.metamask.pendingApprovals.tx,
+      ]);
+    });
+
+    it('keeps smart transaction status approvals when skip flag is disabled', () => {
+      const state = {
+        metamask: {
+          ...mockedState.metamask,
+          remoteFeatureFlags: {
+            extensionSkipTransactionStatusPage: false,
+          },
+          pendingApprovals: {
+            stx: {
+              id: 'stx',
+              origin: 'origin',
+              time: Date.now() - 1,
+              type: SMART_TRANSACTION_CONFIRMATION_TYPES.showSmartTransactionStatusPage,
+              requestData: {},
+              requestState: {
+                txId: '0x1',
+                smartTransaction: { status: 'pending' },
+              },
+              expectsResult: false,
+            },
+            tx: {
+              id: 'tx',
+              origin: 'origin',
+              time: Date.now(),
+              type: ApprovalType.Transaction,
+              requestData: {},
+              requestState: null,
+              expectsResult: false,
+            },
+          },
+        },
+      };
+
+      expect(selectPendingApprovalsForNavigation(state)).toStrictEqual([
+        state.metamask.pendingApprovals.stx,
+        state.metamask.pendingApprovals.tx,
       ]);
     });
   });

@@ -1,10 +1,12 @@
 import {
   CodefiTokenPricesServiceV2,
   TokenRatesController,
-  TokenRatesControllerMessenger,
 } from '@metamask/assets-controllers';
 import { MessengerClientInitFunction } from '../types';
-import { TokenRatesControllerInitMessenger } from '../messengers/assets';
+import {
+  TokenRatesControllerMessenger,
+  TokenRatesControllerInitMessenger,
+} from '../messengers/assets';
 import { previousValueComparator } from '../../lib/util';
 
 /**

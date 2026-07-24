@@ -1,5 +1,5 @@
 import React from 'react';
-import { Skeleton } from '@metamask/design-system-react';
+import { Skeleton } from '../../../components/component-library/skeleton';
 import { JustifyContent } from '../../../helpers/constants/design-system';
 import { Column, Row } from '../layout';
 

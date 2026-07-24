@@ -1,16 +1,14 @@
-import { getNativeAssetForChainId } from '@metamask/bridge-controller';
 import { renderHookWithProvider } from '../../../../test/lib/render-helpers-navigate';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { useMultichainSelector } from '../../../hooks/useMultichainSelector';
-import useRampsNavigation from '../../../hooks/ramps/useRampsNavigation/useRampsNavigation';
+import useRamps from '../../../hooks/ramps/useRamps/useRamps';
 import {
-  getActiveQuoteInsufficientNativeReserveError,
   getActiveQuotePriceData,
   getBridgeQuotes,
   getBridgeUnavailableQuoteReason,
   getFormattedPriceImpactFiat,
   getFormattedPriceImpactPercentage,
-  getFromChain,
+  getInsufficientNativeReserveError,
   getToToken,
   getValidationErrors,
 } from '../../../ducks/bridge/selectors';
@@ -23,7 +21,7 @@ import { useBridgeAlerts } from './useBridgeAlerts';
 
 jest.mock('../../../hooks/useI18nContext');
 jest.mock('../../../hooks/useMultichainSelector');
-jest.mock('../../../hooks/ramps/useRampsNavigation/useRampsNavigation');
+jest.mock('../../../hooks/ramps/useRamps/useRamps');
 jest.mock('./useSecurityAlerts');
 jest.mock('./useAssetSecurityData');
 jest.mock('../utils/quote');
@@ -36,12 +34,9 @@ jest.mock('../../../ducks/bridge/selectors', () => ({
   getActiveQuotePriceData: jest.fn(),
   getFormattedPriceImpactPercentage: jest.fn(),
   getFormattedPriceImpactFiat: jest.fn(),
-  getActiveQuoteInsufficientNativeReserveError: jest.fn(),
+  getInsufficientNativeReserveError: jest.fn(),
   getBridgeQuotes: jest.fn(),
-  getFromChain: jest.fn(),
 }));
-
-const MOCK_FROM_CHAIN_ID = 'eip155:1';
 
 const mockT = jest.fn((key: string, args?: string[]) =>
   args ? `${key}:${args.join(',')}` : key,
@@ -74,7 +69,7 @@ const DEFAULT_VALIDATION_ERRORS = {
 };
 
 describe('useBridgeAlerts', () => {
-  const mockGoToBuy = jest.fn();
+  const mockOpenBuyCryptoInPdapp = jest.fn();
 
   const renderHook = () =>
     renderHookWithProvider(() => useBridgeAlerts(), { metamask: {} });
@@ -84,12 +79,9 @@ describe('useBridgeAlerts', () => {
 
     jest.mocked(useI18nContext).mockReturnValue(mockT as never);
     jest.mocked(useMultichainSelector).mockReturnValue('ETH');
-    jest.mocked(useRampsNavigation).mockReturnValue({
-      goToBuy: mockGoToBuy,
+    jest.mocked(useRamps).mockReturnValue({
+      openBuyCryptoInPdapp: mockOpenBuyCryptoInPdapp,
     } as never);
-    jest
-      .mocked(getFromChain)
-      .mockReturnValue({ chainId: MOCK_FROM_CHAIN_ID } as never);
     jest
       .mocked(useSecurityAlerts)
       .mockReturnValue({ txAlert: null, securityWarnings: [] });
@@ -115,9 +107,7 @@ describe('useBridgeAlerts', () => {
     jest.mocked(getActiveQuotePriceData).mockReturnValue(null as never);
     jest.mocked(getFormattedPriceImpactPercentage).mockReturnValue('7.0%');
     jest.mocked(getFormattedPriceImpactFiat).mockReturnValue(null as never);
-    jest
-      .mocked(getActiveQuoteInsufficientNativeReserveError)
-      .mockReturnValue(undefined);
+    jest.mocked(getInsufficientNativeReserveError).mockReturnValue(undefined);
     jest.mocked(getBridgeQuotes).mockReturnValue({
       isLoading: false,
       activeQuote: null,
@@ -469,12 +459,10 @@ describe('useBridgeAlerts', () => {
         priceImpact: 0.05,
       } as never);
 
-      jest
-        .mocked(getActiveQuoteInsufficientNativeReserveError)
-        .mockReturnValue({
-          minimumNativeBalanceToBeKeptInAccount: '10',
-          maxSwappableNativeBalance: '5',
-        });
+      jest.mocked(getInsufficientNativeReserveError).mockReturnValue({
+        minimumNativeBalanceToBeKeptInAccount: '10',
+        maxSwappableNativeBalance: '5',
+      });
 
       const { result } = renderHook();
 
@@ -509,12 +497,10 @@ describe('useBridgeAlerts', () => {
         priceImpact: 0.05,
       } as never);
 
-      jest
-        .mocked(getActiveQuoteInsufficientNativeReserveError)
-        .mockReturnValue({
-          minimumNativeBalanceToBeKeptInAccount: '10',
-          maxSwappableNativeBalance: '5',
-        });
+      jest.mocked(getInsufficientNativeReserveError).mockReturnValue({
+        minimumNativeBalanceToBeKeptInAccount: '10',
+        maxSwappableNativeBalance: '5',
+      });
 
       const { result } = renderHook();
 
@@ -548,9 +534,7 @@ describe('useBridgeAlerts', () => {
       jest.mocked(getActiveQuotePriceData).mockReturnValue({
         priceImpact: 0.05,
       } as never);
-      jest
-        .mocked(getActiveQuoteInsufficientNativeReserveError)
-        .mockReturnValue(undefined);
+      jest.mocked(getInsufficientNativeReserveError).mockReturnValue(undefined);
       const { result } = renderHook();
 
       expect(
@@ -611,19 +595,14 @@ describe('useBridgeAlerts', () => {
       );
     });
 
-    it('routes through goToBuy with the source chain native gas token when the action button is clicked', () => {
+    it('calls openBuyCryptoInPdapp when the action button is clicked', () => {
       const { result } = renderHook();
 
       result.current.alertsById[
         'insufficient-gas'
       ]?.bannerAlertProps?.actionButtonOnClick?.();
 
-      // Passes the source chain as-is (CAIP); getBuyURI normalizes it for the
-      // flag-off Portfolio fallback.
-      expect(mockGoToBuy).toHaveBeenCalledWith({
-        assetId: getNativeAssetForChainId(MOCK_FROM_CHAIN_ID).assetId,
-        chainId: MOCK_FROM_CHAIN_ID,
-      });
+      expect(mockOpenBuyCryptoInPdapp).toHaveBeenCalledTimes(1);
     });
 
     it('does not add insufficient-gas when isLoading is true', () => {

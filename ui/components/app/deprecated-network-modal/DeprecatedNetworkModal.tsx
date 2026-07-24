@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box } from '@metamask/design-system-react';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import {
+  Box,
   ButtonLink,
   ButtonPrimary,
   ButtonPrimarySize,
@@ -13,6 +13,7 @@ import {
   Text,
 } from '../../component-library';
 import {
+  Display,
   FontWeight,
   TextAlign,
   TextVariant,
@@ -58,7 +59,7 @@ export const DeprecatedNetworkModal = ({
           </Box>
         </ModalBody>
         <Box
-          className="flex"
+          display={Display.Flex}
           paddingLeft={4}
           paddingRight={4}
           paddingBottom={2}

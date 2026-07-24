@@ -8,9 +8,6 @@
 
 export {
   getIsPerpsExperienceAvailable,
-  getIsPerpsTerminalBackendEnabled,
   getHip3AllowedSources,
   getHip3AllowedSourcesSet,
 } from './feature-flags';
-
-export { getPerpsTabBadgeSeen } from './persisted-state';

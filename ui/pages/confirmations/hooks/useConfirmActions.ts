@@ -65,14 +65,7 @@ export const useConfirmActions = () => {
       await rejectApproval({ location });
       resetTransactionState();
       if (navigateBackToPreviousPage) {
-        // Replace (not push) so the transient wallet-initiated confirmation
-        // (perpsDeposit / perpsWithdraw / musdClaim) does not linger in history.
-        // Pushing here left a phantom confirm-transaction entry between the
-        // origin and the page returned to, which broke back navigation
-        // (double-tap) and post-trade navigation on the Perps order screen
-        // (TAT-3131). This matches the auto-exit path in the confirm context,
-        // which already returns with { replace: true }.
-        navigate(goBackTo ?? DEFAULT_ROUTE, { replace: true });
+        navigate(goBackTo ?? DEFAULT_ROUTE);
       }
     },
     [

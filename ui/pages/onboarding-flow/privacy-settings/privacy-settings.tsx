@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import classnames from 'clsx';
 import log from 'loglevel';
 import {
@@ -20,8 +20,8 @@ import {
   FontWeight,
   TextButton,
 } from '@metamask/design-system-react';
-import { addUrlProtocolPrefix } from '../../../../shared/lib/url-utils';
-import { useOnboardingSearchParams } from '../hooks/useOnboardingSearchParams';
+// eslint-disable-next-line import-x/no-restricted-paths
+import { addUrlProtocolPrefix } from '../../../../app/scripts/lib/util';
 import { TextField } from '../../../components/component-library';
 import {
   MetaMetricsEventCategory,
@@ -35,7 +35,7 @@ import {
 } from '../../../../shared/lib/ui-utils';
 import ZENDESK_URLS from '../../../helpers/constants/zendesk-url';
 
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import { ONBOARDING_COMPLETION_ROUTE } from '../../../helpers/constants/routes';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import {
@@ -77,6 +77,8 @@ import { Setting } from './setting';
 
 const ANIMATION_TIME = 500;
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export default function PrivacySettings() {
   const t = useI18nContext();
   const dispatch = useDispatch();
@@ -128,7 +130,7 @@ export default function PrivacySettings() {
     useExternalNameSources,
   );
 
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const networkConfigurations = useSelector(getNetworkConfigurationsByChainId);
 
   const externalServicesOnboardingToggleState = useSelector(
@@ -137,7 +139,9 @@ export default function PrivacySettings() {
 
   const isBackupAndSyncEnabled = useSelector(selectIsBackupAndSyncEnabled);
 
-  const { isFromReminder } = useOnboardingSearchParams();
+  const { search } = useLocation();
+  const searchParams = new URLSearchParams(search);
+  const isFromReminder = searchParams.get('isFromReminder');
 
   const handleSubmit = () => {
     dispatch(setUse4ByteResolution(turnOn4ByteResolution));
@@ -155,21 +159,20 @@ export default function PrivacySettings() {
       dispatch(setIpfsGateway(host));
     }
 
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.SettingsUpdated)
-        .addCategory(MetaMetricsEventCategory.Onboarding)
-        .addProperties({
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          settings_group: 'onboarding_advanced_configuration',
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          is_profile_syncing_enabled: isBackupAndSyncEnabled,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          is_basic_functionality_enabled: externalServicesOnboardingToggleState,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          turnon_token_detection: turnOnTokenDetection,
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Onboarding,
+      event: MetaMetricsEventName.SettingsUpdated,
+      properties: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        settings_group: 'onboarding_advanced_configuration',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        is_profile_syncing_enabled: isBackupAndSyncEnabled,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        is_basic_functionality_enabled: externalServicesOnboardingToggleState,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        turnon_token_detection: turnOnTokenDetection,
+      },
+    });
     if (isFromReminder) {
       navigate(`${ONBOARDING_COMPLETION_ROUTE}?isFromReminder=true`, {
         replace: true,
@@ -389,26 +392,22 @@ export default function PrivacySettings() {
                     setValue={(toggledValue) => {
                       if (toggledValue) {
                         dispatch(onboardingToggleBasicFunctionalityOn());
-                        trackEvent(
-                          createEventBuilder(
-                            MetaMetricsEventName.SettingsUpdated,
-                          )
-                            .addCategory(MetaMetricsEventCategory.Onboarding)
-                            .addProperties({
-                              // eslint-disable-next-line @typescript-eslint/naming-convention
-                              settings_group:
-                                'onboarding_advanced_configuration',
-                              // eslint-disable-next-line @typescript-eslint/naming-convention
-                              settings_type: 'basic_functionality',
-                              // eslint-disable-next-line @typescript-eslint/naming-convention
-                              old_value: false,
-                              // eslint-disable-next-line @typescript-eslint/naming-convention
-                              new_value: true,
-                              // eslint-disable-next-line @typescript-eslint/naming-convention
-                              was_profile_syncing_on: false,
-                            })
-                            .build(),
-                        );
+                        trackEvent({
+                          category: MetaMetricsEventCategory.Onboarding,
+                          event: MetaMetricsEventName.SettingsUpdated,
+                          properties: {
+                            // eslint-disable-next-line @typescript-eslint/naming-convention
+                            settings_group: 'onboarding_advanced_configuration',
+                            // eslint-disable-next-line @typescript-eslint/naming-convention
+                            settings_type: 'basic_functionality',
+                            // eslint-disable-next-line @typescript-eslint/naming-convention
+                            old_value: false,
+                            // eslint-disable-next-line @typescript-eslint/naming-convention
+                            new_value: true,
+                            // eslint-disable-next-line @typescript-eslint/naming-convention
+                            was_profile_syncing_on: false,
+                          },
+                        });
                       } else {
                         dispatch(openBasicFunctionalityModal());
                       }
@@ -426,7 +425,7 @@ export default function PrivacySettings() {
                     ])}
                   />
 
-                  <BackupAndSyncToggle isOnboarding />
+                  <BackupAndSyncToggle />
 
                   <Setting
                     title={t('onboardingAdvancedPrivacyNetworkTitle')}
@@ -437,7 +436,7 @@ export default function PrivacySettings() {
                         {t('onboardingAdvancedPrivacyNetworkDescription', [
                           <a
                             href="https://consensys.io/privacy-policy/"
-                            key="privacy-policy-link"
+                            key="link"
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -445,7 +444,7 @@ export default function PrivacySettings() {
                           </a>,
                           <a
                             href={ZENDESK_URLS.ADD_SOLANA_ACCOUNTS}
-                            key="add-solana-accounts-link"
+                            key="link"
                             target="_blank"
                             rel="noopener noreferrer"
                           >

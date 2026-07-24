@@ -6,9 +6,9 @@ import {
 } from '@metamask/base-controller';
 import type { Messenger } from '@metamask/messenger';
 import { PublicInterface } from '@metamask/utils';
-import type { AnalyticsControllerGetStateAction } from '@metamask/analytics-controller';
 import type { DataDeletionService } from '../../services/data-deletion-service';
 import { DeleteRegulationStatus } from '../../../../shared/constants/metametrics';
+import { MetaMetricsControllerGetStateAction } from '../metametrics-controller';
 import { MetaMetricsDataDeletionControllerMethodActions } from './metametrics-data-deletion-method-action-types';
 
 // Unique name for the controller
@@ -86,7 +86,7 @@ export type MetaMetricsDataDeletionControllerMessengerEvents =
 /**
  * Actions that this controller is allowed to call.
  */
-export type AllowedActions = AnalyticsControllerGetStateAction;
+export type AllowedActions = MetaMetricsControllerGetStateAction;
 
 /**
  * Events that this controller is allowed to subscribe.
@@ -147,14 +147,16 @@ export class MetaMetricsDataDeletionController extends BaseController<
    *
    */
   async createMetaMetricsDataDeletionTask(): Promise<void> {
-    const { analyticsId } = this.messenger.call('AnalyticsController:getState');
-    if (!analyticsId) {
+    const { metaMetricsId } = this.messenger.call(
+      'MetaMetricsController:getState',
+    );
+    if (!metaMetricsId) {
       throw new Error('MetaMetrics ID not found');
     }
 
     const deleteRegulateId =
       await this.#dataDeletionService.createDataDeletionRegulationTask(
-        analyticsId,
+        metaMetricsId,
       );
     this.update((state) => {
       state.metaMetricsDataDeletionId = deleteRegulateId ?? null;

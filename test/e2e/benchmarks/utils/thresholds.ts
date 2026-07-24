@@ -212,9 +212,7 @@ const SOLANA_ASSET_DETAILS = {
 
 const STANDARD_HOME = {
   uiStartup: {
-    // TEMPORARY (fork validation of #44724): absurdly tight so this leg
-    // deterministically breaches, proving a breach fails the leg itself.
-    p75: { warn: 1, fail: 1 },
+    p75: { warn: 2000, fail: 2500 },
     p95: { warn: 2500, fail: 3200 },
     ciMultiplier: CI_MULTIPLIER.TIER_1,
   },

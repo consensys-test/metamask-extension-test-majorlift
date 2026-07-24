@@ -1,10 +1,29 @@
+import { Messenger } from '@metamask/messenger';
 import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { NftDetectionControllerMessenger } from '@metamask/assets-controllers';
+  NetworkControllerFindNetworkClientIdByChainIdAction,
+  NetworkControllerGetNetworkClientByIdAction,
+  NetworkControllerGetStateAction,
+  NetworkControllerStateChangeEvent,
+} from '@metamask/network-controller';
+import { AccountsControllerGetSelectedAccountAction } from '@metamask/accounts-controller';
+import { PreferencesControllerStateChangeEvent } from '@metamask/preferences-controller';
+import { ApprovalControllerAddRequestAction } from '@metamask/approval-controller';
 import { RootMessenger } from '../../../lib/messenger';
+
+type Actions =
+  | ApprovalControllerAddRequestAction
+  | NetworkControllerGetStateAction
+  | AccountsControllerGetSelectedAccountAction
+  | NetworkControllerGetNetworkClientByIdAction
+  | NetworkControllerFindNetworkClientIdByChainIdAction;
+
+type Events =
+  | PreferencesControllerStateChangeEvent
+  | NetworkControllerStateChangeEvent;
+
+export type NftDetectionControllerMessenger = ReturnType<
+  typeof getNftDetectionControllerMessenger
+>;
 
 /**
  * Get a restricted messenger for the NFT detection controller. This is scoped to the
@@ -14,12 +33,14 @@ import { RootMessenger } from '../../../lib/messenger';
  * @returns The restricted controller messenger.
  */
 export function getNftDetectionControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<NftDetectionControllerMessenger>,
-    MessengerEvents<NftDetectionControllerMessenger>
-  >,
-): NftDetectionControllerMessenger {
-  const controllerMessenger: NftDetectionControllerMessenger = new Messenger({
+  messenger: RootMessenger<Actions, Events>,
+) {
+  const controllerMessenger = new Messenger<
+    'NftDetectionController',
+    Actions,
+    Events,
+    typeof messenger
+  >({
     namespace: 'NftDetectionController',
     parent: messenger,
   });

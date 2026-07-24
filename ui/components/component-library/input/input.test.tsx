@@ -1,3 +1,4 @@
+/* eslint-disable jest/require-top-level-describe */
 import React from 'react';
 import { fireEvent, render, act } from '@testing-library/react';
 import { renderWithUserEvent } from '../../../../test/lib/render-helpers';

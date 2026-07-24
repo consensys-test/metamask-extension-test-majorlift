@@ -85,8 +85,8 @@ export type OrderCalculations = {
   liquidationPriceRaw: number | null;
   /** Total order value in USD */
   orderValue: string | null;
-  /** Estimated trading fees (raw USD amount) */
-  estimatedFees: number | null;
+  /** Estimated trading fees */
+  estimatedFees: string | null;
 };
 
 /**
@@ -180,8 +180,6 @@ export type AmountInputProps = {
    * of the previous hard-coded 6.
    */
   szDecimals?: number;
-  /** Current open position size in asset units, shown when increasing exposure */
-  currentPositionSize?: string;
   /** Callback when add-funds icon is pressed */
   onAddFunds?: () => void;
   /** Auto-focus the USD input on mount (used for keyboard-first order entry) */
@@ -214,35 +212,10 @@ export type LeverageSliderProps = {
 export type OrderSummaryProps = {
   /** Margin required for the position */
   marginRequired: string | null;
-  /** Estimated trading fees (raw USD amount, after discount) */
-  estimatedFees: number | null;
-  /** Estimated trading fees before any VIP discount (raw USD amount) */
-  originalEstimatedFees?: number | null;
+  /** Estimated trading fees */
+  estimatedFees: string | null;
   /** Estimated liquidation price */
   liquidationPrice: string | null;
-  /**
-   * MetaMask fee discount percentage (whole numbers). When provided and
-   * positive, the fees row renders a VIP badge alongside the fee value.
-   */
-  metamaskFeeRateDiscountPercentage?: number;
-  /** MetaMask fee rate used in the fees tooltip. */
-  metamaskFeeRate?: number;
-  /** MetaMask fee rate before any VIP discount. */
-  originalMetamaskFeeRate?: number;
-  /** Protocol/provider fee rate used in the fees tooltip. */
-  protocolFeeRate?: number;
-  /** Label for the protocol/provider fee rate in the fees tooltip. */
-  protocolFeeLabel?: string;
-  /** Whether to show the slippage row (market orders only). */
-  showSlippageRow?: boolean;
-  /** Formatted slippage value, e.g. "Est: 0.12% / Max: 3%" */
-  slippageDisplay?: string | null;
-  /** True when estimated slippage exceeds the configured max. */
-  exceedsMaxSlippage?: boolean;
-  /** Opens the max-slippage configuration modal. */
-  onSlippageClick?: () => void;
-  /** Disables slippage row interaction while the persisted cap is still loading. */
-  isSlippageRowDisabled?: boolean;
 };
 
 /**

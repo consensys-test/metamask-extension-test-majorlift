@@ -3,23 +3,13 @@ import type {
   NetworkClientId,
   NetworkState,
 } from '@metamask/network-controller';
-import type {
-  AnalyticsContext,
-  AnalyticsControllerState,
-  AnalyticsEventProperties,
-  AnalyticsUserTraits,
-} from '@metamask/analytics-controller';
-import { AddressBookEntry } from '@metamask/address-book-controller';
 import { NameEntry, NameType } from '@metamask/name-controller';
+import { AddressBookEntry } from '@metamask/address-book-controller';
 import {
   Nft,
   Token,
   TokensControllerState,
 } from '@metamask/assets-controllers';
-import {
-  AuthConnection,
-  type SeedlessOnboardingControllerState,
-} from '@metamask/seedless-onboarding-controller';
 import {
   EthAccountType,
   BtcAccountType,
@@ -35,21 +25,19 @@ import {
 } from '@metamask/messenger';
 import { merge } from 'lodash';
 import { ThemeType } from '../../../shared/constants/preferences';
-import { FirstTimeFlowType } from '../../../shared/constants/onboarding';
 import {
   DEVICE_TYPE,
   ENVIRONMENT_TYPE_BACKGROUND,
   OS,
   PLATFORM_CHROME,
 } from '../../../shared/constants/app';
-import { createSegmentMock, segment } from '../lib/segment';
+import type { SegmentClient } from '../lib/segment';
+import { createSegmentMock } from '../lib/segment';
 import {
+  METAMETRICS_ANONYMOUS_ID,
   METAMETRICS_BACKGROUND_PAGE_OBJECT,
-  MetaMetricsEventName,
   MetaMetricsUserTrait,
   MetaMetricsUserTraits,
-  type MetaMetricsEventOptions,
-  type MetaMetricsEventPayload,
 } from '../../../shared/constants/metametrics';
 import { CHAIN_IDS } from '../../../shared/constants/network';
 import { KeyringType } from '../../../shared/constants/keyring';
@@ -67,38 +55,15 @@ import {
   createMockInternalAccount,
   createMockInternalAccounts,
 } from '../../../test/data/mock-accounts';
-import type { Preferences } from '../../../shared/types/preferences';
-import * as sentry from '../../../shared/lib/sentry';
-import { configureOptOutSegmentEnrichment } from '../lib/segment/custom-segment-tracking';
-import { getAnalyticsControllerInitMessenger } from '../messenger-client-init/messengers/analytics-controller-messenger';
-import {
-  createEnrichmentContext,
-  enrichEventContext,
-  enrichEventProperties,
-  enrichWithABTestAnalytics,
-} from './analytics/platform-adapter';
-import * as analyticsHelpers from './analytics/analytics';
-import {
-  configureAnalytics,
-  getProfileIdentityProperties,
-  updateProfileSessionData,
-} from './analytics/analytics';
-import {
-  createEventBuilder,
-  identify,
-  trackEvent,
-  trackPage,
-} from './analytics';
 import {
   MetaMetricsController,
   AllowedActions,
   AllowedEvents,
   MetaMetricsControllerOptions,
-  type MetaMaskState,
-  type MetaMetricsControllerState,
 } from './metametrics-controller';
 import {
   getDefaultPreferencesControllerState,
+  Preferences,
   PreferencesControllerState,
 } from './preferences-controller';
 
@@ -106,46 +71,14 @@ const TEST_BADGE_FLAG_KEY = 'testTEST338AbtestAttentionBadge';
 const TEST_QUICK_AMOUNTS_FLAG_KEY = 'testTEST4135AbtestQuickAmounts';
 const TEST_LAYOUT_FLAG_KEY = 'testTEST4242AbtestBalanceLayout';
 
-function trackLegacyMetaMetricsPayload(
-  payload: MetaMetricsEventPayload,
-  options?: MetaMetricsEventOptions,
-): void {
-  trackEvent(
-    createEventBuilder(payload.event)
-      .addProperties({
-        ...(payload.properties ?? {}),
-        ...(payload.category === undefined
-          ? {}
-          : { category: payload.category }),
-        ...(payload.revenue === undefined ? {} : { revenue: payload.revenue }),
-        ...(payload.value === undefined ? {} : { value: payload.value }),
-        ...(payload.currency === undefined
-          ? {}
-          : { currency: payload.currency }),
-      })
-      .addSensitiveProperties(payload.sensitiveProperties)
-      .build({
-        environmentType: payload.environmentType,
-        page: payload.page,
-        referrer: payload.referrer,
-        excludeMetaMetricsId: options?.excludeMetaMetricsId,
-        matomoEvent: options?.matomoEvent,
-      }),
-  );
-}
-
 const segmentMock = createSegmentMock(2);
 
 const VERSION = '0.0.1-test';
 const DEFAULT_CHAIN_ID = '0x1338';
 const LOCALE = 'en_US';
-const TEST_ANALYTICS_ID = '00000000-0000-4000-8000-000000000001';
+const TEST_META_METRICS_ID = '0xabc';
 const TEST_GA_COOKIE_ID = '123456.123455';
-
-const MOCK_ANALYTICS_CONTROLLER_OPTED_IN: AnalyticsControllerState = {
-  optedIn: true,
-  analyticsId: TEST_ANALYTICS_ID,
-};
+const DUMMY_ACTION_ID = 'DUMMY_ACTION_ID';
 const MOCK_EXTENSION_ID = 'testid';
 
 const MOCK_EXTENSION = {
@@ -174,8 +107,6 @@ const MOCK_TRAITS = {
   // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
   // eslint-disable-next-line @typescript-eslint/naming-convention
   test_boolean_array: [1, 2, 3],
-  [MetaMetricsUserTrait.CookieId]: 'GA1.1.12345.67890',
-  [MetaMetricsUserTrait.GaClientId]: '12345.67890',
 } as MetaMetricsUserTraits;
 
 const MOCK_INVALID_TRAITS = {
@@ -215,31 +146,6 @@ const DEFAULT_EVENT_PROPERTIES = {
 
 const DEFAULT_PAGE_PROPERTIES = {
   ...DEFAULT_SHARED_PROPERTIES,
-};
-
-const SAMPLE_SRP_SESSION_DATA = {
-  entropySourceId1: {
-    token: {
-      accessToken: '',
-      expiresIn: 0,
-      obtainedAt: 0,
-    },
-    profile: {
-      identifierId: 'identifierId',
-      profileId: 'profileId',
-      canonicalProfileId: 'canonicalProfileId',
-      metaMetricsId: 'testid',
-    },
-  },
-};
-
-const PROFILE_IDENTITY_EVENT_PROPERTIES = {
-  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  profile_id: 'profileId',
-  // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  canonical_profile_id: 'canonicalProfileId',
 };
 
 const SAMPLE_TX_SUBMITTED_PARTIAL_FRAGMENT = {
@@ -288,20 +194,19 @@ const SAMPLE_NON_PERSISTED_EVENT = {
 describe('MetaMetricsController', function () {
   beforeEach(() => {
     clearABTestAnalyticsMappings();
-    updateProfileSessionData(undefined);
   });
 
   describe('constructor', function () {
     it('should properly initialize', async function () {
       const spy = jest.spyOn(segmentMock, 'track');
-      await withController(({ controller, controllerMessenger }) => {
+      await withController(({ controller }) => {
         expect(controller.version).toStrictEqual(VERSION);
         expect(controller.chainId).toStrictEqual(DEFAULT_CHAIN_ID);
-        expect(controller.state.completedMetaMetricsOnboarding).toBe(true);
+        expect(controller.state.participateInMetaMetrics).toStrictEqual(true);
+        expect(controller.state.metaMetricsId).toStrictEqual(
+          TEST_META_METRICS_ID,
+        );
         expect(controller.state.marketingCampaignCookieId).toStrictEqual(null);
-        expect(
-          controllerMessenger.call('AnalyticsController:getState').analyticsId,
-        ).toStrictEqual(TEST_ANALYTICS_ID);
         expect(controller.locale).toStrictEqual(LOCALE.replace('_', '-'));
         expect(controller.state.fragments).toStrictEqual({
           testid: SAMPLE_PERSISTED_EVENT,
@@ -310,12 +215,14 @@ describe('MetaMetricsController', function () {
         expect(spy).toHaveBeenCalledWith(
           {
             event: 'sample non-persisted event failure',
-            userId: TEST_ANALYTICS_ID,
+            userId: TEST_META_METRICS_ID,
             context: DEFAULT_TEST_CONTEXT,
             properties: {
               ...DEFAULT_EVENT_PROPERTIES,
               test: true,
             },
+            messageId: 'sample-non-persisted-event-failure',
+            timestamp: new Date(),
           },
           spy.mock.calls[0][1],
         );
@@ -365,6 +272,7 @@ describe('MetaMetricsController', function () {
     it('should throw an error if the param is missing successEvent', async function () {
       await withController(async ({ controller }) => {
         await expect(() => {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-expect-error because we are testing the error case
           controller.createEventFragment({ category: 'test' });
         }).toThrow(/Must specify success event\./u);
@@ -393,29 +301,47 @@ describe('MetaMetricsController', function () {
     });
 
     it('should track the initial event if provided', async function () {
-      await withController(({ controller }) => {
-        const spy = jest.spyOn(segmentMock, 'track');
-        const mockInitialEventName = 'Test Initial Event';
+      await withController(
+        {
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+            },
+          },
+        },
+        ({ controller }) => {
+          const spy = jest.spyOn(segmentMock, 'track');
+          const mockInitialEventName = 'Test Initial Event';
 
-        controller.createEventFragment({
-          ...SAMPLE_PERSISTED_EVENT_NO_ID,
-          initialEvent: mockInitialEventName,
-        });
+          controller.createEventFragment({
+            ...SAMPLE_PERSISTED_EVENT_NO_ID,
+            initialEvent: mockInitialEventName,
+          });
 
-        expect(spy).toHaveBeenCalledTimes(1);
-      });
+          expect(spy).toHaveBeenCalledTimes(1);
+        },
+      );
     });
 
     it('should not call track if no initialEvent was provided', async function () {
-      await withController(({ controller }) => {
-        const spy = jest.spyOn(segmentMock, 'track');
+      await withController(
+        {
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+            },
+          },
+        },
+        ({ controller }) => {
+          const spy = jest.spyOn(segmentMock, 'track');
 
-        controller.createEventFragment({
-          ...SAMPLE_PERSISTED_EVENT_NO_ID,
-        });
+          controller.createEventFragment({
+            ...SAMPLE_PERSISTED_EVENT_NO_ID,
+          });
 
-        expect(spy).toHaveBeenCalledTimes(0);
-      });
+          expect(spy).toHaveBeenCalledTimes(0);
+        },
+      );
     });
 
     describe('when intialEvent is "Transaction Submitted" and a fragment exists before createEventFragment is called', function () {
@@ -533,68 +459,121 @@ describe('MetaMetricsController', function () {
     });
   });
 
+  describe('generateMetaMetricsId', function () {
+    it('should generate an 0x prefixed hex string', async function () {
+      await withController(({ controller }) => {
+        expect(
+          controller.generateMetaMetricsId().startsWith('0x'),
+        ).toStrictEqual(true);
+      });
+    });
+  });
+
+  describe('getMetaMetricsId', function () {
+    it('should generate or return the metametrics id', async function () {
+      await withController(
+        {
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+              metaMetricsId: null,
+            },
+          },
+        },
+        ({ controller }) => {
+          // Starts off being empty.
+          expect(controller.state.metaMetricsId).toStrictEqual(null);
+
+          // Create a new metametrics id.
+          const clientMetaMetricsId = controller.getMetaMetricsId();
+          expect(clientMetaMetricsId.startsWith('0x')).toStrictEqual(true);
+
+          // Return same metametrics id.
+          const sameMetaMetricsId = controller.getMetaMetricsId();
+          expect(clientMetaMetricsId).toStrictEqual(sameMetaMetricsId);
+        },
+      );
+    });
+  });
+
   describe('identify', function () {
     it('should call segment.identify for valid traits if user is participating in metametrics', async function () {
       const spy = jest.spyOn(segmentMock, 'identify');
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {
-        return undefined;
-      });
-      await withController(({ controller }) => {
-        identify({
-          ...MOCK_TRAITS,
-          ...MOCK_INVALID_TRAITS,
-        });
-        expect(spy).toHaveBeenCalledTimes(1);
-        expect(spy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            userId: TEST_ANALYTICS_ID,
-            traits: MOCK_TRAITS,
-          }),
-          undefined,
-        );
-        expect(warnSpy).toHaveBeenCalledTimes(2);
-        expect(warnSpy).toHaveBeenNthCalledWith(
-          1,
-          'analytics#identify: "test_null" value is not a valid trait type',
-        );
-        expect(warnSpy).toHaveBeenNthCalledWith(
-          2,
-          'analytics#identify: "test_array_multi_types" value is not a valid trait type',
-        );
-      });
+      await withController(
+        {
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+              metaMetricsId: TEST_META_METRICS_ID,
+            },
+          },
+        },
+        ({ controller }) => {
+          controller.identify({
+            ...MOCK_TRAITS,
+            ...MOCK_INVALID_TRAITS,
+          });
+          expect(spy).toHaveBeenCalledTimes(1);
+          expect(spy).toHaveBeenCalledWith(
+            {
+              userId: TEST_META_METRICS_ID,
+              traits: MOCK_TRAITS,
+              messageId: Utils.generateRandomId(),
+              timestamp: new Date(),
+            },
+            spy.mock.calls[0][1],
+          );
+        },
+      );
     });
 
     it('should transform date type traits into ISO-8601 timestamp strings', async function () {
       const spy = jest.spyOn(segmentMock, 'identify');
-      await withController(({ controller }) => {
-        identify({
-          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          test_date: new Date().toISOString(),
-        } as MetaMetricsUserTraits);
-        expect(spy).toHaveBeenCalledTimes(1);
-        expect(spy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            userId: TEST_ANALYTICS_ID,
-            traits: {
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              test_date: new Date().toISOString(),
+      await withController(
+        {
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+              metaMetricsId: TEST_META_METRICS_ID,
             },
-          }),
-          undefined,
-        );
-      });
+          },
+        },
+        ({ controller }) => {
+          controller.identify({
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            test_date: new Date().toISOString(),
+          } as MetaMetricsUserTraits);
+          expect(spy).toHaveBeenCalledTimes(1);
+          expect(spy).toHaveBeenCalledWith(
+            {
+              userId: TEST_META_METRICS_ID,
+              traits: {
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                test_date: new Date().toISOString(),
+              },
+              messageId: Utils.generateRandomId(),
+              timestamp: new Date(),
+            },
+            spy.mock.calls[0][1],
+          );
+        },
+      );
     });
 
     it('should not call segment.identify if user is not participating in metametrics', async function () {
       const spy = jest.spyOn(segmentMock, 'identify');
       await withController(
         {
-          analyticsControllerState: { optedIn: false },
+          options: {
+            state: {
+              participateInMetaMetrics: false,
+            },
+          },
         },
         ({ controller }) => {
-          identify(MOCK_TRAITS);
+          controller.identify(MOCK_TRAITS);
           expect(spy).toHaveBeenCalledTimes(0);
         },
       );
@@ -602,22 +581,20 @@ describe('MetaMetricsController', function () {
 
     it('should not call segment.identify if there are no valid traits to identify', async function () {
       const spy = jest.spyOn(segmentMock, 'identify');
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {
-        return undefined;
-      });
-      await withController(({ controller }) => {
-        identify(MOCK_INVALID_TRAITS);
-        expect(spy).toHaveBeenCalledTimes(0);
-        expect(warnSpy).toHaveBeenCalledTimes(2);
-        expect(warnSpy).toHaveBeenNthCalledWith(
-          1,
-          'analytics#identify: "test_null" value is not a valid trait type',
-        );
-        expect(warnSpy).toHaveBeenNthCalledWith(
-          2,
-          'analytics#identify: "test_array_multi_types" value is not a valid trait type',
-        );
-      });
+      await withController(
+        {
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+              metaMetricsId: TEST_META_METRICS_ID,
+            },
+          },
+        },
+        ({ controller }) => {
+          controller.identify(MOCK_INVALID_TRAITS);
+          expect(spy).toHaveBeenCalledTimes(0);
+        },
+      );
     });
   });
 
@@ -626,30 +603,46 @@ describe('MetaMetricsController', function () {
       await withController(
         {
           options: {
-            state: { completedMetaMetricsOnboarding: false },
+            state: {
+              participateInMetaMetrics: null,
+              metaMetricsId: null,
+            },
           },
-          analyticsControllerState: { optedIn: false },
         },
-        async ({ controller, controllerMessenger }) => {
-          expect(controller.state.completedMetaMetricsOnboarding).toBe(false);
+        async ({ controller }) => {
+          expect(controller.state.participateInMetaMetrics).toStrictEqual(null);
           await controller.setParticipateInMetaMetrics(true);
-          expect(controller.state.completedMetaMetricsOnboarding).toBe(true);
-          expect(
-            controllerMessenger.call('AnalyticsController:getState').optedIn,
-          ).toBe(true);
+          expect(controller.state.participateInMetaMetrics).toStrictEqual(true);
           await controller.setParticipateInMetaMetrics(false);
-          expect(
-            controllerMessenger.call('AnalyticsController:getState').optedIn,
-          ).toBe(false);
+          expect(controller.state.participateInMetaMetrics).toStrictEqual(
+            false,
+          );
         },
       );
     });
-    it('should not nullify the analyticsId when set to false', async function () {
-      await withController(async ({ controller, controllerMessenger }) => {
+    it('should generate and update the metaMetricsId when set to true', async function () {
+      await withController(
+        {
+          options: {
+            state: {
+              participateInMetaMetrics: null,
+              metaMetricsId: null,
+            },
+          },
+        },
+        async ({ controller }) => {
+          expect(controller.state.metaMetricsId).toStrictEqual(null);
+          await controller.setParticipateInMetaMetrics(true);
+          expect(typeof controller.state.metaMetricsId).toStrictEqual('string');
+        },
+      );
+    });
+    it('should not nullify the metaMetricsId when set to false', async function () {
+      await withController(async ({ controller }) => {
         await controller.setParticipateInMetaMetrics(false);
-        expect(
-          controllerMessenger.call('AnalyticsController:getState').analyticsId,
-        ).toStrictEqual(TEST_ANALYTICS_ID);
+        expect(controller.state.metaMetricsId).toStrictEqual(
+          TEST_META_METRICS_ID,
+        );
       });
     });
     it('should nullify the marketingCampaignCookieId when participateInMetaMetrics is toggled off', async function () {
@@ -657,6 +650,8 @@ describe('MetaMetricsController', function () {
         {
           options: {
             state: {
+              participateInMetaMetrics: true,
+              metaMetricsId: TEST_META_METRICS_ID,
               dataCollectionForMarketing: true,
               marketingCampaignCookieId: TEST_GA_COOKIE_ID,
             },
@@ -675,96 +670,19 @@ describe('MetaMetricsController', function () {
     });
   });
 
-  describe('handleMetaMaskStateUpdate', function () {
-    it('updates the profile when install attribution traits arrive after opt-in', async function () {
-      await withController(
-        {
-          analyticsControllerState: { optedIn: false },
-          options: {
-            state: {
-              completedMetaMetricsOnboarding: false,
-              dataCollectionForMarketing: false,
-              traits: {},
-            },
-          },
-        },
-        async ({ controller }) => {
-          await controller.setParticipateInMetaMetrics(true);
-          const identifySpy = jest
-            .spyOn(analyticsHelpers, 'identify')
-            .mockImplementation(() => undefined);
-
-          const metaMaskState = {
-            addressBook: {},
-            allNfts: {},
-            allTokens: {},
-            ...mockNetworkState({ chainId: CHAIN_IDS.MAINNET }),
-            internalAccounts: {
-              accounts: {
-                mock1: {} as InternalAccount,
-              },
-              selectedAccount: 'mock1',
-            },
-            multichainNetworkConfigurationsByChainId: {},
-            ledgerTransportType: LedgerTransportTypes.webhid,
-            openSeaEnabled: true,
-            useNftDetection: false,
-            securityAlertsEnabled: true,
-            theme: 'default' as ThemeType,
-            useTokenDetection: true,
-            names: {
-              ethereumAddress: {},
-            },
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
-            analyticsId: TEST_ANALYTICS_ID,
-            currentCurrency: 'usd',
-            dataCollectionForMarketing: false,
-            preferences: {
-              privacyMode: true,
-              tokenNetworkFilter: {},
-              tokenSortConfig: {
-                key: 'token-sort-key',
-                order: 'dsc',
-                sortCallback: 'stringNumeric',
-              },
-              showNativeTokenAsMainBalance: true,
-            } as Preferences,
-            srpSessionData: undefined,
-            keyrings: [],
-            firstTimeFlowType: FirstTimeFlowType.create,
-          };
-
-          controller.handleMetaMaskStateUpdate(metaMaskState);
-
-          expect(identifySpy).toHaveBeenCalledTimes(1);
-
-          controller.updateTraits({
-            [MetaMetricsUserTrait.CookieId]: 'GA1.1.12345.67890',
-            [MetaMetricsUserTrait.GaClientId]: '12345.67890',
-          });
-
-          controller.handleMetaMaskStateUpdate(metaMaskState);
-
-          expect(identifySpy).toHaveBeenCalledTimes(2);
-          expect(identifySpy).toHaveBeenLastCalledWith({
-            [MetaMetricsUserTrait.CookieId]: 'GA1.1.12345.67890',
-            [MetaMetricsUserTrait.GaClientId]: '12345.67890',
-          });
-        },
-      );
-    });
-  });
-
   describe('trackEvent', function () {
     it('should not track an event if user is not participating in metametrics', async function () {
       const spy = jest.spyOn(segmentMock, 'track');
       await withController(
         {
-          analyticsControllerState: { optedIn: false },
+          options: {
+            state: {
+              participateInMetaMetrics: false,
+            },
+          },
         },
         ({ controller }) => {
-          trackLegacyMetaMetricsPayload({
+          controller.trackEvent({
             event: 'Fake Event',
             category: 'Unit Test',
             properties: {
@@ -778,76 +696,90 @@ describe('MetaMetricsController', function () {
       );
     });
 
-    it('tracks Metrics Opt Out when user is opted out on non-Firefox browsers', async function () {
+    it('should track an event if user has not opted in, but isOptIn is true', async function () {
       await withController(
         {
-          analyticsControllerState: { optedIn: false },
-        },
-        ({ controller }) => {
-          const spy = jest.spyOn(segment, 'track');
-          const flushSpy = jest.spyOn(segment, 'flush');
-          trackLegacyMetaMetricsPayload({
-            event: MetaMetricsEventName.MetricsOptOut,
-            category: 'Unit Test',
-            properties: {
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              chain_id: '1',
+          options: {
+            state: {
+              participateInMetaMetrics: true,
             },
-          });
-          expect(spy).toHaveBeenCalledTimes(1);
-          expect(spy).toHaveBeenCalledWith({
-            event: MetaMetricsEventName.MetricsOptOut,
-            userId: TEST_ANALYTICS_ID,
-            context: DEFAULT_TEST_CONTEXT,
-            properties: {
-              ...DEFAULT_EVENT_PROPERTIES,
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              chain_id: '1',
-            },
-          });
-          expect(flushSpy).toHaveBeenCalled();
-        },
-      );
-    });
-
-    it('does not track Metrics Opt Out when user is opted out on Firefox', async function () {
-      jest
-        .spyOn(window.navigator, 'userAgent', 'get')
-        .mockReturnValue('Mozilla/5.0 Firefox/126.0');
-      await withController(
-        {
-          analyticsControllerState: { optedIn: false },
-        },
-        ({ controller }) => {
-          const spy = jest.spyOn(segment, 'track');
-          trackLegacyMetaMetricsPayload({
-            event: MetaMetricsEventName.MetricsOptOut,
-            category: 'Unit Test',
-          });
-          expect(spy).not.toHaveBeenCalled();
-        },
-      );
-    });
-
-    it('does not track normal events when user is opted out', async function () {
-      await withController(
-        {
-          analyticsControllerState: { optedIn: false },
+          },
         },
         ({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'track');
-          trackLegacyMetaMetricsPayload({
-            event: 'Fake Event',
-            category: 'Unit Test',
-            properties: {
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              chain_id: '1',
+          controller.trackEvent(
+            {
+              event: 'Fake Event',
+              category: 'Unit Test',
+              properties: {
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                chain_id: '1',
+              },
             },
-          });
-          expect(spy).not.toHaveBeenCalled();
+            { isOptIn: true },
+          );
+          expect(spy).toHaveBeenCalledTimes(1);
+          expect(spy).toHaveBeenCalledWith(
+            {
+              event: 'Fake Event',
+              anonymousId: METAMETRICS_ANONYMOUS_ID,
+              context: DEFAULT_TEST_CONTEXT,
+              properties: {
+                ...DEFAULT_EVENT_PROPERTIES,
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                chain_id: '1',
+              },
+              messageId: Utils.generateRandomId(),
+              timestamp: new Date(),
+            },
+            spy.mock.calls[0][1],
+          );
+        },
+      );
+    });
+
+    it('should track an event during optin and allow for metaMetricsId override', async function () {
+      await withController(
+        {
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+            },
+          },
+        },
+        ({ controller }) => {
+          const spy = jest.spyOn(segmentMock, 'track');
+          controller.trackEvent(
+            {
+              event: 'Fake Event',
+              category: 'Unit Test',
+              properties: {
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                chain_id: '1',
+              },
+            },
+            { isOptIn: true, metaMetricsId: 'TESTID' },
+          );
+          expect(spy).toHaveBeenCalledTimes(1);
+          expect(spy).toHaveBeenCalledWith(
+            {
+              event: 'Fake Event',
+              userId: 'TESTID',
+              context: DEFAULT_TEST_CONTEXT,
+              properties: {
+                ...DEFAULT_EVENT_PROPERTIES,
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                chain_id: '1',
+              },
+              messageId: Utils.generateRandomId(),
+              timestamp: new Date(),
+            },
+            spy.mock.calls[0][1],
+          );
         },
       );
     });
@@ -855,7 +787,7 @@ describe('MetaMetricsController', function () {
     it('should track a legacy event', async function () {
       await withController(({ controller }) => {
         const spy = jest.spyOn(segmentMock, 'track');
-        trackLegacyMetaMetricsPayload(
+        controller.trackEvent(
           {
             event: 'Fake Event',
             category: 'Unit Test',
@@ -871,7 +803,7 @@ describe('MetaMetricsController', function () {
         expect(spy).toHaveBeenCalledWith(
           {
             event: 'Fake Event',
-            userId: TEST_ANALYTICS_ID,
+            userId: TEST_META_METRICS_ID,
             context: DEFAULT_TEST_CONTEXT,
             properties: {
               ...DEFAULT_EVENT_PROPERTIES,
@@ -882,6 +814,8 @@ describe('MetaMetricsController', function () {
               // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: '1',
             },
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(),
           },
           spy.mock.calls[0][1],
         );
@@ -891,7 +825,7 @@ describe('MetaMetricsController', function () {
     it('should track a non legacy event', async function () {
       await withController(({ controller }) => {
         const spy = jest.spyOn(segmentMock, 'track');
-        trackLegacyMetaMetricsPayload({
+        controller.trackEvent({
           event: 'Fake Event',
           category: 'Unit Test',
           properties: {
@@ -911,191 +845,133 @@ describe('MetaMetricsController', function () {
               chain_id: '1',
             },
             context: DEFAULT_TEST_CONTEXT,
-            userId: TEST_ANALYTICS_ID,
+            userId: TEST_META_METRICS_ID,
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(),
           },
           spy.mock.calls[0][1],
         );
       });
     });
 
-    it('removes UTM properties when marketing consent is not granted', async function () {
-      await withController(
-        {
-          options: {
-            state: {
-              dataCollectionForMarketing: false,
-            },
+    it('should use custom timestamp when provided in event payload', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        const customTimestamp = '2024-01-15T00:00:00.000Z';
+        controller.trackEvent({
+          event: 'Fake Event',
+          category: 'Unit Test',
+          timestamp: customTimestamp,
+          properties: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            chain_id: '1',
           },
-        },
-        ({ controller }) => {
-          const spy = jest.spyOn(segmentMock, 'track');
-          trackLegacyMetaMetricsPayload({
+        });
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith(
+          {
             event: 'Fake Event',
-            category: 'Unit Test',
             properties: {
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              utm_source: 'newsletter',
+              ...DEFAULT_EVENT_PROPERTIES,
               // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
               // eslint-disable-next-line @typescript-eslint/naming-convention
               chain_id: '1',
             },
-            sensitiveProperties: {
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              utm_campaign: 'spring-sale',
-              foo: 'bar',
-            },
-          });
-
-          expect(spy).toHaveBeenCalledTimes(2);
-          expect(spy).toHaveBeenNthCalledWith(
-            1,
-            expect.objectContaining({
-              event: 'Fake Event',
-              userId: TEST_ANALYTICS_ID,
-              context: DEFAULT_TEST_CONTEXT,
-              properties: expect.objectContaining({
-                ...DEFAULT_EVENT_PROPERTIES,
-                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                chain_id: '1',
-              }),
-            }),
-            undefined,
-          );
-          expect(spy.mock.calls[0][0].properties).not.toHaveProperty(
-            'utm_source',
-          );
-
-          expect(spy).toHaveBeenNthCalledWith(
-            2,
-            expect.objectContaining({
-              event: 'Fake Event',
-              userId: TEST_ANALYTICS_ID,
-              context: DEFAULT_TEST_CONTEXT,
-              properties: expect.objectContaining({
-                foo: 'bar',
-                ...DEFAULT_EVENT_PROPERTIES,
-                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                chain_id: '1',
-              }),
-            }),
-            undefined,
-          );
-          expect(spy.mock.calls[1][0].properties).not.toHaveProperty(
-            'utm_campaign',
-          );
-        },
-      );
+            context: DEFAULT_TEST_CONTEXT,
+            userId: TEST_META_METRICS_ID,
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(customTimestamp),
+          },
+          spy.mock.calls[0][1],
+        );
+      });
     });
 
-    it('preserves UTM properties when marketing consent is granted', async function () {
-      await withController(
-        {
-          options: {
-            state: {
-              dataCollectionForMarketing: true,
-            },
-          },
-        },
-        ({ controller }) => {
-          const spy = jest.spyOn(segmentMock, 'track');
-          trackLegacyMetaMetricsPayload({
+    it('should immediately flush queue if flushImmediately set to true', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'flush');
+        controller.trackEvent(
+          {
             event: 'Fake Event',
             category: 'Unit Test',
-            properties: {
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              utm_source: 'newsletter',
-            },
-            sensitiveProperties: {
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              utm_campaign: 'spring-sale',
-            },
-          });
-
-          expect(spy).toHaveBeenCalledTimes(2);
-          expect(spy.mock.calls[0][0].properties).toHaveProperty(
-            'utm_source',
-            'newsletter',
-          );
-          expect(spy.mock.calls[1][0].properties).toHaveProperty(
-            'utm_campaign',
-            'spring-sale',
-          );
-        },
-      );
+          },
+          { flushImmediately: true },
+        );
+        expect(spy).not.toThrow();
+      });
     });
 
     it('should throw if event not provided', async function () {
       await withController(({ controller }) => {
         expect(() => {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-expect-error because we are testing the error case
-          trackLegacyMetaMetricsPayload({ category: 'test' });
+          controller.trackEvent({ category: 'test' });
         }).toThrow(/Must specify event\./u);
       });
     });
 
     it('should throw if provided sensitiveProperties, when excludeMetaMetricsId is true', async function () {
-      const captureExceptionSpy = jest
-        .spyOn(sentry, 'captureException')
-        .mockImplementation(jest.fn());
-
-      await withController(async ({ controller }) => {
-        trackLegacyMetaMetricsPayload(
-          {
-            event: 'Fake Event',
-            category: 'Unit Test',
-            sensitiveProperties: { foo: 'bar' },
+      const captureExceptionMock = jest.fn();
+      await withController(
+        {
+          options: {
+            captureException: captureExceptionMock,
           },
-          { excludeMetaMetricsId: true },
-        );
-        await flushPromises();
-        expect(captureExceptionSpy).toHaveBeenCalledWith(
-          new Error(
-            'sensitiveProperties was specified in an event payload that also set the excludeMetaMetricsId flag',
-          ),
-        );
-      });
+        },
+        async ({ controller }) => {
+          controller.trackEvent(
+            {
+              event: 'Fake Event',
+              category: 'Unit Test',
+              sensitiveProperties: { foo: 'bar' },
+            },
+            { excludeMetaMetricsId: true },
+          );
+          await flushPromises();
+          expect(captureExceptionMock).toHaveBeenCalledWith(
+            new Error(
+              'sensitiveProperties was specified in an event payload that also set the excludeMetaMetricsId flag',
+            ),
+          );
+        },
+      );
     });
 
-    it('tracks sensitiveProperties in a separate event marked for anonymization', async function () {
+    it('should track sensitiveProperties in a separate, anonymous event', async function () {
       await withController(({ controller }) => {
         const spy = jest.spyOn(segmentMock, 'track');
-        trackLegacyMetaMetricsPayload({
+        controller.trackEvent({
           event: 'Fake Event',
           category: 'Unit Test',
           sensitiveProperties: { foo: 'bar' },
         });
         expect(spy).toHaveBeenCalledTimes(2);
-
-        expect(spy).toHaveBeenNthCalledWith(
-          1,
-          expect.objectContaining({
+        expect(spy).toHaveBeenCalledWith(
+          {
             event: 'Fake Event',
-            userId: TEST_ANALYTICS_ID,
+            anonymousId: METAMETRICS_ANONYMOUS_ID,
             context: DEFAULT_TEST_CONTEXT,
-            properties: expect.objectContaining(DEFAULT_EVENT_PROPERTIES),
-          }),
-          undefined,
-        );
-        expect(spy.mock.calls[0][0].properties).not.toHaveProperty('foo');
-
-        expect(spy).toHaveBeenNthCalledWith(
-          2,
-          expect.objectContaining({
-            event: 'Fake Event',
-            userId: TEST_ANALYTICS_ID,
-            context: DEFAULT_TEST_CONTEXT,
-            properties: expect.objectContaining({
+            properties: {
               foo: 'bar',
               ...DEFAULT_EVENT_PROPERTIES,
-            }),
-          }),
-          undefined,
+            },
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            userId: TEST_META_METRICS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: DEFAULT_EVENT_PROPERTIES,
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(),
+          },
+          spy.mock.calls[1][1],
         );
       });
     });
@@ -1116,7 +992,7 @@ describe('MetaMetricsController', function () {
         ({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'track');
 
-          trackLegacyMetaMetricsPayload({
+          controller.trackEvent({
             event: 'Card Button Viewed',
             category: 'Unit Test',
           });
@@ -1133,7 +1009,7 @@ describe('MetaMetricsController', function () {
                 ],
               }),
             }),
-            undefined,
+            expect.anything(),
           );
         },
       );
@@ -1163,7 +1039,7 @@ describe('MetaMetricsController', function () {
         ({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'track');
 
-          trackLegacyMetaMetricsPayload({
+          controller.trackEvent({
             event: 'Unified SwapBridge Page Viewed',
             category: 'Unit Test',
           });
@@ -1181,7 +1057,7 @@ describe('MetaMetricsController', function () {
                 ],
               }),
             }),
-            undefined,
+            expect.anything(),
           );
         },
       );
@@ -1211,7 +1087,7 @@ describe('MetaMetricsController', function () {
         ({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'track');
 
-          trackLegacyMetaMetricsPayload({
+          controller.trackEvent({
             event: 'Unified SwapBridge Page Viewed',
             category: 'Unit Test',
             properties: {
@@ -1247,7 +1123,7 @@ describe('MetaMetricsController', function () {
                 ],
               }),
             }),
-            undefined,
+            expect.anything(),
           );
         },
       );
@@ -1269,7 +1145,7 @@ describe('MetaMetricsController', function () {
         ({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'track');
 
-          trackLegacyMetaMetricsPayload({
+          controller.trackEvent({
             event: 'Card Button Viewed',
             category: 'Unit Test',
             properties: {
@@ -1285,7 +1161,7 @@ describe('MetaMetricsController', function () {
                 test_prop: 'value',
               }),
             }),
-            undefined,
+            expect.anything(),
           );
           expect(spy.mock.calls[0][0].properties).not.toHaveProperty(
             'active_ab_tests',
@@ -1305,7 +1181,7 @@ describe('MetaMetricsController', function () {
         .mockReturnValue({});
 
       await withController(({ controller }) => {
-        trackLegacyMetaMetricsPayload({
+        controller.trackEvent({
           event: 'Unrelated Event',
           category: 'Unit Test',
         });
@@ -1322,7 +1198,7 @@ describe('MetaMetricsController', function () {
       await withController(({ controller }) => {
         const spy = jest.spyOn(segmentMock, 'track');
 
-        trackLegacyMetaMetricsPayload({
+        controller.trackEvent({
           event: 'Unrelated Event',
           category: 'Unit Test',
           properties: {
@@ -1350,12 +1226,12 @@ describe('MetaMetricsController', function () {
               test_prop: 'value',
             }),
           }),
-          undefined,
+          expect.anything(),
         );
       });
     });
 
-    it('normalizes active_ab_tests before splitting sensitive events', async function () {
+    it('normalizes existing active_ab_tests on anonymous sensitive-property events', async function () {
       const getManifestFlagsSpy = jest
         .spyOn(ManifestFlags, 'getManifestFlags')
         .mockReturnValue({});
@@ -1363,7 +1239,7 @@ describe('MetaMetricsController', function () {
       await withController(({ controller }) => {
         const spy = jest.spyOn(segmentMock, 'track');
 
-        trackLegacyMetaMetricsPayload({
+        controller.trackEvent({
           event: 'Unrelated Event',
           category: 'Unit Test',
           properties: {
@@ -1393,27 +1269,25 @@ describe('MetaMetricsController', function () {
             properties: expect.objectContaining({
               // eslint-disable-next-line @typescript-eslint/naming-convention
               active_ab_tests: [normalizedAssignment],
+              sensitive: 'value',
             }),
           }),
-          undefined,
+          expect.anything(),
         );
-        expect(spy.mock.calls[0][0].properties).not.toHaveProperty('sensitive');
-
         expect(spy).toHaveBeenNthCalledWith(
           2,
           expect.objectContaining({
             properties: expect.objectContaining({
               // eslint-disable-next-line @typescript-eslint/naming-convention
               active_ab_tests: [normalizedAssignment],
-              sensitive: 'value',
             }),
           }),
-          undefined,
+          expect.anything(),
         );
       });
     });
 
-    it('enriches mapped events before splitting sensitive events', async function () {
+    it('preserves sensitiveProperties and only enriches the identified event', async function () {
       AB_TEST_ANALYTICS_MAPPINGS.push({
         flagKey: TEST_BADGE_FLAG_KEY,
         validVariants: ['control', 'withBadge'],
@@ -1429,7 +1303,7 @@ describe('MetaMetricsController', function () {
         ({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'track');
 
-          trackLegacyMetaMetricsPayload({
+          controller.trackEvent({
             event: 'Card Button Viewed',
             category: 'Unit Test',
             properties: {
@@ -1448,16 +1322,13 @@ describe('MetaMetricsController', function () {
               properties: expect.objectContaining({
                 // eslint-disable-next-line @typescript-eslint/naming-convention
                 button_type: 'card',
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                active_ab_tests: [
-                  createActiveABTestAssignment(TEST_BADGE_FLAG_KEY, 'control'),
-                ],
+                sensitive: 'value',
               }),
             }),
-            undefined,
+            expect.anything(),
           );
           expect(spy.mock.calls[0][0].properties).not.toHaveProperty(
-            'sensitive',
+            'active_ab_tests',
           );
           expect(spy).toHaveBeenNthCalledWith(
             2,
@@ -1465,14 +1336,13 @@ describe('MetaMetricsController', function () {
               properties: expect.objectContaining({
                 // eslint-disable-next-line @typescript-eslint/naming-convention
                 button_type: 'card',
-                sensitive: 'value',
                 // eslint-disable-next-line @typescript-eslint/naming-convention
                 active_ab_tests: [
                   createActiveABTestAssignment(TEST_BADGE_FLAG_KEY, 'control'),
                 ],
               }),
             }),
-            undefined,
+            expect.anything(),
           );
         },
       );
@@ -1499,7 +1369,7 @@ describe('MetaMetricsController', function () {
         ({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'track');
 
-          trackLegacyMetaMetricsPayload({
+          controller.trackEvent({
             event: 'Unified SwapBridge Page Viewed',
             category: 'Unit Test',
           });
@@ -1516,164 +1386,25 @@ describe('MetaMetricsController', function () {
                 ],
               }),
             }),
-            undefined,
+            expect.anything(),
           );
         },
       );
     });
   });
 
-  describe('profile identity event properties', function () {
-    it('omits profile identity properties when srpSessionData is unavailable', async function () {
-      await withController(({ controller }) => {
-        const spy = jest.spyOn(segmentMock, 'track');
-        trackLegacyMetaMetricsPayload({
-          event: 'Fake Event',
-          category: 'Unit Test',
-        });
-
-        expect(spy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            properties: expect.not.objectContaining(
-              PROFILE_IDENTITY_EVENT_PROPERTIES,
-            ),
-          }),
-          undefined,
-        );
-      });
-    });
-
-    it('includes profile identity properties on track events when srpSessionData is available', async function () {
-      await withController(({ controller }) => {
-        jest.spyOn(controller, '_buildUserTraitsObject').mockReturnValue(null);
-        controller.handleMetaMaskStateUpdate({
-          srpSessionData: SAMPLE_SRP_SESSION_DATA,
-        } as unknown as MetaMaskState);
-
-        const spy = jest.spyOn(segmentMock, 'track');
-        trackLegacyMetaMetricsPayload({
-          event: 'Fake Event',
-          category: 'Unit Test',
-        });
-
-        expect(spy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            properties: expect.objectContaining({
-              ...DEFAULT_EVENT_PROPERTIES,
-              ...PROFILE_IDENTITY_EVENT_PROPERTIES,
-            }),
-          }),
-          undefined,
-        );
-      });
-    });
-
-    it('includes profile identity properties on page events when srpSessionData is available', async function () {
-      await withController(({ controller }) => {
-        jest.spyOn(controller, '_buildUserTraitsObject').mockReturnValue(null);
-        controller.handleMetaMaskStateUpdate({
-          srpSessionData: SAMPLE_SRP_SESSION_DATA,
-        } as unknown as MetaMaskState);
-
-        const spy = jest.spyOn(segmentMock, 'page');
-        trackPage({
-          name: 'home',
-          environmentType: ENVIRONMENT_TYPE_BACKGROUND,
-          page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
-        });
-
-        expect(spy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            properties: expect.objectContaining({
-              ...DEFAULT_PAGE_PROPERTIES,
-              ...PROFILE_IDENTITY_EVENT_PROPERTIES,
-            }),
-          }),
-          spy.mock.calls[0][1],
-        );
-      });
-    });
-
-    it('includes profile identity properties on the main event but not the anonymous duplicate', async function () {
-      await withController(({ controller }) => {
-        jest.spyOn(controller, '_buildUserTraitsObject').mockReturnValue(null);
-        controller.handleMetaMaskStateUpdate({
-          srpSessionData: SAMPLE_SRP_SESSION_DATA,
-        } as unknown as MetaMaskState);
-
-        const spy = jest.spyOn(segmentMock, 'track');
-        trackLegacyMetaMetricsPayload({
-          event: 'Signature Requested',
-          category: 'Unit Test',
-          properties: DEFAULT_EVENT_PROPERTIES,
-          sensitiveProperties: { foo: 'bar' },
-        });
-
-        expect(spy).toHaveBeenCalledTimes(2);
-        expect(spy.mock.calls[0][0].properties).toMatchObject({
-          ...DEFAULT_EVENT_PROPERTIES,
-          ...PROFILE_IDENTITY_EVENT_PROPERTIES,
-        });
-        expect(spy.mock.calls[1][0].properties).toMatchObject({
-          foo: 'bar',
-          ...DEFAULT_EVENT_PROPERTIES,
-        });
-        expect(spy.mock.calls[1][0].properties).not.toHaveProperty(
-          'profile_id',
-        );
-        expect(spy.mock.calls[1][0].properties).not.toHaveProperty(
-          'canonical_profile_id',
-        );
-      });
-    });
-  });
-
-  describe('Sensitive transaction and signature events', function () {
-    it('keeps the original event name and marks anonymous-only tracks', async function () {
-      await withController(
-        {
-          options: {
-            state: {
-              fragments: {},
-            },
-          },
-        },
-        ({ controller }) => {
-          const spy = jest.spyOn(segmentMock, 'track');
-          trackLegacyMetaMetricsPayload(
-            {
-              event: 'Signature Requested',
-              category: 'Unit Test',
-              properties: DEFAULT_EVENT_PROPERTIES,
-            },
-            { excludeMetaMetricsId: true },
-          );
-
-          expect(spy).toHaveBeenCalledTimes(1);
-          expect(spy).toHaveBeenCalledWith(
-            expect.objectContaining({
-              event: 'Signature Requested',
-              properties: expect.objectContaining({
-                ...DEFAULT_EVENT_PROPERTIES,
-              }),
-            }),
-            undefined,
-          );
-        },
-      );
-    });
-
+  describe('Change Signature XXX anonymous event names', function () {
     // @ts-expect-error This function is missing from the Mocha type definitions
     it.each([
-      'Signature Requested',
-      'Signature Rejected',
-      'Signature Approved',
+      ['Signature Requested', 'Signature Requested Anon'],
+      ['Signature Rejected', 'Signature Rejected Anon'],
+      ['Signature Approved', 'Signature Approved Anon'],
     ])(
-      'keeps the original event name before the platform adapter handles anonymous tracks for "%s"',
-      async (eventType: string) => {
+      'should change "%s" anonymous event names to "%s"',
+      async (eventType: string, anonEventType: string) => {
         await withController(({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'track');
-          trackLegacyMetaMetricsPayload({
+          controller.trackEvent({
             event: eventType,
             category: 'Unit Test',
             properties: DEFAULT_EVENT_PROPERTIES,
@@ -1683,66 +1414,104 @@ describe('MetaMetricsController', function () {
           expect(spy).toHaveBeenCalledTimes(2);
 
           expect(spy.mock.calls[0][0]).toMatchObject({
-            event: eventType,
-            properties: expect.objectContaining({
-              ...DEFAULT_EVENT_PROPERTIES,
-            }),
+            event: anonEventType,
+            properties: { foo: 'bar', ...DEFAULT_EVENT_PROPERTIES },
           });
-          expect(spy.mock.calls[0][0].properties).not.toHaveProperty('foo');
 
           expect(spy.mock.calls[1][0]).toMatchObject({
             event: eventType,
-            properties: expect.objectContaining({
-              foo: 'bar',
-              ...DEFAULT_EVENT_PROPERTIES,
-            }),
+            properties: { ...DEFAULT_EVENT_PROPERTIES },
           });
         });
       },
     );
   });
 
-  describe('Sensitive transaction lifecycle events', function () {
-    // @ts-expect-error This function is missing from the Mocha type definitions
-    it.each([
-      'Transaction Added',
-      'Transaction Submitted',
-      'Transaction Finalized',
-    ])(
-      'keeps the original event name before the platform adapter handles anonymous tracks for "%s"',
-      async (eventType: string) => {
-        await withController(({ controller }) => {
-          const spy = jest.spyOn(segmentMock, 'track');
-          trackLegacyMetaMetricsPayload({
-            event: eventType,
-            category: 'Unit Test',
-            sensitiveProperties: { foo: 'bar' },
-          });
-          expect(spy).toHaveBeenCalledTimes(2);
-
-          expect(spy.mock.calls[0][0]).toMatchObject({
-            event: eventType,
-            properties: expect.objectContaining(DEFAULT_EVENT_PROPERTIES),
-          });
-          expect(spy.mock.calls[0][0].properties).not.toHaveProperty('foo');
-
-          expect(spy.mock.calls[1][0]).toMatchObject({
-            event: eventType,
-            properties: expect.objectContaining({
+  describe('Change Transaction XXX anonymous event namnes', function () {
+    it('should change "Transaction Added" anonymous event names to "Transaction Added Anon"', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Transaction Added',
+          category: 'Unit Test',
+          sensitiveProperties: { foo: 'bar' },
+        });
+        expect(spy).toHaveBeenCalledTimes(2);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: `Transaction Added Anon`,
+            anonymousId: METAMETRICS_ANONYMOUS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
               foo: 'bar',
               ...DEFAULT_EVENT_PROPERTIES,
-            }),
-          });
+            },
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+      });
+    });
+
+    it('should change "Transaction Submitted" anonymous event names to "Transaction Added Anon"', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Transaction Submitted',
+          category: 'Unit Test',
+          sensitiveProperties: { foo: 'bar' },
         });
-      },
-    );
+        expect(spy).toHaveBeenCalledTimes(2);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: `Transaction Submitted Anon`,
+            anonymousId: METAMETRICS_ANONYMOUS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              foo: 'bar',
+              ...DEFAULT_EVENT_PROPERTIES,
+            },
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+      });
+    });
+
+    it('should change "Transaction Finalized" anonymous event names to "Transaction Added Anon"', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Transaction Finalized',
+          category: 'Unit Test',
+          sensitiveProperties: { foo: 'bar' },
+        });
+        expect(spy).toHaveBeenCalledTimes(2);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: `Transaction Finalized Anon`,
+            anonymousId: METAMETRICS_ANONYMOUS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              foo: 'bar',
+              ...DEFAULT_EVENT_PROPERTIES,
+            },
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+      });
+    });
   });
 
   describe('trackPage', function () {
     it('should track a page view', async function () {
       await withController(({ controller }) => {
         const spy = jest.spyOn(segmentMock, 'page');
-        trackPage({
+        controller.trackPage({
           name: 'home',
           environmentType: ENVIRONMENT_TYPE_BACKGROUND,
           page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
@@ -1751,130 +1520,32 @@ describe('MetaMetricsController', function () {
         expect(spy).toHaveBeenCalledWith(
           {
             name: 'home',
-            userId: TEST_ANALYTICS_ID,
+            userId: TEST_META_METRICS_ID,
             context: DEFAULT_TEST_CONTEXT,
             properties: {
               params: undefined,
               ...DEFAULT_PAGE_PROPERTIES,
             },
+            messageId: Utils.generateRandomId(),
+            timestamp: new Date(),
           },
           spy.mock.calls[0][1],
         );
       });
     });
 
-    it('should send chain_id_caip and null chain_id when a non-EVM network is selected', async function () {
-      await withController(
-        {
-          mockMultichainNetworkState: {
-            isEvmSelected: false,
-            selectedMultichainNetworkChainId:
-              'bip122:000000000019d6689c085ae165831e93',
-          },
-        },
-        ({ controller }) => {
-          const spy = jest.spyOn(segmentMock, 'page');
-          trackPage({
-            name: 'New Confirmation Page',
-            environmentType: ENVIRONMENT_TYPE_BACKGROUND,
-            page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
-          });
-          expect(spy).toHaveBeenCalledTimes(1);
-          expect(spy).toHaveBeenCalledWith(
-            {
-              name: 'New Confirmation Page',
-              userId: TEST_ANALYTICS_ID,
-              context: DEFAULT_TEST_CONTEXT,
-              properties: {
-                params: undefined,
-                locale: LOCALE.replace('_', '-'),
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                chain_id: null,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                chain_id_caip: 'bip122:000000000019d6689c085ae165831e93',
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                environment_type: 'background',
-              },
-            },
-            spy.mock.calls[0][1],
-          );
-          expect(spy.mock.calls[0][0].properties).toHaveProperty(
-            'chain_id_caip',
-          );
-        },
-      );
-    });
-
-    it('should keep EVM chain_id and omit chain_id_caip when an EVM network is selected', async function () {
-      await withController(
-        {
-          mockMultichainNetworkState: {
-            isEvmSelected: true,
-            selectedMultichainNetworkChainId: 'eip155:1',
-          },
-        },
-        ({ controller }) => {
-          const spy = jest.spyOn(segmentMock, 'page');
-          trackPage({
-            name: 'home',
-            environmentType: ENVIRONMENT_TYPE_BACKGROUND,
-            page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
-          });
-          expect(spy).toHaveBeenCalledTimes(1);
-          expect(spy).toHaveBeenCalledWith(
-            {
-              name: 'home',
-              userId: TEST_ANALYTICS_ID,
-              context: DEFAULT_TEST_CONTEXT,
-              properties: {
-                params: undefined,
-                ...DEFAULT_PAGE_PROPERTIES,
-              },
-            },
-            spy.mock.calls[0][1],
-          );
-          expect(spy.mock.calls[0][0].properties).not.toHaveProperty(
-            'chain_id_caip',
-          );
-        },
-      );
-    });
-
-    it('preserves falsy page view properties except undefined', async function () {
-      await withController(
-        {
-          currentLocale: '',
-        },
-        ({ controller }) => {
-          const spy = jest.spyOn(segmentMock, 'page');
-          trackPage({
-            name: 'home',
-            page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
-          });
-
-          expect(spy).toHaveBeenCalledTimes(1);
-          expect(spy).toHaveBeenCalledWith(
-            expect.objectContaining({
-              properties: {
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                chain_id: DEFAULT_CHAIN_ID,
-                locale: '',
-              },
-            }),
-            spy.mock.calls[0][1],
-          );
-        },
-      );
-    });
-
     it('should not track a page view if user is not participating in metametrics', async function () {
       await withController(
         {
-          analyticsControllerState: { optedIn: false },
+          options: {
+            state: {
+              participateInMetaMetrics: false,
+            },
+          },
         },
         ({ controller }) => {
           const spy = jest.spyOn(segmentMock, 'page');
-          trackPage({
+          controller.trackPage({
             name: 'home',
             environmentType: ENVIRONMENT_TYPE_BACKGROUND,
             page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
@@ -1882,6 +1553,311 @@ describe('MetaMetricsController', function () {
           expect(spy).toHaveBeenCalledTimes(0);
         },
       );
+    });
+
+    it('should track a page view if isOptInPath is true and user not yet opted in', async function () {
+      await withController(
+        {
+          currentLocale: LOCALE,
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+            },
+          },
+        },
+        ({ controller }) => {
+          const spy = jest.spyOn(segmentMock, 'page');
+          controller.trackPage(
+            {
+              name: 'home',
+              environmentType: ENVIRONMENT_TYPE_BACKGROUND,
+              page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
+            },
+            { isOptInPath: true },
+          );
+
+          expect(spy).toHaveBeenCalledTimes(1);
+          expect(spy).toHaveBeenCalledWith(
+            {
+              name: 'home',
+              userId: TEST_META_METRICS_ID,
+              context: DEFAULT_TEST_CONTEXT,
+              properties: {
+                ...DEFAULT_PAGE_PROPERTIES,
+              },
+              messageId: Utils.generateRandomId(),
+              timestamp: new Date(),
+            },
+            spy.mock.calls[0][1],
+          );
+        },
+      );
+    });
+
+    it('multiple trackPage call with same actionId should result in same messageId being sent to segment', async function () {
+      await withController(
+        {
+          currentLocale: LOCALE,
+          options: {
+            state: {
+              participateInMetaMetrics: true,
+            },
+          },
+        },
+        ({ controller }) => {
+          const spy = jest.spyOn(segmentMock, 'page');
+          controller.trackPage(
+            {
+              name: 'home',
+              actionId: DUMMY_ACTION_ID,
+              environmentType: ENVIRONMENT_TYPE_BACKGROUND,
+              page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
+            },
+            { isOptInPath: true },
+          );
+          controller.trackPage(
+            {
+              name: 'home',
+              actionId: DUMMY_ACTION_ID,
+              environmentType: ENVIRONMENT_TYPE_BACKGROUND,
+              page: METAMETRICS_BACKGROUND_PAGE_OBJECT,
+            },
+            { isOptInPath: true },
+          );
+
+          expect(spy).toHaveBeenCalledTimes(2);
+          expect(spy).toHaveBeenCalledWith(
+            {
+              name: 'home',
+              userId: TEST_META_METRICS_ID,
+              context: DEFAULT_TEST_CONTEXT,
+              properties: DEFAULT_PAGE_PROPERTIES,
+              messageId: DUMMY_ACTION_ID,
+              timestamp: new Date(),
+            },
+            spy.mock.calls[0][1],
+          );
+        },
+      );
+    });
+  });
+
+  describe('deterministic messageId', function () {
+    it('should use the actionId as messageId when provided', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Fake Event',
+          category: 'Unit Test',
+          properties: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            chain_id: 'bar',
+          },
+          actionId: '0x001',
+        });
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            userId: TEST_META_METRICS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              chain_id: 'bar',
+            },
+            messageId: '0x001',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+      });
+    });
+
+    it('should append 0x000 to the actionId of anonymized event when tracking sensitiveProperties', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Fake Event',
+          category: 'Unit Test',
+          sensitiveProperties: { foo: 'bar' },
+          actionId: '0x001',
+        });
+        expect(spy).toHaveBeenCalledTimes(2);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            anonymousId: METAMETRICS_ANONYMOUS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              foo: 'bar',
+              ...DEFAULT_EVENT_PROPERTIES,
+            },
+            messageId: '0x001-0x000',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            userId: TEST_META_METRICS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: DEFAULT_EVENT_PROPERTIES,
+            messageId: '0x001',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[1][1],
+        );
+      });
+    });
+
+    it('should use the uniqueIdentifier as messageId when provided', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Fake Event',
+          category: 'Unit Test',
+          properties: {
+            // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            chain_id: 'bar',
+          },
+          uniqueIdentifier: 'transaction-submitted-0000',
+        });
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            userId: TEST_META_METRICS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              chain_id: 'bar',
+            },
+            messageId: 'transaction-submitted-0000',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+      });
+    });
+
+    it('should append 0x000 to the uniqueIdentifier of anonymized event when tracking sensitiveProperties', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Fake Event',
+          category: 'Unit Test',
+          sensitiveProperties: { foo: 'bar' },
+          uniqueIdentifier: 'transaction-submitted-0000',
+        });
+        expect(spy).toHaveBeenCalledTimes(2);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            anonymousId: METAMETRICS_ANONYMOUS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              foo: 'bar',
+              ...DEFAULT_EVENT_PROPERTIES,
+            },
+            messageId: 'transaction-submitted-0000-0x000',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            userId: TEST_META_METRICS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              ...DEFAULT_EVENT_PROPERTIES,
+            },
+            messageId: 'transaction-submitted-0000',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[1][1],
+        );
+      });
+    });
+
+    it('should combine the uniqueIdentifier and actionId as messageId when both provided', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Fake Event',
+          category: 'Unit Test',
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          properties: { chain_id: 'bar' },
+          actionId: '0x001',
+          uniqueIdentifier: 'transaction-submitted-0000',
+        });
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            userId: TEST_META_METRICS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              ...DEFAULT_EVENT_PROPERTIES,
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              chain_id: 'bar',
+            },
+            messageId: 'transaction-submitted-0000-0x001',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+      });
+    });
+
+    it('should append 0x000 to the combined uniqueIdentifier and actionId of anonymized event when tracking sensitiveProperties', async function () {
+      await withController(({ controller }) => {
+        const spy = jest.spyOn(segmentMock, 'track');
+        controller.trackEvent({
+          event: 'Fake Event',
+          category: 'Unit Test',
+          sensitiveProperties: { foo: 'bar' },
+          actionId: '0x001',
+          uniqueIdentifier: 'transaction-submitted-0000',
+        });
+        expect(spy).toHaveBeenCalledTimes(2);
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            anonymousId: METAMETRICS_ANONYMOUS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              foo: 'bar',
+              ...DEFAULT_EVENT_PROPERTIES,
+            },
+            messageId: 'transaction-submitted-0000-0x001-0x000',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[0][1],
+        );
+        expect(spy).toHaveBeenCalledWith(
+          {
+            event: 'Fake Event',
+            userId: TEST_META_METRICS_ID,
+            context: DEFAULT_TEST_CONTEXT,
+            properties: {
+              ...DEFAULT_EVENT_PROPERTIES,
+            },
+            messageId: 'transaction-submitted-0000-0x001',
+            timestamp: new Date(),
+          },
+          spy.mock.calls[1][1],
+        );
+      });
     });
   });
 
@@ -1908,9 +1884,7 @@ describe('MetaMetricsController', function () {
       },
       currentCurrency: 'usd',
       securityAlertsEnabled: false,
-      completedMetaMetricsOnboarding: true,
-      optedIn: true,
-      analyticsId: '',
+      participateInMetaMetrics: true,
       dataCollectionForMarketing: false,
       preferences: {
         privacyMode: false,
@@ -1924,7 +1898,6 @@ describe('MetaMetricsController', function () {
       } as Preferences,
       srpSessionData: undefined,
       keyrings: [],
-      firstTimeFlowType: FirstTimeFlowType.create,
     };
   }
 
@@ -2100,9 +2073,7 @@ describe('MetaMetricsController', function () {
               },
             },
           },
-          completedMetaMetricsOnboarding: true,
-          optedIn: true,
-          analyticsId: TEST_ANALYTICS_ID,
+          participateInMetaMetrics: true,
           currentCurrency: 'usd',
           dataCollectionForMarketing: false,
           preferences: {
@@ -2117,7 +2088,6 @@ describe('MetaMetricsController', function () {
           } as Preferences,
           srpSessionData: undefined,
           keyrings: [],
-          firstTimeFlowType: FirstTimeFlowType.create,
         });
 
         expect(traits).toStrictEqual({
@@ -2161,8 +2131,7 @@ describe('MetaMetricsController', function () {
           [MetaMetricsUserTrait.HasMarketingConsent]: false,
           [MetaMetricsUserTrait.SecurityProviders]: ['blockaid'],
           [MetaMetricsUserTrait.IsMetricsOptedIn]: true,
-          [MetaMetricsUserTrait.CanonicalProfileId]: undefined,
-          [MetaMetricsUserTrait.AccountType]: 'metamask',
+          [MetaMetricsUserTrait.ProfileId]: undefined,
           [MetaMetricsUserTrait.PetnameAddressCount]: 3,
           [MetaMetricsUserTrait.TokenSortPreference]: 'token-sort-key',
           [MetaMetricsUserTrait.PrivacyModeEnabled]: true,
@@ -2173,118 +2142,6 @@ describe('MetaMetricsController', function () {
           [MetaMetricsUserTrait.Os]: OS.MACOS,
         });
       });
-    });
-
-    it('uses the social create flow to build the account type trait', async function () {
-      await withController(
-        {
-          seedlessOnboardingState: {
-            authConnection: AuthConnection.Google,
-          },
-        },
-        ({ controller }) => {
-          const traits = controller._buildUserTraitsObject({
-            addressBook: {},
-            allTokens: {},
-            ...mockNetworkState({ chainId: CHAIN_IDS.MAINNET }),
-            ledgerTransportType: LedgerTransportTypes.webhid,
-            openSeaEnabled: true,
-            internalAccounts: {
-              accounts: {
-                mock1: {} as InternalAccount,
-              },
-              selectedAccount: 'mock1',
-            },
-            useNftDetection: false,
-            theme: 'default' as ThemeType,
-            useTokenDetection: true,
-            allNfts: {},
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
-            analyticsId: TEST_ANALYTICS_ID,
-            dataCollectionForMarketing: false,
-            preferences: {
-              privacyMode: false,
-              tokenNetworkFilter: {},
-              tokenSortConfig: {
-                key: 'token-sort-key',
-                order: 'dsc',
-                sortCallback: 'stringNumeric',
-              },
-              showNativeTokenAsMainBalance: false,
-            } as Preferences,
-            securityAlertsEnabled: false,
-            names: {
-              ethereumAddress: {},
-            },
-            currentCurrency: 'usd',
-            srpSessionData: undefined,
-            keyrings: [],
-            firstTimeFlowType: FirstTimeFlowType.socialCreate,
-            multichainNetworkConfigurationsByChainId: {},
-          });
-
-          expect(traits?.[MetaMetricsUserTrait.AccountType]).toBe(
-            'metamask_google',
-          );
-        },
-      );
-    });
-
-    it('uses the social import flow to build the account type trait', async function () {
-      await withController(
-        {
-          seedlessOnboardingState: {
-            authConnection: AuthConnection.Google,
-          },
-        },
-        ({ controller }) => {
-          const traits = controller._buildUserTraitsObject({
-            addressBook: {},
-            allTokens: {},
-            ...mockNetworkState({ chainId: CHAIN_IDS.MAINNET }),
-            ledgerTransportType: LedgerTransportTypes.webhid,
-            openSeaEnabled: true,
-            internalAccounts: {
-              accounts: {
-                mock1: {} as InternalAccount,
-              },
-              selectedAccount: 'mock1',
-            },
-            useNftDetection: false,
-            theme: 'default' as ThemeType,
-            useTokenDetection: true,
-            allNfts: {},
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
-            analyticsId: TEST_ANALYTICS_ID,
-            dataCollectionForMarketing: false,
-            preferences: {
-              privacyMode: false,
-              tokenNetworkFilter: {},
-              tokenSortConfig: {
-                key: 'token-sort-key',
-                order: 'dsc',
-                sortCallback: 'stringNumeric',
-              },
-              showNativeTokenAsMainBalance: false,
-            } as Preferences,
-            securityAlertsEnabled: false,
-            names: {
-              ethereumAddress: {},
-            },
-            currentCurrency: 'usd',
-            srpSessionData: undefined,
-            keyrings: [],
-            firstTimeFlowType: FirstTimeFlowType.socialImport,
-            multichainNetworkConfigurationsByChainId: {},
-          });
-
-          expect(traits?.[MetaMetricsUserTrait.AccountType]).toBe(
-            'imported_google',
-          );
-        },
-      );
     });
 
     it('should return only changed traits object on subsequent calls', async function () {
@@ -2324,9 +2181,7 @@ describe('MetaMetricsController', function () {
           theme: 'default' as ThemeType,
           useTokenDetection: true,
           allNfts: {},
-          completedMetaMetricsOnboarding: true,
-          optedIn: true,
-          analyticsId: TEST_ANALYTICS_ID,
+          participateInMetaMetrics: true,
           dataCollectionForMarketing: false,
           preferences: {
             privacyMode: true,
@@ -2345,9 +2200,8 @@ describe('MetaMetricsController', function () {
           currentCurrency: 'usd',
           srpSessionData: undefined,
           keyrings: [],
-          firstTimeFlowType: FirstTimeFlowType.create,
           multichainNetworkConfigurationsByChainId: {},
-        } as MetaMaskState);
+        });
 
         const updatedTraits = controller._buildUserTraitsObject({
           addressBook: {
@@ -2392,9 +2246,7 @@ describe('MetaMetricsController', function () {
           },
           currentCurrency: 'usd',
           allNfts: {},
-          completedMetaMetricsOnboarding: true,
-          optedIn: true,
-          analyticsId: TEST_ANALYTICS_ID,
+          participateInMetaMetrics: true,
           dataCollectionForMarketing: false,
           preferences: {
             privacyMode: true,
@@ -2417,15 +2269,13 @@ describe('MetaMetricsController', function () {
               profile: {
                 identifierId: 'identifierId',
                 profileId: 'profileId',
-                canonicalProfileId: 'canonicalProfileId',
                 metaMetricsId: 'testid',
               },
             },
           },
           keyrings: [],
-          firstTimeFlowType: FirstTimeFlowType.import,
           multichainNetworkConfigurationsByChainId: {},
-        } as MetaMaskState);
+        });
 
         expect(updatedTraits).toStrictEqual({
           [MetaMetricsUserTrait.AddressBookEntries]: 4,
@@ -2434,8 +2284,7 @@ describe('MetaMetricsController', function () {
           [MetaMetricsUserTrait.NumberOfTokens]: 1,
           [MetaMetricsUserTrait.OpenSeaApiEnabled]: false,
           [MetaMetricsUserTrait.ShowNativeTokenAsMainBalance]: false,
-          [MetaMetricsUserTrait.CanonicalProfileId]: 'canonicalProfileId',
-          [MetaMetricsUserTrait.AccountType]: 'imported',
+          [MetaMetricsUserTrait.ProfileId]: 'profileId',
         });
       });
     });
@@ -2477,9 +2326,7 @@ describe('MetaMetricsController', function () {
           theme: 'default' as ThemeType,
           useTokenDetection: true,
           allNfts: {},
-          completedMetaMetricsOnboarding: true,
-          optedIn: true,
-          analyticsId: TEST_ANALYTICS_ID,
+          participateInMetaMetrics: true,
           dataCollectionForMarketing: false,
           preferences: {
             privacyMode: true,
@@ -2506,14 +2353,12 @@ describe('MetaMetricsController', function () {
               profile: {
                 identifierId: 'identifierId',
                 profileId: 'profileId',
-                canonicalProfileId: 'canonicalProfileId',
                 metaMetricsId: 'testid',
               },
             },
           },
           keyrings: [],
           multichainNetworkConfigurationsByChainId: {},
-          firstTimeFlowType: FirstTimeFlowType.create,
         });
 
         const updatedTraits = controller._buildUserTraitsObject({
@@ -2545,9 +2390,7 @@ describe('MetaMetricsController', function () {
           theme: 'default' as ThemeType,
           useTokenDetection: true,
           allNfts: {},
-          completedMetaMetricsOnboarding: true,
-          optedIn: true,
-          analyticsId: TEST_ANALYTICS_ID,
+          participateInMetaMetrics: true,
           dataCollectionForMarketing: false,
           preferences: {
             privacyMode: true,
@@ -2574,14 +2417,12 @@ describe('MetaMetricsController', function () {
               profile: {
                 identifierId: 'identifierId',
                 profileId: 'profileId',
-                canonicalProfileId: 'canonicalProfileId',
                 metaMetricsId: 'testid',
               },
             },
           },
           keyrings: [],
           multichainNetworkConfigurationsByChainId: {},
-          firstTimeFlowType: FirstTimeFlowType.create,
         });
         expect(updatedTraits).toStrictEqual(null);
       });
@@ -2711,12 +2552,48 @@ describe('MetaMetricsController', function () {
     });
   });
 
+  describe('submitting segmentApiCalls to segment SDK', function () {
+    it('should add event to store when submitting to SDK', async function () {
+      await withController(({ controller }) => {
+        controller.trackPage({}, { isOptInPath: true });
+        const { segmentApiCalls } = controller.state;
+        expect(Object.keys(segmentApiCalls).length > 0).toStrictEqual(true);
+      });
+    });
+
+    it('should remove event from store when callback is invoked', async function () {
+      const segmentInstance = createSegmentMock(2);
+      const stubFn = (
+        _message: Parameters<SegmentClient['track']>[0],
+        callback?: Parameters<SegmentClient['track']>[1],
+      ): void => {
+        callback?.();
+      };
+      jest.spyOn(segmentInstance, 'track').mockImplementation(stubFn);
+      jest.spyOn(segmentInstance, 'page').mockImplementation(stubFn);
+
+      await withController(
+        {
+          options: {
+            segment: segmentInstance,
+          },
+        },
+        ({ controller }) => {
+          controller.trackPage({}, { isOptInPath: true });
+          const { segmentApiCalls } = controller.state;
+          expect(Object.keys(segmentApiCalls).length === 0).toStrictEqual(true);
+        },
+      );
+    });
+  });
   describe('setMarketingCampaignCookieId', function () {
     it('should update marketingCampaignCookieId in the context when cookieId is available', async function () {
       await withController(
         {
           options: {
             state: {
+              participateInMetaMetrics: true,
+              metaMetricsId: TEST_META_METRICS_ID,
               dataCollectionForMarketing: true,
             },
           },
@@ -2727,20 +2604,23 @@ describe('MetaMetricsController', function () {
             TEST_GA_COOKIE_ID,
           );
           const spy = jest.spyOn(segmentMock, 'track');
-          trackLegacyMetaMetricsPayload({
-            event: 'Fake Event',
-            category: 'Unit Test',
-            properties: {
-              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              chain_id: '1',
+          controller.trackEvent(
+            {
+              event: 'Fake Event',
+              category: 'Unit Test',
+              properties: {
+                // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                chain_id: '1',
+              },
             },
-          });
+            { isOptIn: true },
+          );
           expect(spy).toHaveBeenCalledTimes(1);
           expect(spy).toHaveBeenCalledWith(
             {
               event: 'Fake Event',
-              userId: TEST_ANALYTICS_ID,
+              anonymousId: METAMETRICS_ANONYMOUS_ID,
               context: {
                 ...DEFAULT_TEST_CONTEXT,
                 marketingCampaignCookieId: TEST_GA_COOKIE_ID,
@@ -2751,6 +2631,8 @@ describe('MetaMetricsController', function () {
                 // eslint-disable-next-line @typescript-eslint/naming-convention
                 chain_id: '1',
               },
+              messageId: Utils.generateRandomId(),
+              timestamp: new Date(),
             },
             spy.mock.calls[0][1],
           );
@@ -2764,6 +2646,7 @@ describe('MetaMetricsController', function () {
         {
           options: {
             state: {
+              metaMetricsId: TEST_META_METRICS_ID,
               dataCollectionForMarketing: true,
               marketingCampaignCookieId: TEST_GA_COOKIE_ID,
             },
@@ -3025,10 +2908,9 @@ describe('MetaMetricsController', function () {
   describe('metadata', () => {
     it('includes expected state in debug snapshots', async () => {
       await withController(
-        // Set `fragments` to an empty object to override complex default `fragments` mock state.
-        {
-          options: { state: { fragments: {} } },
-        },
+        // Set `fragments` to an empty object to override complex default `fragments` mock state
+        // that also updates the `latestNonAnonymousEventTimestamp` timestamp.
+        { options: { state: { fragments: {} } } },
         ({ controller }) => {
           expect(
             deriveStateFromMetadata(
@@ -3038,8 +2920,10 @@ describe('MetaMetricsController', function () {
             ),
           ).toMatchInlineSnapshot(`
             {
-              "completedMetaMetricsOnboarding": true,
+              "latestNonAnonymousEventTimestamp": 0,
               "marketingCampaignCookieId": null,
+              "metaMetricsId": "0xabc",
+              "participateInMetaMetrics": true,
             }
           `);
         },
@@ -3048,10 +2932,9 @@ describe('MetaMetricsController', function () {
 
     it('includes expected state in state logs', async () => {
       await withController(
-        // Set `fragments` to an empty object to override complex default `fragments` mock state.
-        {
-          options: { state: { fragments: {} } },
-        },
+        // Set `fragments` to an empty object to override complex default `fragments` mock state
+        // that also updates the `latestNonAnonymousEventTimestamp` timestamp.
+        { options: { state: { fragments: {} } } },
         ({ controller }) => {
           expect(
             deriveStateFromMetadata(
@@ -3061,11 +2944,14 @@ describe('MetaMetricsController', function () {
             ),
           ).toMatchInlineSnapshot(`
             {
-              "completedMetaMetricsOnboarding": true,
               "dataCollectionForMarketing": null,
               "eventsBeforeMetricsOptIn": [],
               "fragments": {},
+              "latestNonAnonymousEventTimestamp": 0,
               "marketingCampaignCookieId": null,
+              "metaMetricsId": "0xabc",
+              "participateInMetaMetrics": true,
+              "segmentApiCalls": {},
               "tracesBeforeMetricsOptIn": [],
               "traits": {},
             }
@@ -3076,10 +2962,9 @@ describe('MetaMetricsController', function () {
 
     it('persists expected state', async () => {
       await withController(
-        // Set `fragments` to an empty object to override complex default `fragments` mock state.
-        {
-          options: { state: { fragments: {} } },
-        },
+        // Set `fragments` to an empty object to override complex default `fragments` mock state
+        // that also updates the `latestNonAnonymousEventTimestamp` timestamp.
+        { options: { state: { fragments: {} } } },
         ({ controller }) => {
           expect(
             deriveStateFromMetadata(
@@ -3089,11 +2974,14 @@ describe('MetaMetricsController', function () {
             ),
           ).toMatchInlineSnapshot(`
             {
-              "completedMetaMetricsOnboarding": true,
               "dataCollectionForMarketing": null,
               "eventsBeforeMetricsOptIn": [],
               "fragments": {},
+              "latestNonAnonymousEventTimestamp": 0,
               "marketingCampaignCookieId": null,
+              "metaMetricsId": "0xabc",
+              "participateInMetaMetrics": true,
+              "segmentApiCalls": {},
               "tracesBeforeMetricsOptIn": [],
               "traits": {},
             }
@@ -3104,10 +2992,9 @@ describe('MetaMetricsController', function () {
 
     it('exposes expected state to UI', async () => {
       await withController(
-        // Set `fragments` to an empty object to override complex default `fragments` mock state.
-        {
-          options: { state: { fragments: {} } },
-        },
+        // Set `fragments` to an empty object to override complex default `fragments` mock state
+        // that also updates the `latestNonAnonymousEventTimestamp` timestamp.
+        { options: { state: { fragments: {} } } },
         ({ controller }) => {
           expect(
             deriveStateFromMetadata(
@@ -3117,9 +3004,11 @@ describe('MetaMetricsController', function () {
             ),
           ).toMatchInlineSnapshot(`
             {
-              "completedMetaMetricsOnboarding": true,
               "dataCollectionForMarketing": null,
               "fragments": {},
+              "latestNonAnonymousEventTimestamp": 0,
+              "metaMetricsId": "0xabc",
+              "participateInMetaMetrics": true,
             }
           `);
         },
@@ -3130,48 +3019,24 @@ describe('MetaMetricsController', function () {
 
 type RootMessenger = Messenger<MockAnyNamespace, AllowedActions, AllowedEvents>;
 
-type MetaMetricsControllerTestState = Partial<MetaMetricsControllerState>;
-
-type AnalyticsTrackingEventPayload = {
-  readonly name: string;
-  properties: Record<string, unknown>;
-  sensitiveProperties: Record<string, unknown>;
-  readonly hasProperties: boolean;
-};
-
 type WithControllerOptions = {
   currentLocale?: string;
-  analyticsControllerState?: Partial<AnalyticsControllerState>;
-  options?: Partial<Omit<MetaMetricsControllerOptions, 'state'>> & {
-    state?: MetaMetricsControllerTestState;
-  };
+  options?: Partial<MetaMetricsControllerOptions>;
   remoteFeatureFlags?: Record<string, unknown>;
-  seedlessOnboardingState?: Partial<SeedlessOnboardingControllerState>;
   mockNetworkClientConfigurationsByNetworkClientId?: Record<
     NetworkClientId,
     {
       chainId: string;
     }
   >;
-  mockMultichainNetworkState?: {
-    isEvmSelected: boolean;
-    selectedMultichainNetworkChainId: string;
-  };
 };
 
 type WithControllerCallback<ReturnValue> = ({
   controller,
-  controllerMessenger,
   triggerPreferencesControllerStateChange,
   triggerNetworkDidChange,
 }: {
   controller: MetaMetricsController;
-  controllerMessenger: Messenger<
-    'MetaMetricsController',
-    AllowedActions,
-    AllowedEvents,
-    RootMessenger
-  >;
   triggerPreferencesControllerStateChange: (
     state: PreferencesControllerState,
   ) => void;
@@ -3193,38 +3058,14 @@ async function withController<ReturnValue>(
     const [{ ...rest }, fn] = args.length === 2 ? args : [{}, args[0]];
     const {
       options = {},
-      analyticsControllerState,
       currentLocale = LOCALE,
       remoteFeatureFlags = {},
-      seedlessOnboardingState = {},
       mockNetworkClientConfigurationsByNetworkClientId = {
         selectedNetworkClientId: {
           chainId: DEFAULT_CHAIN_ID,
         },
       },
-      mockMultichainNetworkState = {
-        isEvmSelected: true,
-        selectedMultichainNetworkChainId: 'eip155:1',
-      },
     } = rest;
-
-    const mmcState = merge(
-      {},
-      {
-        completedMetaMetricsOnboarding: true,
-        marketingCampaignCookieId: null,
-        fragments: {
-          testid: SAMPLE_PERSISTED_EVENT,
-          testid2: SAMPLE_NON_PERSISTED_EVENT,
-        },
-      },
-      options.state ?? {},
-    ) as MetaMetricsControllerState;
-
-    if (options.state && Object.hasOwn(options.state, 'fragments')) {
-      mmcState.fragments = options.state.fragments ?? {};
-    }
-
     const messenger: RootMessenger = new Messenger({
       namespace: MOCK_ANY_NAMESPACE,
     });
@@ -3262,153 +3103,6 @@ async function withController<ReturnValue>(
       }),
     );
 
-    messenger.registerActionHandler(
-      'MultichainNetworkController:getState',
-      jest.fn().mockReturnValue(mockMultichainNetworkState),
-    );
-
-    messenger.registerActionHandler(
-      'SeedlessOnboardingController:getState',
-      jest.fn().mockReturnValue(seedlessOnboardingState),
-    );
-
-    const mockAnalyticsControllerState: AnalyticsControllerState = {
-      ...MOCK_ANALYTICS_CONTROLLER_OPTED_IN,
-      ...(analyticsControllerState ?? {}),
-    };
-
-    messenger.registerActionHandler('AnalyticsController:getState', () => ({
-      ...mockAnalyticsControllerState,
-    }));
-
-    messenger.registerActionHandler('AnalyticsController:optIn', () => {
-      mockAnalyticsControllerState.optedIn = true;
-    });
-
-    messenger.registerActionHandler('AnalyticsController:optOut', () => {
-      mockAnalyticsControllerState.optedIn = false;
-    });
-
-    const analyticsMessenger = getAnalyticsControllerInitMessenger(
-      messenger as Parameters<typeof getAnalyticsControllerInitMessenger>[0],
-    );
-    const enrichmentContext = createEnrichmentContext(
-      analyticsMessenger,
-      '0.0.1-test',
-      getProfileIdentityProperties,
-    );
-
-    // Emulate the analytics platform adapter: every Segment payload is built
-    // here and passed straight to `segmentMock`, preserving the existing
-    // spy-based assertions in tests.
-    messenger.registerActionHandler('AnalyticsController:identify', ((
-      traits?: AnalyticsUserTraits,
-      context?: AnalyticsContext,
-    ) => {
-      if (!traits) {
-        return;
-      }
-      const payload: Record<string, unknown> = {
-        userId: mockAnalyticsControllerState.analyticsId,
-        traits,
-      };
-      if (context) {
-        payload.context = context;
-      }
-      segmentMock.identify(payload as never, undefined);
-    }) as never);
-
-    messenger.registerActionHandler('AnalyticsController:trackEvent', ((
-      event: AnalyticsTrackingEventPayload,
-      context?: AnalyticsContext,
-    ) => {
-      if (!mockAnalyticsControllerState.optedIn) {
-        return;
-      }
-
-      if (!enrichmentContext.hasBasicFunctionalityEnabled()) {
-        return;
-      }
-
-      const enrichedContext = enrichEventContext(context, enrichmentContext);
-
-      const buildPayload = (properties?: Record<string, unknown>) => {
-        const abEnrichedProperties = enrichWithABTestAnalytics(
-          event.name,
-          (properties ?? {}) as AnalyticsEventProperties,
-          enrichmentContext,
-        );
-        const enrichedProperties = enrichEventProperties(
-          abEnrichedProperties,
-          enrichmentContext,
-        );
-        const payload: Record<string, unknown> = {
-          userId: mockAnalyticsControllerState.analyticsId,
-          event: event.name,
-          properties: enrichedProperties,
-          context: enrichedContext,
-        };
-        return payload;
-      };
-
-      if (!event.hasProperties) {
-        segmentMock.track(buildPayload() as never, undefined);
-        return;
-      }
-
-      const hasSensitiveProperties =
-        Object.keys(event.sensitiveProperties ?? {}).length > 0;
-
-      if (!hasSensitiveProperties) {
-        segmentMock.track(buildPayload(event.properties) as never, undefined);
-        return;
-      }
-
-      segmentMock.track(buildPayload(event.properties) as never, undefined);
-      const sanitizedProperties: Record<string, unknown> = {
-        ...event.properties,
-        ...event.sensitiveProperties,
-        anonymous: true,
-      };
-      delete sanitizedProperties.profile_id;
-      delete sanitizedProperties.canonical_profile_id;
-      segmentMock.track(buildPayload(sanitizedProperties) as never, undefined);
-    }) as never);
-
-    messenger.registerActionHandler('AnalyticsController:trackView', ((
-      name: string,
-      properties?: Record<string, unknown>,
-      context?: AnalyticsContext,
-    ) => {
-      if (!mockAnalyticsControllerState.optedIn) {
-        return;
-      }
-
-      if (!enrichmentContext.hasBasicFunctionalityEnabled()) {
-        return;
-      }
-
-      const enrichedProperties = enrichEventProperties(
-        (properties ?? {}) as AnalyticsEventProperties,
-        enrichmentContext,
-      );
-      const pageChainProperties = enrichmentContext.getPageChainProperties();
-      Object.assign(enrichedProperties, pageChainProperties);
-      if (!('chain_id_caip' in pageChainProperties)) {
-        delete enrichedProperties.chain_id_caip;
-      }
-      const enrichedContext = enrichEventContext(context, enrichmentContext);
-      segmentMock.page(
-        {
-          userId: mockAnalyticsControllerState.analyticsId,
-          name,
-          properties: enrichedProperties,
-          context: enrichedContext,
-        } as never,
-        undefined,
-      );
-    }) as never);
-
     const metaMetricsControllerMessenger = new Messenger<
       'MetaMetricsController',
       AllowedActions,
@@ -3421,18 +3115,10 @@ async function withController<ReturnValue>(
     messenger.delegate({
       messenger: metaMetricsControllerMessenger,
       actions: [
-        'AnalyticsController:getState',
-        'AnalyticsController:identify',
-        'AnalyticsController:optIn',
-        'AnalyticsController:optOut',
-        'AnalyticsController:trackEvent',
-        'AnalyticsController:trackView',
         'PreferencesController:getState',
         'NetworkController:getState',
         'NetworkController:getNetworkClientById',
         'RemoteFeatureFlagController:getState',
-        'MultichainNetworkController:getState',
-        'SeedlessOnboardingController:getState',
       ],
       events: [
         'PreferencesController:stateChange',
@@ -3440,29 +3126,33 @@ async function withController<ReturnValue>(
       ],
     });
 
-    configureAnalytics({
-      messenger: analyticsMessenger,
-    });
-    configureOptOutSegmentEnrichment(enrichmentContext);
-
     return fn({
       controller: new MetaMetricsController({
+        segment: segmentMock,
         messenger: metaMetricsControllerMessenger,
         version: '0.0.1',
         environment: 'test',
         extension: MOCK_EXTENSION,
         ...options,
-        state: mmcState,
+        state: {
+          participateInMetaMetrics: true,
+          metaMetricsId: TEST_META_METRICS_ID,
+          marketingCampaignCookieId: null,
+          fragments: {
+            testid: SAMPLE_PERSISTED_EVENT,
+            testid2: SAMPLE_NON_PERSISTED_EVENT,
+          },
+          ...options.state,
+        },
       }),
-      controllerMessenger: metaMetricsControllerMessenger,
       triggerPreferencesControllerStateChange: (state) =>
         messenger.publish('PreferencesController:stateChange', state, []),
       triggerNetworkDidChange: (state) =>
         messenger.publish('NetworkController:networkDidChange', state),
     });
   } finally {
-    // clear the queues manually after each test
-    segmentMock.queue.length = 0;
+    // flush the queues manually after each test
+    segmentMock.flush();
     jest.useRealTimers();
     jest.restoreAllMocks();
   }

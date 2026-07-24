@@ -4,9 +4,8 @@ import {
   KeyringControllerLockEvent,
   KeyringControllerUnlockEvent,
 } from '@metamask/keyring-controller';
-import type { AuthenticationControllerProfileSignInEvent } from '@metamask/profile-sync-controller/auth';
 import { SnapControllerHandleRequestAction } from '@metamask/snaps-controllers';
-import type { AnalyticsControllerGetStateAction } from '@metamask/analytics-controller';
+import { MetaMetricsControllerGetMetaMetricsIdAction } from '../../../controllers/metametrics-controller-method-action-types';
 import { RootMessenger } from '../../../lib/messenger';
 
 type MessengerActions =
@@ -14,7 +13,6 @@ type MessengerActions =
   | SnapControllerHandleRequestAction;
 
 type MessengerEvents =
-  | AuthenticationControllerProfileSignInEvent
   | KeyringControllerLockEvent
   | KeyringControllerUnlockEvent;
 
@@ -49,7 +47,8 @@ export function getAuthenticationControllerMessenger(
   return controllerMessenger;
 }
 
-export type AllowedInitializationActions = AnalyticsControllerGetStateAction;
+export type AllowedInitializationActions =
+  MetaMetricsControllerGetMetaMetricsIdAction;
 
 export type AuthenticationControllerInitMessenger = ReturnType<
   typeof getAuthenticationControllerInitMessenger
@@ -77,7 +76,7 @@ export function getAuthenticationControllerInitMessenger(
   });
   messenger.delegate({
     messenger: controllerInitMessenger,
-    actions: ['AnalyticsController:getState'],
+    actions: ['MetaMetricsController:getMetaMetricsId'],
   });
   return controllerInitMessenger;
 }

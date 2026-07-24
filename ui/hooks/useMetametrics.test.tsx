@@ -22,8 +22,7 @@ describe('useMetametrics', () => {
   beforeEach(() => {
     store = mockStore({
       metamask: {
-        completedMetaMetricsOnboarding: true,
-        optedIn: false,
+        participateInMetaMetrics: false,
       },
     });
 
@@ -40,15 +39,14 @@ describe('useMetametrics', () => {
   it('should enable MetaMetrics', async () => {
     store.getState = () => ({
       metamask: {
-        completedMetaMetricsOnboarding: true,
-        optedIn: false,
+        participateInMetaMetrics: false,
       },
     });
 
     const { result, waitForNextUpdate } = renderHook(
       () => useEnableMetametrics(),
       {
-        wrapper: ({ children }: React.PropsWithChildren) => (
+        wrapper: ({ children }) => (
           <Provider store={store}>{children}</Provider>
         ),
       },
@@ -68,15 +66,14 @@ describe('useMetametrics', () => {
   it('should disable MetaMetrics', async () => {
     store.getState = () => ({
       metamask: {
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
+        participateInMetaMetrics: true,
       },
     });
 
     const { result, waitForNextUpdate } = renderHook(
       () => useDisableMetametrics(),
       {
-        wrapper: ({ children }: React.PropsWithChildren) => (
+        wrapper: ({ children }) => (
           <Provider store={store}>{children}</Provider>
         ),
       },

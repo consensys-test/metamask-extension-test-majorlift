@@ -57,6 +57,7 @@ MMMm*mMMMMMMMMMMm**......**mMMMMMMMMMMm*mMMM
 MMMMMMMMMMMMMMMMMm/....../mMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMmmmmmmmmMMMMMMMMMMMMMMMMMM`);
 
+/* eslint-disable no-irregular-whitespace */
 const EXPERIMENTAL_AREA = lineBreaksToBr(`█▀▀ ▄▀█ █░█ ▀█▀ █ █▀█ █▄░█ ▀
   █▄▄ █▀█ █▄█ ░█░ █ █▄█ █░▀█ ▄
 
@@ -65,6 +66,7 @@ const EXPERIMENTAL_AREA = lineBreaksToBr(`█▀▀ ▄▀█ █░█ ▀█�
 
   █▀ █▀█ █▀▀ ▀█▀ █░█░█ ▄▀█ █▀█ █▀▀
   ▄█ █▄█ █▀░ ░█░ ▀▄▀▄▀ █▀█ █▀▄ ██▄`);
+/* eslint-enable no-irregular-whitespace */
 
 export default function ExperimentalArea({ redirectTo }) {
   const t = useContext(I18nContext);

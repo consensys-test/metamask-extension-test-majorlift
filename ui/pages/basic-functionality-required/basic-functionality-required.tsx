@@ -25,13 +25,9 @@ import {
 } from '../../helpers/constants/design-system';
 import { Container } from '../../components/component-library/container/container';
 import ToggleButton from '../../components/ui/toggle-button';
-import { DEFAULT_ROUTE, PRIVACY_ROUTE } from '../../helpers/constants/routes';
+import { DEFAULT_ROUTE, SECURITY_ROUTE } from '../../helpers/constants/routes';
 import { getUseExternalServices } from '../../selectors';
-import {
-  toggleBasicFunctionality,
-  toggleExternalServices,
-} from '../../store/actions';
-import { getIsBasicFunctionalityConsolidationEnabled } from '../../selectors/multichain/feature-flags';
+import { toggleExternalServices } from '../../store/actions';
 import type { BasicFunctionalityOffState } from '../../helpers/higher-order-components/require-basic-functionality/require-basic-functionality';
 
 const CONTAINER_STYLE = { marginTop: '111px' } as const;
@@ -45,6 +41,8 @@ const SEGMENT_CTA_MAPPING: Record<string, string> = {
   swaps: 'basicFunctionalityRequired_openSwapsPage',
   defi: 'basicFunctionalityRequired_openDefiPage',
   musd: 'basicFunctionalityRequired_openMusdConversionPage',
+  'nonevm-balance-check':
+    'basicFunctionalityRequired_openCreateSnapAccountPage',
   'shield-plan': 'basicFunctionalityRequired_openTransactionShieldPage',
   rewards: 'basicFunctionalityRequired_openRewardsPage',
   perps: 'basicFunctionalityRequired_openPerpsPage',
@@ -60,9 +58,6 @@ export const BasicFunctionalityOff = () => {
   const location = useLocation();
   const dispatch = useDispatch();
   const useExternalServices = useSelector(getUseExternalServices);
-  const isBasicFunctionalityConsolidationEnabled = useSelector(
-    getIsBasicFunctionalityConsolidationEnabled,
-  );
 
   const state = location.state as BasicFunctionalityOffState | undefined;
   const blockedRoutePath = state?.blockedRoutePath ?? '';
@@ -71,11 +66,7 @@ export const BasicFunctionalityOff = () => {
   const hasFeatureContext = Boolean(blockedRoutePath && openPageCtaMessageKey);
 
   const handleToggleBasicFunctionality = (currentValue: boolean) => {
-    dispatch(
-      isBasicFunctionalityConsolidationEnabled
-        ? toggleBasicFunctionality(!currentValue)
-        : toggleExternalServices(!currentValue),
-    );
+    dispatch(toggleExternalServices(!currentValue));
   };
 
   const handleOpenFeaturePage = () => {
@@ -156,7 +147,7 @@ export const BasicFunctionalityOff = () => {
             />
           </Box>
           <TextButton
-            onClick={() => navigate(PRIVACY_ROUTE)}
+            onClick={() => navigate(SECURITY_ROUTE)}
             data-testid="basic-functionality-off-review-in-settings"
           >
             {t('basicFunctionalityRequired_reviewInSettings')}

@@ -146,7 +146,7 @@ const StateChangeRow = ({
   );
 };
 
-const DecodedSimulation = () => {
+const DecodedSimulation: React.FC<object> = () => {
   const t = useI18nContext();
   const { currentConfirmation } = useConfirmContext<SignatureRequestType>();
   const chainId = currentConfirmation.chainId as Hex;
@@ -196,6 +196,8 @@ const DecodedSimulation = () => {
         )
       }
       isLoading={decodingLoading}
+      // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       isCollapsed={decodingLoading || !stateChangeFragment.length}
     />
   );

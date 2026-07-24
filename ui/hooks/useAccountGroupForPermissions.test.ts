@@ -150,10 +150,7 @@ const renderHookWithStore = (
 ) => {
   const state = createMockState(stateOverrides);
   const wrapper = ({ children }: { children: React.ReactNode }) =>
-    React.createElement(Provider, {
-      store: configureStore(state),
-      children,
-    });
+    React.createElement(Provider, { store: configureStore(state) }, children);
 
   return renderHook(
     () =>

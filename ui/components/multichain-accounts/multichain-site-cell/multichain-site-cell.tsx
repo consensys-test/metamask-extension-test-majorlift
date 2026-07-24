@@ -11,11 +11,11 @@ import {
 import { PreferredAvatar } from '../../app/preferred-avatar';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { EditNetworksModal } from '../../multichain/edit-networks-modal';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../hooks/useAnalytics';
 import {
   AccountGroupWithInternalAccounts,
   MultichainAccountsState,
@@ -37,7 +37,7 @@ type MultichainSiteCellProps = {
   hideAllToasts?: () => void;
 };
 
-export const MultichainSiteCell = ({
+export const MultichainSiteCell: React.FC<MultichainSiteCellProps> = ({
   nonTestNetworks,
   testNetworks,
   supportedAccountGroups,
@@ -47,9 +47,9 @@ export const MultichainSiteCell = ({
   selectedChainIds,
   isConnectFlow,
   hideAllToasts = () => undefined,
-}: MultichainSiteCellProps) => {
+}) => {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const allNetworks = [...nonTestNetworks, ...testNetworks];
   const seedAddressIcon = useSelector((state: MultichainAccountsState) => {
     // Only get seed address if we have a valid account group ID
@@ -77,30 +77,28 @@ export const MultichainSiteCell = ({
 
   const handleOpenAccountsModal = () => {
     hideAllToasts?.();
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.ViewPermissionedAccounts)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          location:
-            'Connect view (permissions tab), Permissions toast, Permissions (dapp)',
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.ViewPermissionedAccounts,
+      properties: {
+        location:
+          'Connect view (permissions tab), Permissions toast, Permissions (dapp)',
+      },
+    });
     showEditAccounts();
   };
 
   const handleOpenNetworksModal = () => {
     hideAllToasts?.();
     setShowEditNetworksModal(true);
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.ViewPermissionedNetworks)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          location:
-            'Connect view (permissions tab), Permissions toast, Permissions (dapp)',
-        })
-        .build(),
-    );
+    trackEvent({
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.ViewPermissionedNetworks,
+      properties: {
+        location:
+          'Connect view (permissions tab), Permissions toast, Permissions (dapp)',
+      },
+    });
   };
 
   const accountMessageConnectedState = useMemo(() => {
@@ -131,7 +129,6 @@ export const MultichainSiteCell = ({
           onClick={handleOpenAccountsModal}
           paddingBottomValue={2}
           paddingTopValue={0}
-          // @ts-expect-error: React 18 ReactElement.key is Key|null, incompatible with @types/prop-types ReactNodeLike
           content={
             selectedAccountGroupIds.length === 1 ? (
               <PreferredAvatar
@@ -156,7 +153,6 @@ export const MultichainSiteCell = ({
           onClick={handleOpenNetworksModal}
           paddingTopValue={2}
           paddingBottomValue={0}
-          // @ts-expect-error: React 18 ReactElement.key is Key|null, incompatible with @types/prop-types ReactNodeLike
           content={<MultichainSiteCellTooltip networks={selectedNetworks} />}
         />
       </Box>

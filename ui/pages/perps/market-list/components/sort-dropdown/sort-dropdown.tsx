@@ -59,11 +59,11 @@ export type SortDropdownProps = {
  * @param options0.direction
  * @param options0.onChange
  */
-export const SortDropdown = ({
+export const SortDropdown: React.FC<SortDropdownProps> = ({
   selectedField,
   direction,
   onChange,
-}: SortDropdownProps) => {
+}) => {
   const t = useI18nContext();
   const [isOpen, setIsOpen] = useState(false);
   const [pendingField, setPendingField] = useState<SortField>(selectedField);
@@ -117,39 +117,30 @@ export const SortDropdown = ({
         <ModalOverlay />
         <ModalContent size={ModalContentSize.Sm}>
           <ModalHeader onClose={handleClose}>
-            {t('perpsSortByTitle')}
+            <Text variant={TextVariant.HeadingSm} fontWeight={FontWeight.Bold}>
+              {t('perpsSortByTitle')}
+            </Text>
           </ModalHeader>
 
-          <ModalBody className="!p-0">
-            {/* "SORT BY" section header */}
-            <Box className="w-full px-4 pb-3">
-              <Text
-                variant={TextVariant.BodyXs}
-                color={TextColor.TextAlternative}
-                className="uppercase tracking-wide"
-              >
-                {t('perpsSortBySection')}
-              </Text>
-            </Box>
-
+          <ModalBody>
             {/* Sort field options */}
-            <Box flexDirection={BoxFlexDirection.Column} className="w-full">
-              {SORT_FIELD_OPTIONS.map((option, index) => {
+            <Box flexDirection={BoxFlexDirection.Column}>
+              {SORT_FIELD_OPTIONS.map((option) => {
                 const isSelected = pendingField === option.id;
-                const isLast = index === SORT_FIELD_OPTIONS.length - 1;
                 return (
                   <ButtonBase
                     key={option.id}
                     onClick={() => setPendingField(option.id)}
-                    className={`w-full justify-between text-left rounded-none px-4 min-w-0 h-[46px] active:bg-pressed ${
-                      isSelected ? 'bg-hover' : 'bg-transparent hover:bg-hover'
-                    } ${isLast ? 'border-b border-border-muted' : ''}`}
+                    className="w-full justify-between text-left rounded-none px-0 py-3 bg-transparent min-w-0 h-auto hover:bg-hover active:bg-pressed border-b border-border-muted last:border-b-0"
                     data-testid={`sort-field-option-${option.id}`}
                   >
                     <Text
                       variant={TextVariant.BodyMd}
-                      color={TextColor.TextDefault}
-                      fontWeight={FontWeight.Medium}
+                      color={
+                        isSelected
+                          ? TextColor.TextDefault
+                          : TextColor.TextAlternative
+                      }
                     >
                       {t(option.labelKey)}
                     </Text>
@@ -165,19 +156,16 @@ export const SortDropdown = ({
               })}
             </Box>
 
-            {/* "RANK" section header */}
-            <Box className="w-full px-4 pb-3 pt-5">
+            {/* Sort direction section */}
+            <Box className="mt-4" flexDirection={BoxFlexDirection.Column}>
               <Text
-                variant={TextVariant.BodyXs}
+                variant={TextVariant.BodySm}
                 color={TextColor.TextAlternative}
-                className="uppercase tracking-wide"
+                className="mb-2 uppercase tracking-wide"
               >
-                {t('perpsSortByRank')}
+                {t('perpsSortBySection')}
               </Text>
-            </Box>
 
-            {/* Sort direction options */}
-            <Box flexDirection={BoxFlexDirection.Column} className="w-full">
               {(
                 [
                   { value: 'desc' as const, labelKey: 'perpsSortByHighToLow' },
@@ -189,15 +177,16 @@ export const SortDropdown = ({
                   <ButtonBase
                     key={value}
                     onClick={() => setPendingDirection(value)}
-                    className={`w-full justify-between text-left rounded-none px-4 min-w-0 h-[46px] active:bg-pressed ${
-                      isSelected ? 'bg-hover' : 'bg-transparent hover:bg-hover'
-                    }`}
+                    className="w-full justify-between text-left rounded-none px-0 py-3 bg-transparent min-w-0 h-auto hover:bg-hover active:bg-pressed border-b border-border-muted last:border-b-0"
                     data-testid={`sort-direction-${value}`}
                   >
                     <Text
                       variant={TextVariant.BodyMd}
-                      color={TextColor.TextDefault}
-                      fontWeight={FontWeight.Medium}
+                      color={
+                        isSelected
+                          ? TextColor.TextDefault
+                          : TextColor.TextAlternative
+                      }
                     >
                       {t(labelKey)}
                     </Text>

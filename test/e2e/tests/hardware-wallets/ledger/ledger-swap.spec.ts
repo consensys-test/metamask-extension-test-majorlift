@@ -39,6 +39,8 @@ describe.skip('Ledger Swap', function () {
         });
 
         const homePage = new HomePage(driver);
+        await homePage.checkIfSwapButtonIsClickable();
+
         await homePage.startSwapFlow();
 
         if (isFirefox) {

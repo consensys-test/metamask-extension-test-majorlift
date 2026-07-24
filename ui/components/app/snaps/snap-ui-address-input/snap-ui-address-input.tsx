@@ -1,4 +1,10 @@
-import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
+import React, {
+  ChangeEvent,
+  FunctionComponent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import classnames from 'clsx';
 import {
   CaipAccountId,
@@ -46,7 +52,7 @@ type MatchedAccountInfoProps = {
   error?: string;
 };
 
-const MatchedAccountInfo = ({
+const MatchedAccountInfo: FunctionComponent<MatchedAccountInfoProps> = ({
   label,
   displayAvatar,
   chainId,
@@ -55,7 +61,7 @@ const MatchedAccountInfo = ({
   handleClear,
   disabled,
   error,
-}: MatchedAccountInfoProps) => (
+}) => (
   <Box display={Display.Flex} flexDirection={FlexDirection.Column}>
     {label && (
       <Label className={classnames('mm-form-text-field__label')}>{label}</Label>
@@ -135,7 +141,9 @@ export type SnapUIAddressInputProps = {
   disabled?: boolean;
 };
 
-export const SnapUIAddressInput = ({
+export const SnapUIAddressInput: FunctionComponent<
+  SnapUIAddressInputProps & FormTextFieldProps<'div'>
+> = ({
   name,
   form,
   label,
@@ -144,7 +152,7 @@ export const SnapUIAddressInput = ({
   error,
   disabled,
   ...props
-}: SnapUIAddressInputProps & FormTextFieldProps<'div'>) => {
+}) => {
   const { handleInputChange, getValue, focusedInput, setCurrentFocusedInput } =
     useSnapInterfaceContext();
 

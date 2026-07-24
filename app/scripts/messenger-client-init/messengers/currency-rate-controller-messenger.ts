@@ -1,11 +1,18 @@
+import { Messenger } from '@metamask/messenger';
 import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { CurrencyRateMessenger } from '@metamask/assets-controllers';
+  NetworkControllerGetNetworkClientByIdAction,
+  NetworkControllerGetStateAction,
+} from '@metamask/network-controller';
 import { PreferencesControllerGetStateAction } from '../../controllers/preferences-controller';
 import { RootMessenger } from '../../lib/messenger';
+
+type AllowedActions =
+  | NetworkControllerGetNetworkClientByIdAction
+  | NetworkControllerGetStateAction;
+
+export type CurrencyRateControllerMessenger = ReturnType<
+  typeof getCurrencyRateControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the
@@ -15,12 +22,14 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getCurrencyRateControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<CurrencyRateMessenger>,
-    MessengerEvents<CurrencyRateMessenger>
-  >,
-): CurrencyRateMessenger {
-  const controllerMessenger: CurrencyRateMessenger = new Messenger({
+  messenger: RootMessenger<AllowedActions, never>,
+) {
+  const controllerMessenger = new Messenger<
+    'CurrencyRateController',
+    AllowedActions,
+    never,
+    typeof messenger
+  >({
     namespace: 'CurrencyRateController',
     parent: messenger,
   });

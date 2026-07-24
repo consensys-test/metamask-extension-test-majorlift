@@ -13,26 +13,43 @@ import { MUSD_TOKEN_ADDRESS } from '../../../components/app/musd/constants';
 import { selectIsMerklClaimingEnabled } from '../../../selectors/musd';
 import { MusdBonusSection } from './musd-bonus-section';
 
-const mockTrackEvent = jest.fn();
-
-jest.mock('../../../hooks/useAnalytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../../shared/lib/analytics/create-event-builder',
-  );
+jest.mock('../../../contexts/metametrics', () => {
+  const ReactActual = jest.requireActual<typeof import('react')>('react');
+  const _trackEvent = jest.fn();
+  const MetaMetricsContext = ReactActual.createContext({
+    trackEvent: _trackEvent,
+    bufferedTrace: jest.fn().mockResolvedValue(undefined),
+    bufferedEndTrace: jest.fn().mockResolvedValue(undefined),
+    onboardingParentContext: { current: null },
+  });
+  MetaMetricsContext.Provider = (({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) =>
+    ReactActual.createElement(
+      ReactActual.Fragment,
+      null,
+      children,
+    )) as unknown as typeof MetaMetricsContext.Provider;
   return {
-    useAnalytics: () => ({
-      trackEvent: mockTrackEvent,
-      createEventBuilder,
-    }),
+    MetaMetricsContext,
+    LegacyMetaMetricsProvider: ({ children }: { children: React.ReactNode }) =>
+      ReactActual.createElement(ReactActual.Fragment, null, children),
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    __mockTrackEvent: _trackEvent,
   };
 });
 
-const MOCK_NETWORK_CONFIGS_BY_CHAIN_ID = {
-  '0x1': { name: 'Ethereum Mainnet' },
-};
+const { __mockTrackEvent: mockTrackEvent } = jest.requireMock<{
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  __mockTrackEvent: jest.Mock;
+}>('../../../contexts/metametrics');
+
 jest.mock('../../../selectors/multichain', () => ({
-  getMultichainNetworkConfigurationsByChainId: () =>
-    MOCK_NETWORK_CONFIGS_BY_CHAIN_ID,
+  getMultichainNetworkConfigurationsByChainId: jest.fn(() => ({
+    '0x1': { name: 'Ethereum Mainnet' },
+  })),
 }));
 
 const mockRefetchRewards = jest.fn();
@@ -451,7 +468,7 @@ describe('MusdBonusSection', () => {
 
       expect(mockTrackEvent).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          name: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
+          event: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
         }),
       );
     });
@@ -480,7 +497,7 @@ describe('MusdBonusSection', () => {
 
       expect(mockTrackEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
+          event: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
           properties: expect.objectContaining({
             location: 'asset_overview',
             // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -529,7 +546,7 @@ describe('MusdBonusSection', () => {
 
       expect(mockTrackEvent).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          name: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
+          event: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
         }),
       );
     });
@@ -562,7 +579,7 @@ describe('MusdBonusSection', () => {
 
       expect(mockTrackEvent).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          name: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
+          event: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
         }),
       );
     });
@@ -593,7 +610,7 @@ describe('MusdBonusSection', () => {
 
       expect(mockTrackEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: MetaMetricsEventName.MusdClaimBonusButtonClicked,
+          event: MetaMetricsEventName.MusdClaimBonusButtonClicked,
           properties: expect.objectContaining({
             location: 'asset_overview',
             // eslint-disable-next-line @typescript-eslint/naming-convention

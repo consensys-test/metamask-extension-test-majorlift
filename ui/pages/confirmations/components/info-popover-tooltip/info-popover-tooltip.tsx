@@ -26,7 +26,6 @@ const POPOVER_STYLE = {
 type InfoPopoverTooltipProps = {
   children: ReactNode;
   position?: PopoverPosition;
-  offset?: [number, number];
   iconName?: IconName;
   iconSize?: ButtonIconSize;
   iconColor?: IconColor | string;
@@ -45,7 +44,6 @@ type InfoPopoverTooltipProps = {
 export function InfoPopoverTooltip({
   children,
   position = PopoverPosition.BottomEnd,
-  offset,
   iconName = IconName.Info,
   iconSize = ButtonIconSize.Md,
   iconColor,
@@ -110,9 +108,6 @@ export function InfoPopoverTooltip({
         position={position}
         referenceElement={triggerRef.current}
         hasArrow
-        flip
-        preventOverflow
-        offset={offset}
         onPressEscKey={handleClose}
         onClickOutside={handleClose}
         isPortal

@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { SubjectType } from '@metamask/permission-controller';
 import { useSelector } from 'react-redux';
-import { AvatarFavicon } from '@metamask/design-system-react';
 import {
   AlignItems,
   BackgroundColor,
@@ -17,6 +16,7 @@ import {
 } from '../../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
 import {
+  AvatarFavicon,
   Box,
   Icon,
   IconName,

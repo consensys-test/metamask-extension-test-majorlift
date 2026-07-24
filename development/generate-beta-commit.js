@@ -3,10 +3,7 @@ const { promises: fs } = require('fs');
 const exec = promisify(require('child_process').exec);
 const VERSION = require('../package.json').version;
 
-start().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+start().catch(console.error);
 
 async function start() {
   let betaVersion;

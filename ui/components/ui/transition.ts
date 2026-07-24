@@ -1,15 +1,7 @@
 import { getBrowserName } from '../../../shared/lib/browser-runtime.utils';
 import { PLATFORM_FIREFOX } from '../../../shared/constants/app';
 
-/**
- * Whether the View Transitions API is available and should be used. Disabled in
- * E2E/test builds and on Firefox (unsupported), so callers fall back to running
- * their update synchronously. Shared by page transitions and the `Tabs` component
- * so both behave identically.
- *
- * @returns `true` when view transitions should run.
- */
-export const isViewTransitionSupported = (): boolean => {
+const isTransitionSupported = () => {
   if (process.env.IN_TEST || getBrowserName() === PLATFORM_FIREFOX) {
     return false;
   }
@@ -17,13 +9,14 @@ export const isViewTransitionSupported = (): boolean => {
   return Boolean(document.startViewTransition);
 };
 
+const transitionSupported = isTransitionSupported();
 type TransitionCallback = () => void | Promise<void>;
 
 const startTransition = (
   direction: 'forward' | 'back',
   callback: TransitionCallback,
 ) => {
-  if (!isViewTransitionSupported()) {
+  if (!transitionSupported) {
     callback();
     return;
   }

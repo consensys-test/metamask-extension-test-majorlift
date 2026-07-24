@@ -46,19 +46,6 @@ describe('OnboardingController', () => {
     expect(controller.state.firstTimeFlowType).toBe(type);
   });
 
-  it('should set the hasSeenOnboardingCompletionPage property', () => {
-    const controller = setupController();
-    controller.setHasSeenOnboardingCompletionPage(true);
-    expect(controller.state.hasSeenOnboardingCompletionPage).toBe(true);
-  });
-
-  it('should reset hasSeenOnboardingCompletionPage when onboarding is reset', () => {
-    const controller = setupController();
-    controller.setHasSeenOnboardingCompletionPage(true);
-    controller.resetOnboarding();
-    expect(controller.state.hasSeenOnboardingCompletionPage).toBe(false);
-  });
-
   it('should register a site for onboarding', async () => {
     const controller = setupController();
     const location = 'example.com';
@@ -81,7 +68,6 @@ describe('OnboardingController', () => {
         {
           "completedOnboarding": false,
           "firstTimeFlowType": null,
-          "hasSeenOnboardingCompletionPage": false,
           "seedPhraseBackedUp": null,
         }
       `);
@@ -100,7 +86,6 @@ describe('OnboardingController', () => {
         {
           "completedOnboarding": false,
           "firstTimeFlowType": null,
-          "hasSeenOnboardingCompletionPage": false,
           "onboardingTabs": {},
           "seedPhraseBackedUp": null,
         }
@@ -120,7 +105,6 @@ describe('OnboardingController', () => {
         {
           "completedOnboarding": false,
           "firstTimeFlowType": null,
-          "hasSeenOnboardingCompletionPage": false,
           "seedPhraseBackedUp": null,
         }
       `);
@@ -139,7 +123,6 @@ describe('OnboardingController', () => {
         {
           "completedOnboarding": false,
           "firstTimeFlowType": null,
-          "hasSeenOnboardingCompletionPage": false,
           "onboardingTabs": {},
           "seedPhraseBackedUp": null,
         }

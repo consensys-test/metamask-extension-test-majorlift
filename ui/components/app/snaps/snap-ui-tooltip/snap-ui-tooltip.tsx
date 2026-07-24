@@ -1,14 +1,14 @@
-import React, { ReactNode } from 'react';
+import React, { FunctionComponent, ReactNode } from 'react';
 import Tooltip from '../../../ui/tooltip';
 
 export type SnapUITooltipProps = {
   content: ReactNode;
 };
 
-export const SnapUITooltip = ({
+export const SnapUITooltip: FunctionComponent<SnapUITooltipProps> = ({
   content,
   children,
-}: React.PropsWithChildren<SnapUITooltipProps>) => {
+}) => {
   return (
     <Tooltip
       html={content}

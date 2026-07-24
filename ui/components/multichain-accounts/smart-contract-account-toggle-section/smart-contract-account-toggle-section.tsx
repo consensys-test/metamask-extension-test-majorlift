@@ -1,17 +1,15 @@
 import React, { useMemo } from 'react';
 import { Hex } from '@metamask/utils';
+import { Box, ButtonLink, ButtonLinkSize, Text } from '../../component-library';
 import {
-  Box,
-  BoxAlignItems,
-  BoxBackgroundColor,
-  BoxJustifyContent,
-  FontWeight,
-  Text,
-  TextButton,
-  TextButtonSize,
-  TextColor,
+  AlignItems,
+  Display,
+  JustifyContent,
+  BlockSize,
   TextVariant,
-} from '@metamask/design-system-react';
+  TextColor,
+  BackgroundColor,
+} from '../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import ZENDESK_URLS from '../../../helpers/constants/zendesk-url';
 import { useEIP7702Networks } from '../../../pages/confirmations/hooks/useEIP7702Networks';
@@ -34,11 +32,11 @@ export const SmartContractAccountToggleSection = ({
     if (pending) {
       return (
         <Box
-          className="flex"
           paddingTop={12}
           paddingBottom={12}
-          justifyContent={BoxJustifyContent.Center}
-          alignItems={BoxAlignItems.Center}
+          display={Display.Flex}
+          justifyContent={JustifyContent.center}
+          alignItems={AlignItems.center}
           data-testid="network-loader"
         >
           <Preloader size={24} />
@@ -62,8 +60,8 @@ export const SmartContractAccountToggleSection = ({
 
   return (
     <Box
-      className="w-full"
-      backgroundColor={BoxBackgroundColor.BackgroundSection}
+      width={BlockSize.Full}
+      backgroundColor={BackgroundColor.backgroundSection}
       paddingTop={3}
       paddingBottom={4}
       paddingLeft={4}
@@ -71,22 +69,20 @@ export const SmartContractAccountToggleSection = ({
       style={{ borderRadius: '8px' }}
     >
       <Box paddingRight={2}>
-        <Text
-          variant={TextVariant.BodyMd}
-          fontWeight={FontWeight.Medium}
-          className="mb-2"
-        >
+        <Text variant={TextVariant.bodyMdMedium} marginBottom={2}>
           {t('enableSmartContractAccount')}
         </Text>
-        <Text color={TextColor.TextAlternative} variant={TextVariant.BodySm}>
+        <Text color={TextColor.textAlternative} variant={TextVariant.bodySm}>
           {t('enableSmartContractAccountDescription')}{' '}
-          <TextButton
+          <ButtonLink
             onClick={() => {
               global.platform.openTab({
                 url: ZENDESK_URLS.ACCOUNT_UPGRADE,
               });
             }}
-            size={TextButtonSize.BodySm}
+            size={ButtonLinkSize.Sm}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               height: '22px',
               fontSize: '14px',
@@ -95,7 +91,7 @@ export const SmartContractAccountToggleSection = ({
             }}
           >
             {t('learnMoreUpperCase')}
-          </TextButton>
+          </ButtonLink>
         </Text>
       </Box>
       <Box>{networkList}</Box>

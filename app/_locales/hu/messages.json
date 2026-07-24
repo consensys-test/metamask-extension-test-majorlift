@@ -26,6 +26,9 @@
   "accountSelectionRequired": {
     "message": "Ki kell választania egy fiókot!"
   },
+  "addAcquiredTokens": {
+    "message": "Adja hozzá MetaMask-kal a kapott érméket"
+  },
   "addAlias": {
     "message": "Álnév hozzáadása"
   },
@@ -74,6 +77,9 @@
   },
   "autoLockTimeLimit": {
     "message": "Automatikus kijelentkezés időzítő (perc)"
+  },
+  "autoLockTimeLimitDescription": {
+    "message": "Adja meg a MetaMask automatikus kijelentkezéséig tartó tétlen állapot idejét percekben "
   },
   "average": {
     "message": "Átlag"
@@ -175,11 +181,23 @@
   "createPassword": {
     "message": "Jelszó létrehozása"
   },
+  "currencyConversion": {
+    "message": "Valutaváltás"
+  },
+  "currentLanguage": {
+    "message": "Aktuális nyelv"
+  },
   "custom": {
     "message": "Speciális"
   },
+  "customToken": {
+    "message": "Egyéni token"
+  },
   "decimal": {
     "message": "A pontosság tizedesjegyei"
+  },
+  "decimalsMustZerotoTen": {
+    "message": "A tizedesjegyek száma 0 és 36 között legyen . "
   },
   "delete": {
     "message": "Törlés"
@@ -189,6 +207,9 @@
   },
   "done": {
     "message": "Kész"
+  },
+  "downloadGoogleChrome": {
+    "message": "Google Chrome letöltése"
   },
   "downloadStateLogs": {
     "message": "Állapotnapló letöltése"
@@ -247,6 +268,9 @@
   },
   "hardwareWallets": {
     "message": "Hardveres tárca csatlakoztatása"
+  },
+  "hardwareWalletsMsg": {
+    "message": "Válassza ki a MetaMask-kal használni kívánt hardveres pénztárcát"
   },
   "here": {
     "message": "itt",
@@ -315,6 +339,12 @@
   "likeToImportTokens": {
     "message": "Hozzá szeretné adni ezeket az érméket?"
   },
+  "lineaGoerli": {
+    "message": "Linea Goerli teszthálózat"
+  },
+  "links": {
+    "message": "Linkek"
+  },
   "loading": {
     "message": "Betöltés..."
   },
@@ -336,6 +366,9 @@
   "metamaskVersion": {
     "message": "MetaMask verzió"
   },
+  "mustSelectOne": {
+    "message": "Legalább 1 tokent ki kell választania."
+  },
   "needImportFile": {
     "message": "Ki kell választania az importálni kívánt fájlt.",
     "description": "User is important an account and needs to add a file to continue"
@@ -345,6 +378,12 @@
   },
   "networks": {
     "message": "Hálózatok"
+  },
+  "nevermind": {
+    "message": "Nem fontos"
+  },
+  "newAccount": {
+    "message": "Új fiók"
   },
   "newAccountNumberName": {
     "message": "$1 fiók",
@@ -364,6 +403,9 @@
   },
   "noWebcamFoundTitle": {
     "message": "Nem találtunk  webkamerát"
+  },
+  "notEnoughGas": {
+    "message": "Nincs elég gáz"
   },
   "ofTextNofM": {
     "message": "ból"
@@ -448,6 +490,9 @@
   "restore": {
     "message": "Visszaállítás"
   },
+  "revealSeedWords": {
+    "message": "Seed szavak megjelenítése"
+  },
   "revealSeedWordsWarning": {
     "message": "Ezekkel a szavakkal ellophatóak a fiókjai.",
     "description": "$1 is bolded text using the message from 'revealSeedWordsWarning2'"
@@ -494,6 +539,9 @@
   "showFiatConversionInTestnets": {
     "message": "Konverzió mutatása Testnetsen"
   },
+  "showFiatConversionInTestnetsDescription": {
+    "message": "Válassza ezt, ha a Testnetsen szeretné megnézni a törvényes fizetőeszközre való átváltást"
+  },
   "showHexData": {
     "message": "Hex adatok mutatása"
   },
@@ -502,6 +550,9 @@
   },
   "sign": {
     "message": "Aláír"
+  },
+  "signatureRequest": {
+    "message": "Aláírási kérelem"
   },
   "signed": {
     "message": "Aláírva"
@@ -520,6 +571,9 @@
   },
   "stateLogs": {
     "message": "Állapotnapló"
+  },
+  "stateLogsDescription": {
+    "message": "Az állapotnaplóban megtalálhatók nyilvános fiókcímeid és elküldött tranzakcióid."
   },
   "submitted": {
     "message": "Elküldve"

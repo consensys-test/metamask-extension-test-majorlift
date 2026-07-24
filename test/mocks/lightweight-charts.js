@@ -1,4 +1,4 @@
-/* global jest -- Global defined by Jest */
+/* eslint-env jest */
 /**
  * Mock for lightweight-charts library
  * This mock provides stub implementations for Jest tests since the actual

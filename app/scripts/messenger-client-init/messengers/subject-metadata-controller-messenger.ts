@@ -1,10 +1,12 @@
-import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { SubjectMetadataControllerMessenger } from '@metamask/permission-controller';
+import { Messenger } from '@metamask/messenger';
+import type { HasPermissions } from '@metamask/permission-controller';
 import { RootMessenger } from '../../lib/messenger';
+
+type AllowedActions = HasPermissions;
+
+export type SubjectMetadataControllerMessenger = ReturnType<
+  typeof getSubjectMetadataControllerMessenger
+>;
 
 /**
  * Create a messenger restricted to the allowed actions and events of the
@@ -14,17 +16,17 @@ import { RootMessenger } from '../../lib/messenger';
  * messenger.
  */
 export function getSubjectMetadataControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<SubjectMetadataControllerMessenger>,
-    MessengerEvents<SubjectMetadataControllerMessenger>
-  >,
-): SubjectMetadataControllerMessenger {
-  const controllerMessenger: SubjectMetadataControllerMessenger = new Messenger(
-    {
-      namespace: 'SubjectMetadataController',
-      parent: messenger,
-    },
-  );
+  messenger: RootMessenger<AllowedActions, never>,
+) {
+  const controllerMessenger = new Messenger<
+    'SubjectMetadataController',
+    AllowedActions,
+    never,
+    typeof messenger
+  >({
+    namespace: 'SubjectMetadataController',
+    parent: messenger,
+  });
   messenger.delegate({
     messenger: controllerMessenger,
     actions: ['PermissionController:hasPermissions'],

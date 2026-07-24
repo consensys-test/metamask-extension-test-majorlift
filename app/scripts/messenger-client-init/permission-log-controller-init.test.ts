@@ -1,11 +1,11 @@
-import {
-  PermissionLogController,
-  PermissionLogControllerMessenger,
-} from '@metamask/permission-log-controller';
+import { PermissionLogController } from '@metamask/permission-log-controller';
 import { getRootMessenger } from '../lib/messenger';
 import { MessengerClientInitRequest } from './types';
 import { buildControllerInitRequestMock } from './test/utils';
-import { getPermissionLogControllerMessenger } from './messengers';
+import {
+  getPermissionLogControllerMessenger,
+  PermissionLogControllerMessenger,
+} from './messengers';
 import { PermissionLogControllerInit } from './permission-log-controller-init';
 
 jest.mock('@metamask/permission-log-controller');

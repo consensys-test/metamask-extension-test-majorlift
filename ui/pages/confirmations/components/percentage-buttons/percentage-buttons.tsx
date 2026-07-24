@@ -1,11 +1,11 @@
 import React, { useCallback } from 'react';
-import { Skeleton } from '@metamask/design-system-react';
 import {
   Box,
   Button,
   ButtonSize,
   ButtonVariant,
 } from '../../../../components/component-library';
+import { Skeleton } from '../../../../components/component-library/skeleton';
 import {
   Display,
   FlexDirection,
@@ -20,9 +20,9 @@ export type PercentageButtonsProps = {
   onPercentageClick: (percentage: number) => void;
 };
 
-export const PercentageButtons = ({
+export const PercentageButtons: React.FC<PercentageButtonsProps> = ({
   onPercentageClick,
-}: PercentageButtonsProps) => {
+}) => {
   const t = useI18nContext();
 
   const handleClick = useCallback(
@@ -56,7 +56,7 @@ export const PercentageButtons = ({
   );
 };
 
-export const PercentageButtonsSkeleton = () => {
+export const PercentageButtonsSkeleton: React.FC = () => {
   return (
     <Box
       display={Display.Flex}

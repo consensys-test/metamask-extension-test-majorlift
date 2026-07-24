@@ -1,12 +1,15 @@
 import {
   AssetsController,
-  type AssetsControllerMessenger,
   type AssetsControllerOptions,
 } from '@metamask/assets-controller';
 import type { PreferencesState } from '@metamask/preferences-controller';
 import { createApiPlatformClient } from '@metamask/core-backend';
 import { type MessengerClientInitFunction } from '../types';
-import { type AssetsControllerInitMessenger } from '../messengers/assets/assets-controller-messenger';
+import {
+  type AssetsControllerMessenger,
+  type AssetsControllerInitMessenger,
+} from '../messengers/assets/assets-controller-messenger';
+import { traceAsControllerCallback } from '../../../../shared/lib/trace';
 import type { OnboardingControllerState } from '../../controllers/onboarding';
 
 /**
@@ -91,7 +94,6 @@ function getApiClient(
   if (!apiClient) {
     apiClient = createApiPlatformClient({
       clientProduct: 'metamask-extension',
-      clientVersion: process.env.METAMASK_VERSION,
       getBearerToken: () => safeGetBearerToken(initMessenger),
     }) as unknown as AssetsControllerOptions['queryApiClient'];
   }
@@ -105,21 +107,13 @@ function getApiClient(
  * @param request.controllerMessenger - The messenger to use for the controller.
  * @param request.persistedState - The persisted state of the extension.
  * @param request.initMessenger - The init messenger to use for the controller.
- * @param request.getMessengerClient - The function to get a messenger client.
  * @returns The initialized controller.
  */
 export const AssetsControllerInit: MessengerClientInitFunction<
   AssetsController,
   AssetsControllerMessenger,
   AssetsControllerInitMessenger
-> = ({
-  controllerMessenger,
-  persistedState,
-  initMessenger,
-  getMessengerClient,
-}) => {
-  const clientController = () => getMessengerClient('ClientController');
-
+> = ({ controllerMessenger, persistedState, initMessenger }) => {
   // Get token detection preference
   const tokenDetectionEnabled = safeGetTokenDetectionEnabled(initMessenger);
 
@@ -160,7 +154,7 @@ export const AssetsControllerInit: MessengerClientInitFunction<
   const messengerClient = new AssetsController({
     messenger: controllerMessenger,
     state: persistedState.AssetsController,
-    isEnabled: () => clientController().state.isUiOpen,
+    isEnabled: () => true,
     isBasicFunctionality,
     subscribeToBasicFunctionalityChange,
     queryApiClient: getApiClient(initMessenger),
@@ -176,6 +170,7 @@ export const AssetsControllerInit: MessengerClientInitFunction<
       pollInterval: 30_000,
       enabled: false,
     },
+    trace: traceAsControllerCallback,
     isOnboarded: () => {
       try {
         const { completedOnboarding } = initMessenger.call(
@@ -186,11 +181,6 @@ export const AssetsControllerInit: MessengerClientInitFunction<
         return false;
       }
     },
-    // TEMPORARY (ASSETS-3346): legacy state slices used to heal wiped `assetsInfo` metadata.
-    tempMigrateAssetsInfoMetadataAssets3346: () => ({
-      TokensController: persistedState.TokensController,
-      AccountsController: persistedState.AccountsController,
-    }),
   });
 
   return { messengerClient };

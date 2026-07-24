@@ -1,8 +1,7 @@
 import { CHAIN_IDS } from '@metamask/transaction-controller';
 import { Hex } from '@metamask/utils';
 import { useCallback } from 'react';
-import type { MetaMaskReduxState } from '../../../../store/store';
-import { useAppSelector } from '../../../../store/store';
+import { DefaultRootState, useSelector } from 'react-redux';
 
 import { Numeric } from '../../../../../shared/lib/Numeric';
 import { getGasFeeEstimatesByChainId } from '../../../../ducks/metamask/metamask';
@@ -80,13 +79,13 @@ export const useMaxAmount = () => {
   const { rawBalanceNumeric } = useBalance();
   const { isNetworkGasSponsored } = useIsNetworkGasSponsored(chainId);
 
-  const gasFeeEstimates = useAppSelector((state) => {
+  const gasFeeEstimates = useSelector((state) => {
     if (chainId && isEvmSendType) {
       return (
         getGasFeeEstimatesByChainId as (
-          s: MetaMaskReduxState,
-          id: Hex,
-        ) => GasFeeEstimatesType | undefined
+          state: DefaultRootState,
+          chainId: Hex,
+        ) => GasFeeEstimatesType
       )(state, chainId as Hex);
     }
     return undefined;

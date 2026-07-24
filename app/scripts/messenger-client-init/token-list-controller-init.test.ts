@@ -1,7 +1,4 @@
-import {
-  TokenListController,
-  TokenListControllerMessenger,
-} from '@metamask/assets-controllers';
+import { TokenListController } from '@metamask/assets-controllers';
 import {
   NetworkControllerGetNetworkClientByIdAction,
   NetworkControllerGetStateAction,
@@ -19,6 +16,7 @@ import {
   getTokenListControllerInitMessenger,
   getTokenListControllerMessenger,
   TokenListControllerInitMessenger,
+  TokenListControllerMessenger,
 } from './messengers';
 import { TokenListControllerInit } from './token-list-controller-init';
 
@@ -100,7 +98,6 @@ describe('TokenListControllerInit', () => {
       messenger: expect.any(Object),
       state: undefined,
       chainId: '0x1',
-      isDeprecated: expect.any(Function),
     });
   });
 });

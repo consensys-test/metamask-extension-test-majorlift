@@ -3,7 +3,7 @@ import { Carousel } from './carousel';
 import { EmptyStateComponent } from './stack-card-empty';
 import type { CarouselProps } from './types';
 
-export const CarouselWithEmptyState = (props: CarouselProps) => {
+export const CarouselWithEmptyState: React.FC<CarouselProps> = (props) => {
   const [showFoldAnimation, setShowFoldAnimation] = useState(false);
   const [hasCompletedEmptyState, setHasCompletedEmptyState] = useState(false);
   const [hasEverHadSlides, setHasEverHadSlides] = useState(false);

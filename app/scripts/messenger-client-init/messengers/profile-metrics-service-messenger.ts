@@ -6,20 +6,26 @@ import {
 } from '@metamask/messenger';
 import { RootMessenger } from '../../lib/messenger';
 
+type AllowedActions = MessengerActions<ProfileMetricsServiceMessenger>;
+
+type AllowedEvents = MessengerEvents<ProfileMetricsServiceMessenger>;
+
 /**
  * Create a messenger restricted to the allowed actions and events of the
- * profile metrics service.
+ * accounts controller.
  *
  * @param messenger - The base messenger used to create the restricted
  * messenger.
  */
 export function getProfileMetricsServiceMessenger(
-  messenger: RootMessenger<
-    MessengerActions<ProfileMetricsServiceMessenger>,
-    MessengerEvents<ProfileMetricsServiceMessenger>
-  >,
+  messenger: RootMessenger<AllowedActions, AllowedEvents>,
 ): ProfileMetricsServiceMessenger {
-  const serviceMessenger: ProfileMetricsServiceMessenger = new Messenger({
+  const serviceMessenger = new Messenger<
+    'ProfileMetricsService',
+    AllowedActions,
+    AllowedEvents,
+    typeof messenger
+  >({
     namespace: 'ProfileMetricsService',
     parent: messenger,
   });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Checkbox } from '@metamask/design-system-react';
+import { Checkbox } from '../../component-library';
 import { NetworkListItem } from '.';
 
 export default {

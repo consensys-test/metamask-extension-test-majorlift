@@ -1,8 +1,7 @@
-import React, { ReactElement } from 'react';
+import React, { ReactChildren, ReactElement } from 'react';
+import { Provider } from 'react-redux';
 import { render } from '@testing-library/react';
 import type { Store } from 'redux';
-
-import { MetaMaskTestReduxProvider } from '../redux-test-provider';
 
 import {
   ConfirmContext,
@@ -47,8 +46,8 @@ function renderWithContext(
   store: Store,
   contextValue: ConfirmContextType,
 ) {
-  const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <MetaMaskTestReduxProvider store={store}>
+  const wrapper = ({ children }: { children: ReactElement }) => (
+    <Provider store={store}>
       <I18nProvider currentLocale="en" current={en} en={en}>
         <ConfirmContext.Provider value={contextValue}>
           <DappSwapContextProvider>
@@ -56,7 +55,7 @@ function renderWithContext(
           </DappSwapContextProvider>
         </ConfirmContext.Provider>
       </I18nProvider>
-    </MetaMaskTestReduxProvider>
+    </Provider>
   );
 
   return render(component, { wrapper });
@@ -98,7 +97,7 @@ export function renderHookWithConfirmContextProvider(
   confirmationId?: string,
 ) {
   const contextContainer = Container
-    ? ({ children }: { children: React.ReactNode }) => (
+    ? ({ children }: { children: ReactChildren }) => (
         <HardwareWalletErrorProvider>
           <ConfirmContextProvider confirmationId={confirmationId}>
             <DappSwapContextProvider>
@@ -109,12 +108,12 @@ export function renderHookWithConfirmContextProvider(
           </ConfirmContextProvider>
         </HardwareWalletErrorProvider>
       )
-    : ({ children }: { children: React.ReactNode }) => (
+    : ({ children }: { children: ReactElement }) => (
         <HardwareWalletErrorProvider>
           <ConfirmContextProvider confirmationId={confirmationId}>
             <DappSwapContextProvider>
               <GasFeeModalContextProvider>
-                {children}
+                {children as ReactElement}
               </GasFeeModalContextProvider>
             </DappSwapContextProvider>
           </ConfirmContextProvider>

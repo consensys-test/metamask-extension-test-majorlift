@@ -9,7 +9,6 @@ import {
   completeVaultRecoveryOnboardingFlow,
 } from '../../page-objects/flows/onboarding.flow';
 import {
-  getBackupVault,
   getFirstAddress,
   onboardThenTriggerCorruptionFlow,
 } from '../../page-objects/flows/vault-corruption.flow';
@@ -56,6 +55,32 @@ describe('Vault Corruption', function () {
   const breakPrimaryDatabaseOnlyScript = createCorruptionScript(
     reloadAndCallbackScript,
   );
+
+  /**
+   * Script to retrieve the encrypted vault from the backup database.
+   */
+  const getBackupVaultScript = `
+    const callback = arguments[arguments.length - 1];
+    const request = globalThis.indexedDB.open('metamask-backup', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('store')) {
+        db.createObjectStore('store');
+      }
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction('store', 'readonly');
+      const store = transaction.objectStore('store');
+      const getRequest = store.get('KeyringController');
+      getRequest.onsuccess = () => {
+        const keyringController = getRequest.result;
+        callback(keyringController?.vault ?? null);
+      };
+      getRequest.onerror = () => callback(null);
+    };
+    request.onerror = () => callback(null);
+  `;
 
   async function mockSentryMissingVaultError(
     mockServer: MockttpServer,
@@ -160,12 +185,12 @@ describe('Vault Corruption', function () {
           driver,
           breakPrimaryDatabaseOnlyScript,
           {
-            completedMetaMetricsOnboarding: true,
-            optedIn: true,
+            participateInMetaMetrics: true,
           },
         );
 
-        const backupVault = await getBackupVault(driver);
+        const backupVault =
+          await driver.executeAsyncScript(getBackupVaultScript);
         assert.ok(backupVault, 'Expected backup vault to exist');
 
         await driver.wait(async () => {

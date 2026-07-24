@@ -4,7 +4,6 @@ import {
 } from '@metamask/transaction-controller';
 import React, { memo, useMemo } from 'react';
 
-import { Skeleton } from '@metamask/design-system-react';
 import { TokenStandard } from '../../../../../../shared/constants/transaction';
 import GeneralAlert from '../../../../../components/app/alert-system/general-alert/general-alert';
 import { Box, Text } from '../../../../../components/component-library';
@@ -16,6 +15,7 @@ import {
   TextColor,
   TextVariant,
 } from '../../../../../helpers/constants/design-system';
+import { Skeleton } from '../../../../../components/component-library/skeleton';
 import useAlerts from '../../../../../hooks/useAlerts';
 import { useI18nContext } from '../../../../../hooks/useI18nContext';
 import { TypedSignSignaturePrimaryTypes } from '../../../constants';
@@ -253,6 +253,8 @@ const getDescription = (
   }
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function TitleSkeleton() {
   return (
     <Box
@@ -262,16 +264,12 @@ export function TitleSkeleton() {
       paddingTop={4}
       paddingBottom={4}
     >
-      <Skeleton
-        height="24px"
-        width="200px"
-        data-testid="confirm-title-skeleton"
-      />
+      <Skeleton height="24px" width="200px" />
     </Box>
   );
 }
 
-const ConfirmTitle = memo(() => {
+const ConfirmTitle: React.FC = memo(() => {
   const t = useI18nContext();
   const { currentConfirmation } = useConfirmContext();
   const { isUpgradeOnly } = useIsUpgradeTransaction();
@@ -365,7 +363,6 @@ const ConfirmTitle = memo(() => {
           paddingTop={4}
           paddingBottom={2}
           textAlign={TextAlign.Center}
-          data-testid="confirm-title-text"
         >
           {title}
         </Text>
@@ -378,7 +375,6 @@ const ConfirmTitle = memo(() => {
           paddingBottom={4}
           color={TextColor.textAlternative}
           textAlign={TextAlign.Center}
-          data-testid="confirm-title-description"
         >
           {description}
         </Text>

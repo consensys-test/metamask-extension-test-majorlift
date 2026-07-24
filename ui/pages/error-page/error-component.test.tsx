@@ -7,7 +7,7 @@ import configureMockState from 'redux-mock-store';
 import { renderWithProvider } from '../../../test/lib/render-helpers-navigate';
 import { useI18nContext } from '../../hooks/useI18nContext';
 import { MetaMetricsContext } from '../../contexts/metametrics';
-import { getCompletedMetaMetricsOnboarding, getOptedIn } from '../../selectors';
+import { getParticipateInMetaMetrics } from '../../selectors';
 import { getMessage } from '../../helpers/utils/i18n-helper';
 import { enLocale as messages } from '../../../test/lib/i18n-helpers';
 import { getUserSubscriptions } from '../../selectors/subscription';
@@ -50,10 +50,7 @@ describe('ErrorPage', () => {
 
   beforeEach(() => {
     useSelectorMock.mockImplementation((selector) => {
-      if (selector === getCompletedMetaMetricsOnboarding) {
-        return true;
-      }
-      if (selector === getOptedIn) {
+      if (selector === getParticipateInMetaMetrics) {
         return true;
       }
       if (selector === getUserSubscriptions) {
@@ -143,10 +140,7 @@ describe('ErrorPage', () => {
 
   it('should render not sentry user feedback option when metrics is not opted in', () => {
     useSelectorMock.mockImplementation((selector) => {
-      if (selector === getCompletedMetaMetricsOnboarding) {
-        return true;
-      }
-      if (selector === getOptedIn) {
+      if (selector === getParticipateInMetaMetrics) {
         return false;
       }
       return undefined;

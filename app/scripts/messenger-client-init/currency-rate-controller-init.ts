@@ -1,9 +1,11 @@
 import {
   CodefiTokenPricesServiceV2,
   CurrencyRateController,
-  CurrencyRateMessenger,
 } from '@metamask/assets-controllers';
-import { CurrencyRateControllerInitMessenger } from './messengers';
+import {
+  CurrencyRateControllerInitMessenger,
+  CurrencyRateControllerMessenger,
+} from './messengers';
 import { MessengerClientInitFunction } from './types';
 
 /**
@@ -17,9 +19,10 @@ import { MessengerClientInitFunction } from './types';
  */
 export const CurrencyRateControllerInit: MessengerClientInitFunction<
   CurrencyRateController,
-  CurrencyRateMessenger,
+  CurrencyRateControllerMessenger,
   CurrencyRateControllerInitMessenger
 > = ({ controllerMessenger, initMessenger, persistedState }) => {
+  // TODO: Fix CurrencyRateControllerMessenger type - add CurrencyRateControllerActions & CurrencyRateControllerEvents
   // TODO: Bump @metamask/network-controller to match assets-controllers
   const messengerClient = new CurrencyRateController({
     // @ts-expect-error - CurrencyRateController is persisted as 'CurrencyController' but init pattern expects 'CurrencyRateController'

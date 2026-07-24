@@ -5,14 +5,7 @@ class SendPage {
 
   private readonly amountInput = { testId: 'send-amount-input' };
 
-  private readonly amountBalance = { testId: 'send-amount-balance' };
-
-  private readonly amountFiatValue = { testId: 'send-amount-fiat-value' };
-
   private readonly continueButton = { testId: 'send-continue-button' };
-
-  private readonly sendAlertAcknowledgeButton =
-    '[data-testid="send-alert-modal-acknowledge-button"]';
 
   private readonly header = {
     tag: 'h4',
@@ -46,8 +39,6 @@ class SendPage {
     testId: 'send-network-filter-toggle',
   };
 
-  private readonly recipientClassRendered = '.break-all';
-
   private readonly recipientModalButton = {
     testId: 'open-recipient-modal-btn',
   };
@@ -72,84 +63,6 @@ class SendPage {
     this.driver = driver;
   }
 
-  /**
-   * Acknowledges the first-time recipient send alert when it appears after Continue.
-   * The alert is async; a short wait avoids racing React 18 mount on slower flows.
-   */
-  async acknowledgeSendAlertIfPresent(): Promise<void> {
-    try {
-      await this.driver.waitForSelector(this.sendAlertAcknowledgeButton, {
-        timeout: 2000,
-      });
-    } catch (error) {
-      if ((error as { name?: string }).name === 'TimeoutError') {
-        console.log('No send alert modal to acknowledge');
-        return;
-      }
-      throw error;
-    }
-    console.log('Acknowledging send alert modal');
-    await this.driver.clickElement(this.sendAlertAcknowledgeButton);
-  }
-
-  /**
-   * Waits until the amount input value matches the expected amount (compared
-   * numerically). Prefer this over reading the value once, which races the fill.
-   *
-   * @param expectedAmount - The expected amount.
-   */
-  async checkAmountInputValue(expectedAmount: string): Promise<void> {
-    console.log(`Waiting for amount input value to be ${expectedAmount}`);
-    await this.driver.waitUntil(
-      async () => {
-        const inputElement = await this.driver.findElement(this.amountInput);
-        const value = await inputElement.getAttribute('value');
-        return parseFloat(value) === parseFloat(expectedAmount);
-      },
-      { interval: 100, timeout: 5000 },
-    );
-  }
-
-  /**
-   * Waits for the continue button to reach the expected enabled/disabled state.
-   *
-   * @param options - Wait options.
-   * @param options.state - Expected button state (`enabled` or `disabled`).
-   */
-  async checkContinueButton({
-    state,
-  }: {
-    state: 'enabled' | 'disabled';
-  }): Promise<void> {
-    console.log(`Waiting for continue button to be ${state}`);
-    await this.driver.waitForSelector(this.continueButton, {
-      state,
-    });
-  }
-
-  /**
-   * Verifies that an ENS domain correctly resolves to the specified Ethereum address on the send token screen.
-   *
-   * @param ensDomain - The ENS domain name expected to resolve (e.g., "test.eth").
-   * @param address - The Ethereum address to which the ENS domain is expected to resolve.
-   * @returns A promise that resolves if the ENS domain successfully resolves to the specified address on send token screen.
-   */
-  async checkEnsAddressResolution(
-    ensDomain: string,
-    address: string,
-  ): Promise<void> {
-    console.log(
-      `Check ENS domain resolution: '${ensDomain}' should resolve to address '${address}' on the send token screen.`,
-    );
-    // check if ens domain is resolved as expected address
-    await this.driver.waitForSelector({
-      text: ensDomain,
-    });
-    await this.driver.waitForSelector({
-      text: address,
-    });
-  }
-
   async checkInsufficientFundsError(): Promise<void> {
     console.log('Checking for insufficient funds error');
     await this.driver.findElement(this.insufficientFundsError);
@@ -169,6 +82,13 @@ class SendPage {
     await this.driver.waitForSelector(this.networkPicker);
   }
 
+  async checkSendFormIsLoaded(): Promise<void> {
+    await this.driver.waitForMultipleSelectors([
+      this.amountInput,
+      this.inputRecipient,
+    ]);
+  }
+
   async checkPageIsLoaded(): Promise<void> {
     console.log('Checking if send page is loaded');
     try {
@@ -183,24 +103,15 @@ class SendPage {
     console.log('Send page is loaded');
   }
 
-  async checkSendFormIsLoaded(): Promise<void> {
-    await this.driver.waitForMultipleSelectors([
-      this.amountInput,
-      this.inputRecipient,
-    ]);
+  async selectNetworkByName(networkName: string): Promise<void> {
+    console.log(`Selecting network ${networkName}`);
+    await this.driver.clickElement(this.networkPicker);
+    await this.driver.clickElement(this.networkName(networkName));
   }
 
   async checkSolanaNetworkIsPresent(): Promise<void> {
     console.log('Checking if Solana network is present');
     await this.driver.findElement(this.solanaNetwork);
-  }
-
-  async checkWarningMessage(warningText: string): Promise<void> {
-    console.log(`Checking if warning message "${warningText}" is displayed`);
-    await this.driver.waitForSelector({
-      text: warningText,
-    });
-    console.log('Warning message validation successful');
   }
 
   async clickMaxButton(): Promise<void> {
@@ -222,7 +133,7 @@ class SendPage {
     console.log('Creating max send request');
     await this.selectToken(chainId, symbol);
     if (recipientAddress) {
-      await this.fillRecipient({ recipientAddress });
+      await this.fillRecipient(recipientAddress);
     }
     if (recipientName) {
       await this.selectAccountFromRecipientModal(recipientName);
@@ -247,7 +158,7 @@ class SendPage {
     console.log('Creating send request');
     await this.selectToken(chainId, symbol);
     if (recipientAddress) {
-      await this.fillRecipient({ recipientAddress });
+      await this.fillRecipient(recipientAddress);
     }
     if (recipientName) {
       await this.selectAccountFromRecipientModal(recipientName);
@@ -276,27 +187,35 @@ class SendPage {
     await this.driver.press(this.hexDataInput, '\uE004');
   }
 
-  async fillRecipient({
-    recipientAddress,
-    validAddress = true,
-  }: {
-    recipientAddress: string;
-    validAddress?: boolean;
-  }): Promise<void> {
+  async fillRecipient(recipientAddress: string): Promise<void> {
     console.log(`Filling recipient with ${recipientAddress}`);
     await this.driver.pasteIntoField(this.inputRecipient, recipientAddress);
-    // After we add the recipient, a new re-render happens which formats the recipient element.
-    // We wait for that to happen before proceeding with the next step to prevent flakiness.
-    // When the address is invalid the formatted element never renders, so we skip the wait.
-    if (validAddress) {
-      await this.driver.waitForSelector(this.recipientClassRendered);
+  }
+
+  async getAmountInputValue(): Promise<string> {
+    console.log('Getting amount input value');
+    const inputElement = await this.driver.findElement(this.amountInput);
+    const value = await inputElement.getAttribute('value');
+    console.log(`Amount input value: ${value}`);
+    return value as string;
+  }
+
+  async isContinueButtonEnabled(): Promise<boolean> {
+    try {
+      await this.driver.findClickableElement(this.continueButton, {
+        timeout: 2000,
+      });
+    } catch (e) {
+      console.log('Continue button not enabled', e);
+      return false;
     }
+    console.log('Continue button enabled');
+    return true;
   }
 
   async pressContinueButton(): Promise<void> {
     console.log('Pressing continue button');
     await this.driver.clickElement(this.continueButton);
-    await this.acknowledgeSendAlertIfPresent();
   }
 
   async pressOnAmountInput(key: string): Promise<void> {
@@ -313,10 +232,9 @@ class SendPage {
     await this.driver.clickElement({ text: accountName });
   }
 
-  async selectNetworkByName(networkName: string): Promise<void> {
-    console.log(`Selecting network ${networkName}`);
-    await this.driver.clickElement(this.networkPicker);
-    await this.driver.clickElement(this.networkName(networkName));
+  async selectToken(chainId: string, symbol: string): Promise<void> {
+    console.log(`Selecting token ${symbol} on chain ${chainId}`);
+    await this.driver.clickElement(this.tokenAsset(chainId, symbol));
   }
 
   async selectNft(nftName: string): Promise<void> {
@@ -325,23 +243,34 @@ class SendPage {
     await this.driver.clickElement({ text: nftName });
   }
 
-  async selectToken(chainId: string, symbol: string): Promise<void> {
-    console.log(`Selecting token ${symbol} on chain ${chainId}`);
-    await this.driver.clickElement(this.tokenAsset(chainId, symbol));
-  }
-
-  async waitForSendAmountBalance(): Promise<void> {
-    console.log('Waiting for send amount balance to be displayed');
-    await this.driver.waitForSelector(this.amountBalance);
-  }
-
-  async waitForSendAmountFiatValue(expectedValue: string): Promise<void> {
-    console.log(
-      `Waiting for send amount fiat value "${expectedValue}" to be displayed`,
-    );
+  async checkWarningMessage(warningText: string): Promise<void> {
+    console.log(`Checking if warning message "${warningText}" is displayed`);
     await this.driver.waitForSelector({
-      ...this.amountFiatValue,
-      text: expectedValue,
+      text: warningText,
+    });
+    console.log('Warning message validation successful');
+  }
+
+  /**
+   * Verifies that an ENS domain correctly resolves to the specified Ethereum address on the send token screen.
+   *
+   * @param ensDomain - The ENS domain name expected to resolve (e.g., "test.eth").
+   * @param address - The Ethereum address to which the ENS domain is expected to resolve.
+   * @returns A promise that resolves if the ENS domain successfully resolves to the specified address on send token screen.
+   */
+  async checkEnsAddressResolution(
+    ensDomain: string,
+    address: string,
+  ): Promise<void> {
+    console.log(
+      `Check ENS domain resolution: '${ensDomain}' should resolve to address '${address}' on the send token screen.`,
+    );
+    // check if ens domain is resolved as expected address
+    await this.driver.waitForSelector({
+      text: ensDomain,
+    });
+    await this.driver.waitForSelector({
+      text: address,
     });
   }
 }

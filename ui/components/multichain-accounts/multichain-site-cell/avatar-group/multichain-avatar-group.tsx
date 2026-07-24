@@ -25,12 +25,12 @@ type MultichainAvatarGroupProps = {
   members: { avatarValue: string; symbol?: string }[];
 };
 
-export const MultichainAvatarGroup = ({
+export const MultichainAvatarGroup: React.FC<MultichainAvatarGroupProps> = ({
   type,
   className = '',
   limit = 4,
   members = [],
-}: MultichainAvatarGroupProps): JSX.Element => {
+}): JSX.Element => {
   const visibleMembers = members.slice(0, limit);
 
   const showTag = members.length > limit;

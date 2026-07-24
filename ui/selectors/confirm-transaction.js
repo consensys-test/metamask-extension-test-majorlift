@@ -1,6 +1,5 @@
 import { createSelector } from 'reselect';
 import { TransactionEnvelopeType } from '@metamask/transaction-controller';
-import { toChecksumHexAddress } from '@metamask/controller-utils';
 import txHelper from '../helpers/utils/tx-helper';
 import {
   getTransactionFee,
@@ -8,7 +7,6 @@ import {
   addEth,
 } from '../helpers/utils/confirm-tx.util';
 import {
-  getAccountTrackerControllerAccountsByChainId,
   getCurrencyRateControllerCurrencyRates,
   getCurrencyRateControllerCurrentCurrency,
 } from '../../shared/lib/selectors/assets-migration';
@@ -97,7 +95,7 @@ export const currentCurrencySelector = (state) =>
 export const conversionRateSelector = (state) =>
   getCurrencyRateControllerCurrencyRates(state)[getProviderConfig(state).ticker]
     ?.conversionRate;
-export const txDataSelector = (state) => state.confirmTransaction?.txData;
+export const txDataSelector = (state) => state.confirmTransaction.txData;
 
 export const transactionFeeSelector = function (state, txData) {
   const currentCurrency = currentCurrencySelector(state);
@@ -240,26 +238,9 @@ export function selectTransactionAvailableBalance(
   transactionId,
   chainId,
 ) {
+  const accounts = getMetaMaskAccounts(state, chainId);
   const sender = selectTransactionSender(state, transactionId);
 
-  if (chainId && sender) {
-    const checksummedSender = toChecksumHexAddress(sender);
-    // Raw accountsByChainId contains balances for all chains regardless of
-    // Network Manager enablement, preventing stale/zero balances on cross-chain sends.
-    // When assets-unify is fully enabled raw state may be empty, so fall back to
-    // the unified selector which derives balances from AssetsController.
-    const chainBalance =
-      state.metamask.accountsByChainId?.[chainId]?.[checksummedSender]
-        ?.balance ??
-      getAccountTrackerControllerAccountsByChainId(state)?.[chainId]?.[
-        checksummedSender
-      ]?.balance;
-    if (chainBalance) {
-      return chainBalance;
-    }
-  }
-
-  const accounts = getMetaMaskAccounts(state, chainId);
   return accounts[sender]?.balance;
 }
 const maxValueModeSelector = (state) => state.confirmTransaction.maxValueMode;

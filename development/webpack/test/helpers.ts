@@ -126,10 +126,6 @@ export function mockWebpack(
   const compiler = {
     context: '',
     modifiedFiles: undefined,
-    options: {
-      mode: 'production',
-      watch: false,
-    },
     hooks: {
       entryOption: {
         tap(

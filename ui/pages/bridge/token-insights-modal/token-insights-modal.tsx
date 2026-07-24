@@ -37,8 +37,8 @@ import {
   shouldShowContractAddress,
   getPriceChangeColor,
 } from '../../../helpers/utils/token-insights';
-import { useAnalytics } from '../../../hooks/useAnalytics';
 import { MetaMetricsEventCategory } from '../../../../shared/constants/metametrics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 
 type TokenInsightsModalProps = {
   isOpen: boolean;
@@ -52,11 +52,11 @@ type MarketDataRowProps = {
   'data-testid'?: string;
 };
 
-const MarketDataRow = ({
+const MarketDataRow: React.FC<MarketDataRowProps> = ({
   label,
   value,
   'data-testid': dataTestId,
-}: MarketDataRowProps) => (
+}) => (
   <Box
     marginBottom={3}
     data-testid={dataTestId}
@@ -71,13 +71,13 @@ const MarketDataRow = ({
   </Box>
 );
 
-export const TokenInsightsModal = ({
+export const TokenInsightsModal: React.FC<TokenInsightsModalProps> = ({
   isOpen,
   onClose,
   token,
-}: TokenInsightsModalProps) => {
+}) => {
   const t = useI18nContext();
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = React.useContext(MetaMetricsContext);
   const dialogRef = React.useRef<HTMLElement | null>(null);
   const hasTrackedOpen = React.useRef(false);
 
@@ -86,25 +86,24 @@ export const TokenInsightsModal = ({
   useEffect(() => {
     if (isOpen && token && !hasTrackedOpen.current) {
       hasTrackedOpen.current = true;
-      trackEvent(
-        createEventBuilder('Token Insights Modal Opened')
-          .addCategory(MetaMetricsEventCategory.Swaps)
-          .addProperties({
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            token_symbol: token.symbol,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            token_address: token.address,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            chain_id: token.chainId,
-          })
-          .build(),
-      );
+      trackEvent({
+        event: 'Token Insights Modal Opened',
+        category: MetaMetricsEventCategory.Swaps,
+        properties: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          token_symbol: token.symbol,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          token_address: token.address,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          chain_id: token.chainId,
+        },
+      });
     }
 
     if (!isOpen) {
       hasTrackedOpen.current = false;
     }
-  }, [isOpen, token, trackEvent, createEventBuilder]);
+  }, [isOpen, token, trackEvent]);
 
   // Ensure only the top modal closes on outside click by intercepting
   // document mousedown and stopping propagation.
@@ -136,19 +135,18 @@ export const TokenInsightsModal = ({
 
   const handleCopyAddress = useCallback(() => {
     if (token) {
-      trackEvent(
-        createEventBuilder('Token Contract Address Copied')
-          .addCategory(MetaMetricsEventCategory.Swaps)
-          .addProperties({
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            token_symbol: token.symbol,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            token_address: token.address,
-          })
-          .build(),
-      );
+      trackEvent({
+        event: 'Token Contract Address Copied',
+        category: MetaMetricsEventCategory.Swaps,
+        properties: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          token_symbol: token.symbol,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          token_address: token.address,
+        },
+      });
     }
-  }, [token, trackEvent, createEventBuilder]);
+  }, [token, trackEvent]);
 
   if (!token) {
     return null;

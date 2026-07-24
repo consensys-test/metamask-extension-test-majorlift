@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import classnames from 'clsx';
 import { useSelector } from 'react-redux';
@@ -32,7 +32,7 @@ import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   isAccountConnectedToCurrentTab,
   getShouldHideZeroBalanceTokens,
@@ -51,7 +51,9 @@ import {
 } from '../../../selectors/multichain';
 import { ConnectedStatus } from '../connected-status';
 import { getHDEntropyIndex } from '../../../selectors/selectors';
-import { normalizeSafeAddress } from '../../../../shared/lib/multichain/address';
+// TODO: Remove restricted import
+// eslint-disable-next-line import-x/no-restricted-paths
+import { normalizeSafeAddress } from '../../../../app/scripts/lib/multichain/address';
 import { useMultichainSelector } from '../../../hooks/useMultichainSelector';
 import { useGetFormattedTokensPerChain } from '../../../hooks/useGetFormattedTokensPerChain';
 import { useAccountTotalCrossChainFiatBalance } from '../../../hooks/useAccountTotalCrossChainFiatBalance';
@@ -173,7 +175,7 @@ const AccountListItem = ({
     }
   }, [itemRef, selected, shouldScrollToWhenSelected]);
 
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const currentTabIsConnectedToSelectedAddress = useSelector((state) =>
     isAccountConnectedToCurrentTab(state, account.address),
   );
@@ -352,17 +354,14 @@ const AccountListItem = ({
             onClick={(e) => {
               e.stopPropagation();
               if (!accountOptionsMenuOpen) {
-                trackEvent(
-                  createEventBuilder(
-                    MetaMetricsEventName.AccountDetailMenuOpened,
-                  )
-                    .addCategory(MetaMetricsEventCategory.Navigation)
-                    .addProperties({
-                      location: 'Account Options',
-                      hd_entropy_index: hdEntropyIndex,
-                    })
-                    .build(),
-                );
+                trackEvent({
+                  event: MetaMetricsEventName.AccountDetailMenuOpened,
+                  category: MetaMetricsEventCategory.Navigation,
+                  properties: {
+                    location: 'Account Options',
+                    hd_entropy_index: hdEntropyIndex,
+                  },
+                });
               }
               setAccountOptionsMenuOpen(!accountOptionsMenuOpen);
             }}

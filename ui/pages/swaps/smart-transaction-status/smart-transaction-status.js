@@ -14,11 +14,11 @@ import {
   getUsedQuote,
 } from '../../../ducks/swaps/swaps';
 import { getCurrentChainId } from '../../../../shared/lib/selectors/networks';
-import { getRpcPrefsForCurrentProvider } from '../../../selectors';
 import {
   isHardwareWallet,
   getHardwareWalletType,
-} from '../../../../shared/lib/selectors/keyring';
+  getRpcPrefsForCurrentProvider,
+} from '../../../selectors';
 import {
   getSmartTransactionsEnabled,
   getSmartTransactionsOptInStatusForMetrics,
@@ -49,7 +49,7 @@ import { SmartTransactionStatus } from '../../../../shared/constants/transaction
 
 import SwapsFooter from '../swaps-footer';
 import { showRemainingTimeInMinAndSec } from '../swaps.util';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import CreateNewSwap from '../create-new-swap';
 import ViewOnBlockExplorer from '../view-on-block-explorer';
 import { calcTokenAmount } from '../../../../shared/lib/transactions-controller-utils';
@@ -139,7 +139,7 @@ export default function SmartTransactionStatusPage() {
         latestSmartTransaction?.destinationTokenDecimals,
     ).toPrecision(8);
   }
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   const isSmartTransactionPending =
     smartTransactionStatus === SmartTransactionStatus.pending;
@@ -149,15 +149,14 @@ export default function SmartTransactionStatusPage() {
   const txHash = latestSmartTransaction?.statusMetadata?.minedHash;
 
   useEffect(() => {
-    trackEvent(
-      createEventBuilder('STX Status Page Loaded')
-        .addCategory(MetaMetricsEventCategory.Swaps)
-        .addSensitiveProperties(sensitiveProperties)
-        .addProperties({
-          hd_entropy_index: hdEntropyIndex,
-        })
-        .build(),
-    );
+    trackEvent({
+      event: 'STX Status Page Loaded',
+      category: MetaMetricsEventCategory.Swaps,
+      sensitiveProperties,
+      properties: {
+        hd_entropy_index: hdEntropyIndex,
+      },
+    });
     // eslint-disable-next-line
   }, []);
 
@@ -276,15 +275,14 @@ export default function SmartTransactionStatusPage() {
           onClick={(e) => {
             e?.preventDefault();
             setCancelSwapLinkClicked(true); // We want to hide it after a user clicks on it.
-            trackEvent(
-              createEventBuilder('Cancel STX')
-                .addCategory(MetaMetricsEventCategory.Swaps)
-                .addSensitiveProperties(sensitiveProperties)
-                .addProperties({
-                  hd_entropy_index: hdEntropyIndex,
-                })
-                .build(),
-            );
+            trackEvent({
+              event: 'Cancel STX',
+              category: MetaMetricsEventCategory.Swaps,
+              sensitiveProperties,
+              properties: {
+                hd_entropy_index: hdEntropyIndex,
+              },
+            });
             dispatch(cancelSwapsSmartTransaction(latestSmartTransactionUuid));
           }}
         >

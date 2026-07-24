@@ -41,7 +41,7 @@ const clamp = (inputValue: number, minimum?: number, maximum?: number) => {
 };
 
 export const SnapUIInput: FunctionComponent<
-  React.PropsWithChildren<SnapUIInputProps & FormTextFieldProps<'div'>>
+  SnapUIInputProps & FormTextFieldProps<'div'>
 > = memo(
   ({
     name,

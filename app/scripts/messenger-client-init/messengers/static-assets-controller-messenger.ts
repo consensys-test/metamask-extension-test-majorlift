@@ -31,8 +31,6 @@ export function getStaticAssetsControllerMessenger(
       'NetworkController:findNetworkClientIdByChainId',
       'TokensController:getState',
       'TokensController:addTokens',
-      'AssetsController:getState',
-      'AssetsController:addCustomAsset',
     ],
     events: [],
   });

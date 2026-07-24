@@ -6,7 +6,7 @@ import {
   SolAccountType,
   TrxAccountType,
 } from '@metamask/keyring-api';
-import { getSelectedInternalAccount } from '../../../../shared/lib/selectors/accounts';
+import { getSelectedInternalAccount } from '../../../selectors';
 import { AccountOverviewEth } from './account-overview-eth';
 import { AccountOverviewUnknown } from './account-overview-unknown';
 import { AccountOverviewCommonProps } from './common';
@@ -16,6 +16,8 @@ export type AccountOverviewProps = AccountOverviewCommonProps & {
   useExternalServices: boolean;
 };
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function AccountOverview(props: AccountOverviewProps) {
   const account = useSelector(getSelectedInternalAccount);
 

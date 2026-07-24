@@ -1,17 +1,20 @@
 import React, { useCallback, useContext, useMemo, useRef } from 'react';
 import { createSearchParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { Icon, IconName, TextColor } from '@metamask/design-system-react';
 import {
   Box,
-  BoxAlignItems,
-  BoxBackgroundColor,
-  BoxJustifyContent,
-  Icon,
-  IconName,
-  TextColor,
-} from '@metamask/design-system-react';
-import { ModalFocus, Popover, PopoverPosition } from '../../component-library';
-import { BorderRadius } from '../../../helpers/constants/design-system';
+  ModalFocus,
+  Popover,
+  PopoverPosition,
+} from '../../component-library';
+import {
+  AlignItems,
+  BackgroundColor,
+  BorderRadius,
+  Display,
+  JustifyContent,
+} from '../../../helpers/constants/design-system';
 import {
   MULTICHAIN_ACCOUNT_ADDRESS_LIST_PAGE_ROUTE,
   MULTICHAIN_ACCOUNT_DETAILS_PAGE_ROUTE,
@@ -24,11 +27,11 @@ import {
 } from '../../../store/actions';
 import { getAccountTree } from '../../../selectors/multichain-accounts/account-tree';
 import { trace, TraceName, TraceOperation } from '../../../../shared/lib/trace';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
 } from '../../../../shared/constants/metametrics';
-import { useAnalytics } from '../../../hooks/useAnalytics';
 import { MultichainAccountMenuProps } from './multichain-account-menu.types';
 
 export const MultichainAccountMenu = ({
@@ -43,7 +46,7 @@ export const MultichainAccountMenu = ({
   const dispatch = useDispatch();
   const popoverRef = useRef<HTMLDivElement>(null);
   const accountTree = useSelector(getAccountTree);
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   // Get the account group metadata to check pinned/hidden state
   const accountGroupMetadata = useMemo(() => {
@@ -140,16 +143,15 @@ export const MultichainAccountMenu = ({
       await dispatch(setAccountGroupPinned(accountGroupId, newPinnedState));
 
       // Track the Account Pinned event
-      trackEvent(
-        createEventBuilder(MetaMetricsEventName.AccountPinned)
-          .addCategory(MetaMetricsEventCategory.Accounts)
-          .addProperties({
-            pinned: newPinnedState,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            pinned_count_after: countAccountsByStatus('pinned', newPinnedState),
-          })
-          .build(),
-      );
+      trackEvent({
+        event: MetaMetricsEventName.AccountPinned,
+        category: MetaMetricsEventCategory.Accounts,
+        properties: {
+          pinned: newPinnedState,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          pinned_count_after: countAccountsByStatus('pinned', newPinnedState),
+        },
+      });
 
       onToggle?.();
     };
@@ -170,16 +172,15 @@ export const MultichainAccountMenu = ({
       await dispatch(setAccountGroupHidden(accountGroupId, newHiddenState));
 
       // Track the Account Hidden event
-      trackEvent(
-        createEventBuilder(MetaMetricsEventName.AccountHidden)
-          .addCategory(MetaMetricsEventCategory.Accounts)
-          .addProperties({
-            hidden: newHiddenState,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            hidden_count_after: countAccountsByStatus('hidden', newHiddenState),
-          })
-          .build(),
-      );
+      trackEvent({
+        event: MetaMetricsEventName.AccountHidden,
+        category: MetaMetricsEventCategory.Accounts,
+        properties: {
+          hidden: newHiddenState,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          hidden_count_after: countAccountsByStatus('hidden', newHiddenState),
+        },
+      });
 
       onToggle?.();
     };
@@ -246,13 +247,15 @@ export const MultichainAccountMenu = ({
   return (
     <>
       <Box
-        className="flex multichain-account-cell-popover-menu-button rounded-lg"
+        className="multichain-account-cell-popover-menu-button"
         ref={popoverRef}
-        alignItems={BoxAlignItems.Center}
-        justifyContent={BoxJustifyContent.Center}
+        display={Display.Flex}
+        alignItems={AlignItems.center}
+        justifyContent={JustifyContent.center}
         backgroundColor={
-          buttonBackgroundColor ?? BoxBackgroundColor.BackgroundMuted
+          buttonBackgroundColor || BackgroundColor.backgroundMuted
         }
+        borderRadius={BorderRadius.LG}
         padding={1}
         onClick={togglePopover}
       >

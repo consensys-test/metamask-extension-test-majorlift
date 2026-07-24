@@ -1,13 +1,14 @@
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 import { Hex } from '@metamask/utils';
 import { decimalToPrefixedHex } from '../../../../../shared/lib/conversion.utils';
 import { login } from '../../../page-objects/flows/login.flow';
 import { DEFAULT_FIXTURE_ACCOUNT, WINDOW_TITLES } from '../../../constants';
 import { withFixtures } from '../../../helpers';
 import FixtureBuilderV2 from '../../../fixtures/fixture-builder-v2';
-import { createDappTransaction } from '../../../page-objects/flows/transaction.flow';
+import { createDappTransaction } from '../../../page-objects/flows/transaction';
 import Confirmation from '../../../page-objects/pages/confirmations/confirmation';
 import SpeedUpAndCancelModal from '../../../page-objects/pages/confirmations/speed-up-and-cancel-modal';
-import ActivityTab from '../../../page-objects/pages/home/activity-tab';
+import ActivityListPage from '../../../page-objects/pages/home/activity-list';
 import HomePage from '../../../page-objects/pages/home/homepage';
 import { TestSuiteArguments } from './shared';
 
@@ -53,11 +54,12 @@ describe('Speed Up and Cancel Transaction Tests', function () {
           const homePage = new HomePage(driver);
           await homePage.goToActivityList();
 
-          const activityTab = new ActivityTab(driver);
-          await activityTab.checkPendingTxNumberDisplayedInActivity(1);
+          const activityListPage = new ActivityListPage(driver);
+          await activityListPage.checkPendingTxNumberDisplayedInActivity(1);
 
-          await activityTab.checkSpeedUpInlineButtonIsPresent();
-          await activityTab.clickSpeedUpTransaction();
+          await activityListPage.checkSpeedUpInlineButtonIsPresent();
+          await activityListPage.clickTransactionListItem();
+          await activityListPage.clickSpeedUpTransaction();
 
           const speedUpCancelModal = new SpeedUpAndCancelModal(driver);
           await speedUpCancelModal.waitForModal();
@@ -69,7 +71,7 @@ describe('Speed Up and Cancel Transaction Tests', function () {
           (await localNodes?.[0]?.mineBlock()) ??
             console.error('localNodes is undefined or empty');
 
-          await activityTab.checkWaitForTransactionStatus('confirmed');
+          await activityListPage.checkWaitForTransactionStatus('confirmed');
         },
       );
     });
@@ -111,10 +113,10 @@ describe('Speed Up and Cancel Transaction Tests', function () {
           const homePage = new HomePage(driver);
           await homePage.goToActivityList();
 
-          const activityTab = new ActivityTab(driver);
-          await activityTab.checkPendingTxNumberDisplayedInActivity(1);
+          const activityListPage = new ActivityListPage(driver);
+          await activityListPage.checkPendingTxNumberDisplayedInActivity(1);
 
-          await activityTab.clickCancelTransaction();
+          await activityListPage.clickCancelTransaction();
 
           const speedUpCancelModal = new SpeedUpAndCancelModal(driver);
           await speedUpCancelModal.waitForModal();
@@ -125,7 +127,7 @@ describe('Speed Up and Cancel Transaction Tests', function () {
           await driver.delay(3000); // Delay needed to ensure the transaction updated before mining
           (await localNodes?.[0]?.mineBlock()) ??
             console.error('localNodes is undefined or empty');
-          await activityTab.checkWaitForTransactionStatus('cancelled');
+          await activityListPage.checkWaitForTransactionStatus('cancelled');
         },
       );
     });

@@ -4,24 +4,29 @@ import {
   type MessengerEvents,
 } from '@metamask/messenger';
 import type { GeolocationApiServiceMessenger } from '@metamask/geolocation-controller';
-import { RootMessenger } from '../../lib/messenger';
+import type { RootMessenger } from '../../lib/messenger';
 
 /**
  * Get the messenger for the GeolocationApiService. This is scoped to the
  * actions and events that the geolocation API service is allowed to handle.
  *
- * @param messenger - The root messenger.
+ * @param rootMessenger - The root messenger.
  * @returns The GeolocationApiServiceMessenger.
  */
 export function getGeolocationApiServiceMessenger(
-  messenger: RootMessenger<
+  rootMessenger: RootMessenger<
     MessengerActions<GeolocationApiServiceMessenger>,
     MessengerEvents<GeolocationApiServiceMessenger>
   >,
 ): GeolocationApiServiceMessenger {
-  const serviceMessenger: GeolocationApiServiceMessenger = new Messenger({
+  const messenger = new Messenger<
+    'GeolocationApiService',
+    MessengerActions<GeolocationApiServiceMessenger>,
+    MessengerEvents<GeolocationApiServiceMessenger>,
+    typeof rootMessenger
+  >({
     namespace: 'GeolocationApiService',
-    parent: messenger,
+    parent: rootMessenger,
   });
-  return serviceMessenger;
+  return messenger;
 }

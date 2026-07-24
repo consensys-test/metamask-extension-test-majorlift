@@ -1,7 +1,5 @@
-import {
-  RatesController,
-  RatesControllerMessenger,
-} from '@metamask/assets-controllers';
+import { RatesController } from '@metamask/assets-controllers';
+import { RatesControllerMessenger } from './messengers';
 import { MessengerClientInitFunction } from './types';
 
 /**

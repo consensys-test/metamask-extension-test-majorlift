@@ -84,12 +84,12 @@ export type PerpsCandlePeriodModalProps = {
   onPeriodChange?: (period: CandlePeriod) => void;
 };
 
-export const PerpsCandlePeriodModal = ({
+export const PerpsCandlePeriodModal: React.FC<PerpsCandlePeriodModalProps> = ({
   isOpen,
   selectedPeriod,
   onClose,
   onPeriodChange,
-}: PerpsCandlePeriodModalProps) => {
+}) => {
   const t = useI18nContext();
 
   const handlePeriodSelect = (period: CandlePeriod) => {

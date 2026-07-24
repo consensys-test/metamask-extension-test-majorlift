@@ -40,19 +40,38 @@ jest.mock('react-redux', () => ({
   }),
 }));
 
-const mockTrackEvent = jest.fn();
-
-jest.mock('../../../hooks/useAnalytics', () => {
-  const { createEventBuilder } = jest.requireActual(
-    '../../../../shared/lib/analytics/create-event-builder',
-  );
+jest.mock('../../../contexts/metametrics', () => {
+  const ReactActual = jest.requireActual<typeof import('react')>('react');
+  const _trackEvent = jest.fn();
+  const MetaMetricsContext = ReactActual.createContext({
+    trackEvent: _trackEvent,
+    bufferedTrace: jest.fn().mockResolvedValue(undefined),
+    bufferedEndTrace: jest.fn().mockResolvedValue(undefined),
+    onboardingParentContext: { current: null },
+  });
+  MetaMetricsContext.Provider = (({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) =>
+    ReactActual.createElement(
+      ReactActual.Fragment,
+      null,
+      children,
+    )) as unknown as typeof MetaMetricsContext.Provider;
   return {
-    useAnalytics: () => ({
-      trackEvent: mockTrackEvent,
-      createEventBuilder,
-    }),
+    MetaMetricsContext,
+    LegacyMetaMetricsProvider: ({ children }: { children: React.ReactNode }) =>
+      ReactActual.createElement(ReactActual.Fragment, null, children),
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    __mockTrackEvent: _trackEvent,
   };
 });
+
+const { __mockTrackEvent: mockTrackEvent } = jest.requireMock<{
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  __mockTrackEvent: jest.Mock;
+}>('../../../contexts/metametrics');
 
 const defaultProps = {
   label: 'Claim 5% bonus',
@@ -92,9 +111,9 @@ describe('ClaimBonusBadge', () => {
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     /* eslint-disable @typescript-eslint/naming-convention */
     expect(mockTrackEvent).toHaveBeenCalledWith({
-      name: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
+      event: MetaMetricsEventName.MusdClaimBonusCtaDisplayed,
+      category: MetaMetricsEventCategory.MusdConversion,
       properties: {
-        category: MetaMetricsEventCategory.MusdConversion,
         location: 'token_list_item',
         view_trigger: 'component_mounted',
         button_text: 'Claim 5% bonus',
@@ -104,7 +123,6 @@ describe('ClaimBonusBadge', () => {
         bonus_amount_range: '10.00 - 99.99',
         has_claimed_before: false,
       },
-      sensitiveProperties: {},
     });
     /* eslint-enable @typescript-eslint/naming-convention */
   });

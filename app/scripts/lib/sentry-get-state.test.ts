@@ -1,6 +1,6 @@
 import {
-  getAnalyticsState,
-  getAnalyticsStateFromAppState,
+  getMetaMetricsState,
+  getMetaMetricsStateFromAppState,
   getState,
 } from './sentry-get-state';
 
@@ -29,9 +29,7 @@ describe('sentry-get-state', () => {
     it('returns the snapshot from getSentryState when present', () => {
       const snapshot = {
         ...emptySentrySnapshot(),
-        state: {
-          metamask: { completedMetaMetricsOnboarding: true, optedIn: true },
-        },
+        state: { metamask: { participateInMetaMetrics: true } },
       };
       globalThis.stateHooks = {
         ...globalThis.stateHooks,
@@ -63,39 +61,30 @@ describe('sentry-get-state', () => {
     });
   });
 
-  describe('getAnalyticsState', () => {
+  describe('getMetaMetricsState', () => {
     afterEach(() => {
       deleteStateHookProperty('getPersistedState');
       deleteStateHookProperty('getBackupState');
     });
 
     it('resolves participation from persisted state when snapshot has no state keys', async () => {
-      const getPersistedState = jest.fn().mockResolvedValue({
-        data: {
-          AnalyticsController: {
-            analyticsId: 'id-123',
-            optedIn: true,
-          },
-          MetaMetricsController: {
-            completedMetaMetricsOnboarding: true,
-          },
-        },
-      });
-
       globalThis.stateHooks = {
         ...globalThis.stateHooks,
         getSentryState: () => emptySentrySnapshot(),
-        getPersistedState,
+        getPersistedState: async () => ({
+          data: {
+            MetaMetricsController: {
+              participateInMetaMetrics: true,
+              metaMetricsId: 'id-123',
+            },
+          },
+        }),
         getBackupState: async () => ({}),
       };
 
-      await expect(getAnalyticsState()).resolves.toStrictEqual({
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
-        analyticsId: 'id-123',
-      });
-      expect(getPersistedState).toHaveBeenCalledWith({
-        reportErrors: false,
+      await expect(getMetaMetricsState()).resolves.toStrictEqual({
+        participateInMetaMetrics: true,
+        metaMetricsId: 'id-123',
       });
     });
 
@@ -105,22 +94,15 @@ describe('sentry-get-state', () => {
         getSentryState: () => emptySentrySnapshot(),
         getPersistedState: async () => ({
           data: {
-            AnalyticsController: {
-              analyticsId: 'id-123',
-              optedIn: false,
-            },
-            MetaMetricsController: {
-              completedMetaMetricsOnboarding: true,
-            },
+            MetaMetricsController: { participateInMetaMetrics: false },
           },
         }),
         getBackupState: async () => ({}),
       };
 
-      await expect(getAnalyticsState()).resolves.toStrictEqual({
-        completedMetaMetricsOnboarding: true,
-        optedIn: false,
-        analyticsId: 'id-123',
+      await expect(getMetaMetricsState()).resolves.toStrictEqual({
+        participateInMetaMetrics: false,
+        metaMetricsId: undefined,
       });
     });
 
@@ -132,10 +114,9 @@ describe('sentry-get-state', () => {
         getBackupState: async () => ({}),
       };
 
-      await expect(getAnalyticsState()).resolves.toStrictEqual({
-        completedMetaMetricsOnboarding: false,
-        optedIn: false,
-        analyticsId: undefined,
+      await expect(getMetaMetricsState()).resolves.toStrictEqual({
+        participateInMetaMetrics: false,
+        metaMetricsId: undefined,
       });
 
       globalThis.stateHooks = {
@@ -145,10 +126,9 @@ describe('sentry-get-state', () => {
         getBackupState: async () => ({}),
       };
 
-      await expect(getAnalyticsState()).resolves.toStrictEqual({
-        completedMetaMetricsOnboarding: false,
-        optedIn: false,
-        analyticsId: undefined,
+      await expect(getMetaMetricsState()).resolves.toStrictEqual({
+        participateInMetaMetrics: false,
+        metaMetricsId: undefined,
       });
     });
 
@@ -160,20 +140,16 @@ describe('sentry-get-state', () => {
           throw new Error('persisted unavailable');
         },
         getBackupState: async () => ({
-          AnalyticsController: {
-            analyticsId: 'backup-id',
-            optedIn: true,
-          },
           MetaMetricsController: {
-            completedMetaMetricsOnboarding: true,
+            participateInMetaMetrics: true,
+            metaMetricsId: 'backup-id',
           },
         }),
       };
 
-      await expect(getAnalyticsState()).resolves.toStrictEqual({
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
-        analyticsId: 'backup-id',
+      await expect(getMetaMetricsState()).resolves.toStrictEqual({
+        participateInMetaMetrics: true,
+        metaMetricsId: 'backup-id',
       });
     });
 
@@ -185,20 +161,13 @@ describe('sentry-get-state', () => {
           throw new Error('persisted unavailable');
         },
         getBackupState: async () => ({
-          AnalyticsController: {
-            analyticsId: 'backup-id',
-            optedIn: false,
-          },
-          MetaMetricsController: {
-            completedMetaMetricsOnboarding: true,
-          },
+          MetaMetricsController: { participateInMetaMetrics: false },
         }),
       };
 
-      await expect(getAnalyticsState()).resolves.toStrictEqual({
-        completedMetaMetricsOnboarding: true,
-        optedIn: false,
-        analyticsId: 'backup-id',
+      await expect(getMetaMetricsState()).resolves.toStrictEqual({
+        participateInMetaMetrics: false,
+        metaMetricsId: undefined,
       });
     });
 
@@ -212,10 +181,9 @@ describe('sentry-get-state', () => {
         getBackupState: async () => null,
       };
 
-      await expect(getAnalyticsState()).resolves.toStrictEqual({
-        completedMetaMetricsOnboarding: false,
-        optedIn: false,
-        analyticsId: undefined,
+      await expect(getMetaMetricsState()).resolves.toStrictEqual({
+        participateInMetaMetrics: false,
+        metaMetricsId: undefined,
       });
 
       globalThis.stateHooks = {
@@ -227,131 +195,77 @@ describe('sentry-get-state', () => {
         getBackupState: async () => ({}),
       };
 
-      await expect(getAnalyticsState()).resolves.toStrictEqual({
-        completedMetaMetricsOnboarding: false,
-        optedIn: false,
-        analyticsId: undefined,
+      await expect(getMetaMetricsState()).resolves.toStrictEqual({
+        participateInMetaMetrics: false,
+        metaMetricsId: undefined,
       });
     });
   });
 
-  describe('getAnalyticsStateFromAppState', () => {
+  describe('getMetaMetricsStateFromAppState', () => {
     it('returns null when appState has no state or persistedState', () => {
-      expect(getAnalyticsStateFromAppState({})).toBeNull();
+      expect(getMetaMetricsStateFromAppState({})).toBeNull();
     });
 
     it('delegates to persisted state when persistedState is present', () => {
       const persistedState = {
         data: {
-          AnalyticsController: {
-            analyticsId: 'persisted-id',
-            optedIn: true,
-          },
           MetaMetricsController: {
-            completedMetaMetricsOnboarding: true,
+            participateInMetaMetrics: true,
+            metaMetricsId: 'persisted-id',
           },
         },
       };
-      expect(getAnalyticsStateFromAppState({ persistedState })).toStrictEqual({
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
-        analyticsId: 'persisted-id',
-      });
+      expect(getMetaMetricsStateFromAppState({ persistedState })).toStrictEqual(
+        {
+          participateInMetaMetrics: true,
+          metaMetricsId: 'persisted-id',
+        },
+      );
     });
 
     it('returns state from appState.state.metamask when present', () => {
       expect(
-        getAnalyticsStateFromAppState({
+        getMetaMetricsStateFromAppState({
           state: {
             metamask: {
-              analyticsId: 'metamask-id',
-              completedMetaMetricsOnboarding: true,
-              optedIn: true,
+              participateInMetaMetrics: true,
+              metaMetricsId: 'metamask-id',
             },
           },
         }),
       ).toStrictEqual({
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
-        analyticsId: 'metamask-id',
+        participateInMetaMetrics: true,
+        metaMetricsId: 'metamask-id',
       });
     });
 
-    it('returns incomplete onboarding from appState.state.metamask before opt-in selection', () => {
+    it('returns state from appState.state.MetaMetricsController when state has no metamask', () => {
       expect(
-        getAnalyticsStateFromAppState({
+        getMetaMetricsStateFromAppState({
           state: {
-            metamask: {
-              analyticsId: 'metamask-id',
-              completedMetaMetricsOnboarding: false,
-              optedIn: true,
-            },
-          },
-        }),
-      ).toStrictEqual({
-        completedMetaMetricsOnboarding: false,
-        optedIn: true,
-        analyticsId: 'metamask-id',
-      });
-    });
-
-    it('returns state from controller state when state has no metamask', () => {
-      expect(
-        getAnalyticsStateFromAppState({
-          state: {
-            AnalyticsController: {
-              analyticsId: 'controller-id',
-              optedIn: true,
-            },
             MetaMetricsController: {
-              completedMetaMetricsOnboarding: true,
+              participateInMetaMetrics: true,
+              metaMetricsId: 'controller-id',
             },
           },
         }),
       ).toStrictEqual({
-        completedMetaMetricsOnboarding: true,
-        optedIn: true,
-        analyticsId: 'controller-id',
+        participateInMetaMetrics: true,
+        metaMetricsId: 'controller-id',
       });
     });
 
-    it('returns optedIn false with analyticsId when not opted in', () => {
+    it('returns participateInMetaMetrics false and no metaMetricsId when not opted in', () => {
       expect(
-        getAnalyticsStateFromAppState({
+        getMetaMetricsStateFromAppState({
           state: {
-            AnalyticsController: {
-              analyticsId: 'controller-id',
-              optedIn: false,
-            },
-            MetaMetricsController: {
-              completedMetaMetricsOnboarding: true,
-            },
+            MetaMetricsController: { participateInMetaMetrics: false },
           },
         }),
       ).toStrictEqual({
-        completedMetaMetricsOnboarding: true,
-        optedIn: false,
-        analyticsId: 'controller-id',
-      });
-    });
-
-    it('returns incomplete onboarding when metrics prompt has not been completed', () => {
-      expect(
-        getAnalyticsStateFromAppState({
-          state: {
-            AnalyticsController: {
-              analyticsId: 'controller-id',
-              optedIn: true,
-            },
-            MetaMetricsController: {
-              completedMetaMetricsOnboarding: false,
-            },
-          },
-        }),
-      ).toStrictEqual({
-        completedMetaMetricsOnboarding: false,
-        optedIn: true,
-        analyticsId: 'controller-id',
+        participateInMetaMetrics: false,
+        metaMetricsId: undefined,
       });
     });
   });

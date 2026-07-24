@@ -12,17 +12,12 @@ import { isGatorPermissionsRevocationFeatureEnabled } from '../../../../shared/l
 import { GlobalMenuDrawer } from './global-menu-drawer';
 import { GlobalMenuDrawerWithList } from './global-menu-drawer-with-list';
 
-const getEnvironmentType = jest.requireMock(
-  '../../../../shared/lib/environment-type',
-).getEnvironmentType as jest.Mock;
+// eslint-disable-next-line import-x/no-restricted-paths
+const getEnvironmentType = jest.requireMock('../../../../app/scripts/lib/util')
+  .getEnvironmentType as jest.Mock;
 
-jest.mock('@metamask/design-system-react', () => ({
-  ...jest.requireActual('@metamask/design-system-react'),
-  usePureBlack: jest.fn(() => false),
-}));
-
-jest.mock('../../../../shared/lib/environment-type', () => ({
-  ...jest.requireActual('../../../../shared/lib/environment-type'),
+jest.mock('../../../../app/scripts/lib/util', () => ({
+  ...jest.requireActual('../../../../app/scripts/lib/util'),
   getEnvironmentType: jest.fn(),
 }));
 
@@ -84,24 +79,6 @@ describe('GlobalMenuDrawer', () => {
     });
 
     expect(getByTestId('global-menu-drawer')).toBeInTheDocument();
-  });
-
-  it('applies border in pure black mode', async () => {
-    const { usePureBlack } = jest.requireMock('@metamask/design-system-react');
-    usePureBlack.mockReturnValue(true);
-
-    const { container } = renderWithProvider(
-      <GlobalMenuDrawer isOpen onClose={() => undefined}>
-        <span>Content</span>
-      </GlobalMenuDrawer>,
-      configureStore(mockState),
-      '/',
-    );
-
-    await waitFor(() => {
-      const panel = container.querySelector('.border-l.border-muted');
-      expect(panel).toBeInTheDocument();
-    });
   });
 
   it('calls onClose when close button is clicked', async () => {

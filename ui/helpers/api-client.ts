@@ -8,7 +8,6 @@ type QueryClient = NonNullable<
 
 export const apiClient = createApiPlatformClient({
   clientProduct: 'metamask-extension',
-  clientVersion: process.env.METAMASK_VERSION,
   queryClient: queryClient as unknown as QueryClient,
   getBearerToken: () =>
     submitRequestToBackground<string | undefined>('getBearerToken'),

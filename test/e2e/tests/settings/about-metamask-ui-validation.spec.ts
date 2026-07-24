@@ -8,7 +8,6 @@ import HeaderNavbar from '../../page-objects/pages/header-navbar';
 import HomePage from '../../page-objects/pages/home/homepage';
 import SettingsPage from '../../page-objects/pages/settings/settings-page';
 import { login } from '../../page-objects/flows/login.flow';
-import { closeSettings } from '../../page-objects/flows/settings.flow';
 
 // Test case to validate the view in the "About" - MetaMask.
 describe('Setting - About MetaMask :', function (this: Suite) {
@@ -35,7 +34,7 @@ describe('Setting - About MetaMask :', function (this: Suite) {
         await aboutPage.checkMetaMaskVersionNumber(version);
 
         // click on `close` button
-        await closeSettings(driver);
+        await settingsPage.clickBackButton();
 
         // wait for home page and validate the balance
         const homePage = new HomePage(driver);

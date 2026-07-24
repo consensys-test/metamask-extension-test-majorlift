@@ -19,12 +19,12 @@ type NftDetailInformationRowProps = {
   valueColor?: TextColor;
   value?: string | null;
   icon?: React.ReactNode;
-  buttonAddressValue?: React.ReactNode | null;
+  buttonAddressValue?: React.ButtonHTMLAttributes<HTMLButtonElement> | null;
   withPopover?: boolean;
   fullValue?: string;
 };
 
-const NftDetailInformationRow = ({
+const NftDetailInformationRow: React.FC<NftDetailInformationRowProps> = ({
   title,
   valueColor,
   value,
@@ -32,7 +32,7 @@ const NftDetailInformationRow = ({
   buttonAddressValue,
   withPopover,
   fullValue,
-}: NftDetailInformationRowProps) => {
+}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleMouseEnter = () => {
@@ -68,8 +68,12 @@ const NftDetailInformationRow = ({
       </Text>
       {icon ? (
         <Box display={Display.Flex}>
-          {buttonAddressValue ?? (
+          {buttonAddressValue ? (
+            { ...buttonAddressValue }
+          ) : (
             <Text
+              // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+              // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
               color={valueColor || TextColor.textDefault}
               variant={TextVariant.bodyMdMedium}
             >
@@ -80,6 +84,8 @@ const NftDetailInformationRow = ({
         </Box>
       ) : (
         <Text
+          // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
           color={valueColor || TextColor.textDefault}
           variant={TextVariant.bodyMdMedium}
         >

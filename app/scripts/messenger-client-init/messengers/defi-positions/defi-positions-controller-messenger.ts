@@ -1,11 +1,24 @@
-import {
-  Messenger,
-  type MessengerActions,
-  type MessengerEvents,
-} from '@metamask/messenger';
-import { DeFiPositionsControllerMessenger } from '@metamask/assets-controllers';
+import { Messenger } from '@metamask/messenger';
+import { TransactionControllerTransactionConfirmedEvent } from '@metamask/transaction-controller';
+import { KeyringControllerLockEvent } from '@metamask/keyring-controller';
 import { RemoteFeatureFlagControllerGetStateAction } from '@metamask/remote-feature-flag-controller';
+import {
+  AccountTreeControllerGetAccountsFromSelectedAccountGroupAction,
+  AccountTreeControllerSelectedAccountGroupChangeEvent,
+} from '@metamask/account-tree-controller';
+import { MetaMetricsControllerTrackEventAction } from '../../../controllers/metametrics-controller-method-action-types';
 import { RootMessenger } from '../../../lib/messenger';
+
+type Actions = AccountTreeControllerGetAccountsFromSelectedAccountGroupAction;
+
+type Events =
+  | KeyringControllerLockEvent
+  | TransactionControllerTransactionConfirmedEvent
+  | AccountTreeControllerSelectedAccountGroupChangeEvent;
+
+export type DeFiPositionsControllerMessenger = ReturnType<
+  typeof getDeFiPositionsControllerMessenger
+>;
 
 /**
  * Get a restricted messenger for the Defi Positions controller. This is scoped to the
@@ -15,12 +28,14 @@ import { RootMessenger } from '../../../lib/messenger';
  * @returns The restricted controller messenger.
  */
 export function getDeFiPositionsControllerMessenger(
-  messenger: RootMessenger<
-    MessengerActions<DeFiPositionsControllerMessenger>,
-    MessengerEvents<DeFiPositionsControllerMessenger>
-  >,
-): DeFiPositionsControllerMessenger {
-  const controllerMessenger: DeFiPositionsControllerMessenger = new Messenger({
+  messenger: RootMessenger<Actions, Events>,
+) {
+  const controllerMessenger = new Messenger<
+    'DeFiPositionsController',
+    Actions,
+    Events,
+    typeof messenger
+  >({
     namespace: 'DeFiPositionsController',
     parent: messenger,
   });
@@ -36,7 +51,9 @@ export function getDeFiPositionsControllerMessenger(
   return controllerMessenger;
 }
 
-type AllowedInitializationActions = RemoteFeatureFlagControllerGetStateAction;
+type AllowedInitializationActions =
+  | RemoteFeatureFlagControllerGetStateAction
+  | MetaMetricsControllerTrackEventAction;
 
 export type DeFiPositionsControllerInitMessenger = ReturnType<
   typeof getDeFiPositionsControllerInitMessenger
@@ -56,7 +73,10 @@ export function getDeFiPositionsControllerInitMessenger(
   });
   messenger.delegate({
     messenger: controllerInitMessenger,
-    actions: ['RemoteFeatureFlagController:getState'],
+    actions: [
+      'RemoteFeatureFlagController:getState',
+      'MetaMetricsController:trackEvent',
+    ],
   });
   return controllerInitMessenger;
 }

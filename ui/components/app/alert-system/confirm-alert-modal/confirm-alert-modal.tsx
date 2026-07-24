@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 
-import { Box, BoxAlignItems } from '@metamask/design-system-react';
 import {
+  Box,
   Button,
   ButtonLink,
   ButtonLinkSize,
@@ -15,6 +15,7 @@ import {
 import {
   AlignItems,
   Severity,
+  TextAlign,
   TextVariant,
 } from '../../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../../hooks/useI18nContext';
@@ -89,7 +90,7 @@ function ConfirmDetails({
   const t = useI18nContext();
   return (
     <>
-      <Box alignItems={BoxAlignItems.Center} className="text-center">
+      <Box alignItems={AlignItems.center} textAlign={TextAlign.Center}>
         <Text variant={TextVariant.bodyMd}>
           {t('confirmationAlertDetails')}
         </Text>
@@ -114,6 +115,8 @@ function ConfirmDetails({
   );
 }
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function ConfirmAlertModal({
   onCancel,
   onClose,
@@ -139,6 +142,8 @@ export function ConfirmAlertModal({
       setMultipleAlertModalVisible(false);
 
       if (
+        // TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31880
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         request?.recursive ||
         hasUnconfirmedFieldDangerAlerts ||
         hasDangerBlockingAlerts

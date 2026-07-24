@@ -37,12 +37,3 @@ export enum FirstTimeFlowType {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   socialImport = 'socialImport',
 }
-
-/**
- * The social login authentication connection type.
- */
-export enum AuthConnection {
-  Google = 'google',
-  Apple = 'apple',
-  Telegram = 'telegram',
-}

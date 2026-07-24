@@ -1,7 +1,7 @@
 import { Suite } from 'mocha';
 import { Anvil } from '@viem/anvil';
 
-import ActivityTab from '../../page-objects/pages/home/activity-tab';
+import ActivityListPage from '../../page-objects/pages/home/activity-list';
 import AccountDetailsModal from '../../page-objects/pages/dialog/account-details-modal';
 import Eip7702AndSendCalls from '../../page-objects/pages/confirmations/batch-confirmation';
 import FixtureBuilderV2 from '../../fixtures/fixture-builder-v2';
@@ -61,8 +61,8 @@ describe.skip('Switch Modal - Switch Account', function (this: Suite) {
         );
         const homePage = new HomePage(driver);
         await homePage.goToActivityList();
-        let activityTab = new ActivityTab(driver);
-        await activityTab.checkConfirmedTxNumberDisplayedInActivity(1);
+        let activityList = new ActivityListPage(driver);
+        await activityList.checkConfirmedTxNumberDisplayedInActivity(1);
 
         // Downgrade Account
         await headerNavbar.openAccountDetailsModal();
@@ -79,8 +79,8 @@ describe.skip('Switch Modal - Switch Account', function (this: Suite) {
         );
 
         await homePage.goToActivityList();
-        activityTab = new ActivityTab(driver);
-        await activityTab.checkConfirmedTxNumberDisplayedInActivity(2);
+        activityList = new ActivityListPage(driver);
+        await activityList.checkConfirmedTxNumberDisplayedInActivity(2);
       },
     );
   });

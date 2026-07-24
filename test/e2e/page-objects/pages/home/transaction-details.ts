@@ -5,14 +5,14 @@ class TransactionDetailsPage {
 
   private readonly solanaExplorerUrl = 'https://solscan.io';
 
-  private readonly explorerTestId = 'transaction-details-block-explorer';
-
   constructor(driver: Driver) {
     this.driver = driver;
   }
 
-  private readonly addressInActivityLog = (address: string) =>
-    `[data-address="${address}"]`;
+  private readonly addressInActivityLog = (address: string) => ({
+    css: '.name__value',
+    text: address,
+  });
 
   private readonly amount = (amount: string) => ({
     testId: 'transaction-list-item-primary-currency',
@@ -25,17 +25,19 @@ class TransactionDetailsPage {
   });
 
   private readonly fromToLink = (fromToAddress: string) =>
-    `[data-address="${fromToAddress}"]`;
+    `a[href='${this.solanaExplorerUrl}/account/${fromToAddress}']`;
 
   private readonly hashLink = (txHash: string) =>
-    `[data-testid="${this.explorerTestId}"][data-explorer-url="${this.solanaExplorerUrl}/tx/${txHash}"]`;
+    `a[href='${this.solanaExplorerUrl}/tx/${txHash}']`;
 
   private readonly status = (status: string) => ({
-    testId: `transaction-details-status-${status}`,
+    tag: 'p',
+    text: status,
   });
 
   private readonly viewDetailsLink = {
-    testId: this.explorerTestId,
+    tag: 'button',
+    text: 'View details',
   };
 
   async checkTransactionAmount(amount: string): Promise<void> {

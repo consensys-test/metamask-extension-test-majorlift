@@ -121,6 +121,7 @@ describe('Account Tracker API Usage', function () {
           .withEnabledNetworks({
             eip155: {
               [CHAIN_IDS.MAINNET]: true,
+              [CHAIN_IDS.LINEA_MAINNET]: true,
             },
           })
           .build(),
@@ -128,6 +129,7 @@ describe('Account Tracker API Usage', function () {
         testSpecificMock: mockInfura,
       },
       async ({ driver, mockedEndpoint }) => {
+        await driver.delay(veryLargeDelayMs);
         let allInfuraJsonRpcRequests =
           await getAllInfuraJsonRpcRequests(mockedEndpoint);
         let rpcMethodsToTestRequests = getSpecifiedJsonRpcRequests(
@@ -170,7 +172,6 @@ describe('Account Tracker API Usage', function () {
       'eth_call',
       'eth_getBalance',
     ];
-    const DELAY_UNTIL_NEXT_POLL = 20000;
 
     await withFixtures(
       {
@@ -186,41 +187,28 @@ describe('Account Tracker API Usage', function () {
         testSpecificMock: mockInfura,
       },
       async ({ driver, mockedEndpoint }) => {
-        await login(driver, {
-          validateBalance: false,
-          waitForNonEvmAccounts: false,
-        });
+        await login(driver, { validateBalance: false });
         const homepage = new HomePage(driver);
         await homepage.checkPageIsLoaded();
-
-        await driver.waitUntil(
-          async () => {
-            const accountTrackerRequests = getSpecifiedJsonRpcRequests(
-              await getAllInfuraJsonRpcRequests(mockedEndpoint),
-              RPC_METHODS_TO_TEST,
-            );
-
-            return accountTrackerRequests.length > 0;
-          },
-          { timeout: 30000, interval: 500 },
-        );
-
-        // Wait for at least one account tracker polling cycle while the UI is
-        // still open so in-flight requests finish before the UI is closed.
-        await driver.delay(DELAY_UNTIL_NEXT_POLL);
-
-        const initialRpcMethodsToTestRequests = getSpecifiedJsonRpcRequests(
-          await getAllInfuraJsonRpcRequests(mockedEndpoint),
-          RPC_METHODS_TO_TEST,
-        );
+        await driver.delay(veryLargeDelayMs);
+        const initialInfuraJsonRpcRequests =
+          await getAllInfuraJsonRpcRequests(mockedEndpoint);
 
         await driver.openNewURL('about:blank');
         // The delay is intentionally 20000, to ensure we cover at least 1 polling
         // loop of time for the block tracker.
-        await driver.delay(DELAY_UNTIL_NEXT_POLL);
+        await driver.delay(20000);
+
+        const currentInfuraJsonRpcRequests =
+          await getAllInfuraJsonRpcRequests(mockedEndpoint);
+
+        const initialRpcMethodsToTestRequests = getSpecifiedJsonRpcRequests(
+          initialInfuraJsonRpcRequests,
+          RPC_METHODS_TO_TEST,
+        );
 
         const currentRpcMethodsToTestRequests = getSpecifiedJsonRpcRequests(
-          await getAllInfuraJsonRpcRequests(mockedEndpoint),
+          currentInfuraJsonRpcRequests,
           RPC_METHODS_TO_TEST,
         );
 

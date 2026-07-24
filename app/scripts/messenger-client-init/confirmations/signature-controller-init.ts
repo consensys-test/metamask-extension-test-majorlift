@@ -1,12 +1,11 @@
-import {
-  SignatureController,
-  SignatureControllerMessenger,
-} from '@metamask/signature-controller';
+import { SignatureController } from '@metamask/signature-controller';
 import { MessengerClientInitFunction } from '../types';
-import { SignatureControllerInitMessenger } from '../messengers';
+import {
+  SignatureControllerInitMessenger,
+  SignatureControllerMessenger,
+} from '../messengers';
 import { trace } from '../../../../shared/lib/trace';
 import { MetaMetricsEventCategory } from '../../../../shared/constants/metametrics';
-import { createEventBuilder, trackEvent } from '../../controllers/analytics';
 
 /**
  * Initialize the signature controller.
@@ -36,15 +35,14 @@ export const SignatureControllerInit: MessengerClientInitFunction<
   messengerClient.hub.on(
     'cancelWithReason',
     ({ metadata: message, reason }) => {
-      trackEvent(
-        createEventBuilder(reason)
-          .addCategory(MetaMetricsEventCategory.Transactions)
-          .addProperties({
-            action: 'Sign Request',
-            type: message.type,
-          })
-          .build(),
-      );
+      initMessenger.call('MetaMetricsController:trackEvent', {
+        event: reason,
+        category: MetaMetricsEventCategory.Transactions,
+        properties: {
+          action: 'Sign Request',
+          type: message.type,
+        },
+      });
     },
   );
 

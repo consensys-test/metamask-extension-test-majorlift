@@ -1,15 +1,14 @@
 import { TransactionType } from '@metamask/transaction-controller';
 import { ApprovalType } from '@metamask/controller-utils';
 import React, { useMemo } from 'react';
-import { Skeleton } from '@metamask/design-system-react';
-import { useEnabledAdvancedPermissions } from '../../../../../hooks/gator-permissions/useEnabledAdvancedPermissions';
-// eslint-disable-next-line import-x/no-restricted-paths -- TODO(ADR-0021): route-isolation backlog
+import { getEnabledAdvancedPermissions } from '../../../../../../shared/lib/environment';
 import { useTrustSignalMetrics } from '../../../../trust-signals/hooks/useTrustSignalMetrics';
 import { useConfirmContext } from '../../../context/confirm';
 import { useSmartTransactionFeatureFlags } from '../../../hooks/useSmartTransactionFeatureFlags';
 import { useTransactionFocusEffect } from '../../../hooks/useTransactionFocusEffect';
 import { SignatureRequestType } from '../../../types/confirm';
 import { AddEthereumChain } from '../../../external/add-ethereum-chain/add-ethereum-chain';
+import { Skeleton } from '../../../../../components/component-library/skeleton';
 import {
   ConfirmationLoader,
   useConfirmationNavigationOptions,
@@ -31,6 +30,8 @@ import TypedSignV1Info from './typed-sign-v1/typed-sign-v1';
 import TypedSignInfo from './typed-sign/typed-sign';
 import TypedSignPermissionInfo from './typed-sign/typed-sign-permission';
 
+// TODO: Fix in https://github.com/MetaMask/metamask-extension/issues/31860
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const DefaultHeadingSkeleton = () => (
   <>
     <Skeleton
@@ -52,6 +53,7 @@ const DefaultHeadingSkeleton = () => (
   </>
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const SendHeadingSkeleton = () => (
   <div
     data-testid="confirmation__send_info_skeleton"
@@ -73,6 +75,7 @@ const SendHeadingSkeleton = () => (
   </div>
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const SectionSkeletons = () => (
   <>
     <Skeleton
@@ -104,7 +107,6 @@ export const InfoSkeleton = ({
 const Info = () => {
   const { currentConfirmation } = useConfirmContext();
   const { loader } = useConfirmationNavigationOptions();
-  const enabledPermissions = useEnabledAdvancedPermissions();
 
   useSmartTransactionFeatureFlags();
   useTransactionFocusEffect();
@@ -131,6 +133,8 @@ const Info = () => {
         if (signatureRequest?.decodedPermission) {
           const requestedPermissionType =
             signatureRequest.decodedPermission.permission.type;
+
+          const enabledPermissions = getEnabledAdvancedPermissions();
 
           if (!enabledPermissions.includes(requestedPermissionType)) {
             // This should never happen, as `wallet_requestExecutionPermissions`
@@ -161,7 +165,7 @@ const Info = () => {
       [TransactionType.perpsDeposit]: () => PerpsDepositInfo,
       [TransactionType.perpsWithdraw]: () => PerpsWithdrawInfo,
     }),
-    [currentConfirmation, enabledPermissions],
+    [currentConfirmation],
   );
 
   if (!currentConfirmation?.type) {

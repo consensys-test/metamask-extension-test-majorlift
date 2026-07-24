@@ -1,11 +1,11 @@
-import React, { useCallback } from 'react';
+import React, { useContext, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { twMerge } from '@metamask/design-system-react';
 import { ThemeType } from '../../../../../../shared/constants/preferences';
 import { TabEmptyState } from '../../../../ui/tab-empty-state';
 import { useI18nContext } from '../../../../../hooks/useI18nContext';
 import { getTheme } from '../../../../../selectors';
-import { useAnalytics } from '../../../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../../../contexts/metametrics';
 import {
   MetaMetricsEventCategory,
   MetaMetricsEventName,
@@ -19,7 +19,7 @@ export type NftEmptyStateProps = {
 export const NftEmptyState = ({ className }: NftEmptyStateProps) => {
   const t = useI18nContext();
   const theme = useSelector(getTheme);
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
   const dispatch = useDispatch();
 
   // Theme-aware icon
@@ -30,15 +30,14 @@ export const NftEmptyState = ({ className }: NftEmptyStateProps) => {
 
   const handleImportNfts = useCallback(() => {
     dispatch(showImportNftsModal({}));
-    trackEvent(
-      createEventBuilder(MetaMetricsEventName.EmptyNFTTabButtonClicked)
-        .addCategory(MetaMetricsEventCategory.Navigation)
-        .addProperties({
-          location: 'NFT_Empty_State',
-        })
-        .build(),
-    );
-  }, [createEventBuilder, dispatch, trackEvent]);
+    trackEvent({
+      category: MetaMetricsEventCategory.Navigation,
+      event: MetaMetricsEventName.EmptyNFTTabButtonClicked,
+      properties: {
+        location: 'NFT_Empty_State',
+      },
+    });
+  }, [dispatch, trackEvent]);
 
   return (
     <TabEmptyState

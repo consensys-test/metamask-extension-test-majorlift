@@ -12,7 +12,7 @@ import {
 import {
   isHardwareWallet,
   getHardwareWalletType,
-} from '../../../../shared/lib/selectors/keyring';
+} from '../../../selectors/selectors';
 import {
   getSmartTransactionsEnabled,
   getSmartTransactionsOptInStatusForMetrics,
@@ -28,7 +28,7 @@ import {
   TextColor,
 } from '../../../helpers/constants/design-system';
 import SwapsFooter from '../swaps-footer';
-import { useAnalytics } from '../../../hooks/useAnalytics';
+import { MetaMetricsContext } from '../../../contexts/metametrics';
 import { MetaMetricsEventCategory } from '../../../../shared/constants/metametrics';
 import { Text } from '../../../components/component-library';
 import SwapStepIcon from './swap-step-icon';
@@ -50,28 +50,27 @@ export default function AwaitingSignatures() {
     getCurrentSmartTransactionsEnabled,
   );
   const needsTwoConfirmations = Boolean(approveTxParams);
-  const { trackEvent, createEventBuilder } = useAnalytics();
+  const { trackEvent } = useContext(MetaMetricsContext);
 
   useEffect(() => {
-    trackEvent(
-      createEventBuilder('Awaiting Signature(s) on a HW wallet')
-        .addCategory(MetaMetricsEventCategory.Swaps)
-        .addSensitiveProperties({
-          needs_two_confirmations: needsTwoConfirmations,
-          token_from: sourceTokenInfo?.symbol,
-          token_from_amount: fetchParams?.value,
-          token_to: destinationTokenInfo?.symbol,
-          request_type: fetchParams?.balanceError ? 'Quote' : 'Order',
-          slippage: fetchParams?.slippage,
-          custom_slippage: fetchParams?.slippage === 2,
-          is_hardware_wallet: hardwareWalletUsed,
-          hardware_wallet_type: hardwareWalletType,
-          stx_enabled: smartTransactionsEnabled,
-          current_stx_enabled: currentSmartTransactionsEnabled,
-          stx_user_opt_in: smartTransactionsOptInStatus,
-        })
-        .build(),
-    );
+    trackEvent({
+      event: 'Awaiting Signature(s) on a HW wallet',
+      category: MetaMetricsEventCategory.Swaps,
+      sensitiveProperties: {
+        needs_two_confirmations: needsTwoConfirmations,
+        token_from: sourceTokenInfo?.symbol,
+        token_from_amount: fetchParams?.value,
+        token_to: destinationTokenInfo?.symbol,
+        request_type: fetchParams?.balanceError ? 'Quote' : 'Order',
+        slippage: fetchParams?.slippage,
+        custom_slippage: fetchParams?.slippage === 2,
+        is_hardware_wallet: hardwareWalletUsed,
+        hardware_wallet_type: hardwareWalletType,
+        stx_enabled: smartTransactionsEnabled,
+        current_stx_enabled: currentSmartTransactionsEnabled,
+        stx_user_opt_in: smartTransactionsOptInStatus,
+      },
+    });
   }, []);
 
   const headerText = needsTwoConfirmations

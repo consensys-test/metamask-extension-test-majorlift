@@ -118,7 +118,10 @@ function determineTransactionTypeAndContractInteraction(
   }
 
   if (type === 'retry' && originalType) {
-    return determineTransactionTypeAndContractInteraction(originalType);
+    return {
+      transactionType: originalType,
+      isContractInteraction,
+    };
   }
 
   if (isContractInteraction) {

@@ -9,7 +9,6 @@ import {
   TransactionControllerGetNonceLockAction,
   TransactionControllerIsAtomicBatchSupportedAction,
   TransactionMeta,
-  decodeAuthorizationSignature,
 } from '@metamask/transaction-controller';
 import {
   createExactExecutionBatchTerms,
@@ -28,6 +27,7 @@ import {
   getDeleGatorEnvironment,
 } from '../../../../shared/lib/delegation';
 
+import { stripSingleLeadingZero } from './util';
 import {
   convertTransactionToRedeemDelegations,
   DelegationMessenger,
@@ -48,9 +48,9 @@ jest.mock('@metamask/delegation-core', () => ({
   createExactExecutionBatchTerms: jest.fn(),
 }));
 
-jest.mock('@metamask/transaction-controller', () => ({
-  ...jest.requireActual('@metamask/transaction-controller'),
-  decodeAuthorizationSignature: jest.fn(),
+jest.mock('./util', () => ({
+  ...jest.requireActual('./util'),
+  stripSingleLeadingZero: jest.fn(),
 }));
 
 const DELEGATION_MANAGER_ADDRESS_MOCK = '0xDelegationManagerAddress' as Hex;
@@ -98,9 +98,7 @@ const TRANSACTION_META_MOCK = {
 describe('delegation', () => {
   const getDeleGatorEnvironmentMock = jest.mocked(getDeleGatorEnvironment);
   const encodeRedeemDelegationsMock = jest.mocked(encodeRedeemDelegations);
-  const decodeAuthorizationSignatureMock = jest.mocked(
-    decodeAuthorizationSignature,
-  );
+  const stripSingleLeadingZeroMock = jest.mocked(stripSingleLeadingZero);
   const createLimitedCallsTermsMock = jest.mocked(createLimitedCallsTerms);
   const createExactExecutionTermsMock = jest.mocked(createExactExecutionTerms);
   const createExactExecutionBatchTermsMock = jest.mocked(
@@ -220,11 +218,7 @@ describe('delegation', () => {
       releaseLock: jest.fn(),
     } as never);
 
-    decodeAuthorizationSignatureMock.mockReturnValue({
-      r: `0x${'1'.repeat(64)}` as Hex,
-      s: `0x${'1'.repeat(64)}` as Hex,
-      yParity: '0x1' as Hex,
-    });
+    stripSingleLeadingZeroMock.mockImplementation((value) => value as never);
   });
 
   describe('convertTransactionToRedeemDelegations', () => {
@@ -588,9 +582,7 @@ describe('delegation', () => {
         from: TRANSACTION_META_MOCK.txParams.from,
         nonce: 9,
       });
-      expect(decodeAuthorizationSignatureMock).toHaveBeenCalledWith(
-        AUTHORIZATION_SIGNATURE_MOCK,
-      );
+      expect(stripSingleLeadingZeroMock).toHaveBeenCalledTimes(2);
       expect(result.authorizationList).toEqual([
         {
           address: UPGRADE_CONTRACT_ADDRESS_MOCK,
@@ -599,33 +591,6 @@ describe('delegation', () => {
           r: `0x${'1'.repeat(64)}`,
           s: `0x${'1'.repeat(64)}`,
           yParity: '0x1',
-        },
-      ]);
-    });
-
-    it('strips all leading zero nibbles from r, s, yParity via upstream util', async () => {
-      decodeAuthorizationSignatureMock.mockReturnValue({
-        r: '0x1' as Hex,
-        s: '0x2' as Hex,
-        yParity: '0x0' as Hex,
-      });
-
-      const result = await convertTransactionToRedeemDelegations({
-        transaction: TRANSACTION_META_MOCK,
-        messenger,
-        authorization: {
-          upgradeContractAddress: UPGRADE_CONTRACT_ADDRESS_MOCK,
-        },
-      });
-
-      expect(result.authorizationList).toEqual([
-        {
-          address: UPGRADE_CONTRACT_ADDRESS_MOCK,
-          chainId: '0x1',
-          nonce: '0x9',
-          r: '0x1',
-          s: '0x2',
-          yParity: '0x0',
         },
       ]);
     });

@@ -68,7 +68,6 @@ program
     console.log('Downloading latest builds from');
     console.log(`- Branch: ${args.branch}`);
     console.log(`- Build type: ${args.buildType}`);
-    console.log('- Bundler: webpack');
 
     const github = new Octokit({ auth: args.githubToken });
 
@@ -92,7 +91,7 @@ program
 
     const buildLinks = getBuildLinks({ hostUrl: HOST_URL, version });
 
-    const builds = buildLinks.webpack[args.buildType];
+    const builds = buildLinks.browserify[args.buildType];
 
     console.log(`Downloading build for chrome from ${builds.chrome}`);
     console.log(`Downloading build for firefox from ${builds.firefox}`);
