@@ -11,6 +11,7 @@ import {
   DEFAULT_ENFORCED_SIMULATIONS_SLIPPAGE,
   EnforcedSimulationsState,
   getEnforcedSimulationsSlippage,
+  getEnforcedSimulationsSlippageBasisPoints,
   isEnforcedSimulationsEligible,
 } from './enforced-simulations';
 
@@ -118,9 +119,15 @@ describe('enforced-simulations', () => {
     });
   });
 
+  describe('getEnforcedSimulationsSlippageBasisPoints', () => {
+    it('converts percentages to basis points', () => {
+      expect(getEnforcedSimulationsSlippageBasisPoints(2.5)).toBe(250);
+    });
+  });
+
   describe('getIsEnforcedSimulationsEligible', () => {
     afterEach(() => {
-      delete process.env.FORCE_ENABLE_SIMULATIONS;
+      delete process.env.FORCE_ENFORCED_SIMULATIONS;
     });
 
     it('returns true when all conditions are met', () => {
@@ -410,9 +417,9 @@ describe('enforced-simulations', () => {
       });
     });
 
-    describe('with FORCE_ENABLE_SIMULATIONS', () => {
+    describe('with FORCE_ENFORCED_SIMULATIONS', () => {
       beforeEach(() => {
-        process.env.FORCE_ENABLE_SIMULATIONS = 'true';
+        process.env.FORCE_ENFORCED_SIMULATIONS = 'true';
       });
 
       it('returns true even when recipient is trusted', () => {
@@ -465,7 +472,7 @@ describe('enforced-simulations', () => {
       });
 
       it('is ignored when value is not the string "true"', () => {
-        process.env.FORCE_ENABLE_SIMULATIONS = '1';
+        process.env.FORCE_ENFORCED_SIMULATIONS = '1';
 
         expect(
           isEnforcedSimulationsEligible(

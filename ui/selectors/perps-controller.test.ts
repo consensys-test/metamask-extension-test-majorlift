@@ -29,6 +29,8 @@ import {
   selectPerpsPerpsBalances,
   selectPerpsMarketFilterPreferences,
   selectPerpsShouldShowDepositToast,
+  selectProLayoutPreferences,
+  selectOrderBookPosition,
 } from './perps-controller';
 
 function buildState(overrides: Record<string, unknown> = {}) {
@@ -286,7 +288,7 @@ describe('perps-controller selectors', () => {
       ).toBe(false);
     });
 
-    it('returns false for token-funded deposits with a non-native pay token', () => {
+    it('returns true for token-funded deposits with a non-native pay token', () => {
       expect(
         selectPerpsDepositPending(
           buildStateWithActiveDeposit({
@@ -301,7 +303,7 @@ describe('perps-controller selectors', () => {
             },
           }),
         ),
-      ).toBe(false);
+      ).toBe(true);
     });
 
     it('returns true for native-token-funded deposits', () => {
@@ -341,7 +343,7 @@ describe('perps-controller selectors', () => {
       ).toBe(true);
     });
 
-    it('returns false for a token-funded deposit transaction', () => {
+    it('returns true for a token-funded deposit transaction', () => {
       expect(
         selectPerpsShouldShowDepositToast(
           buildState({
@@ -363,7 +365,7 @@ describe('perps-controller selectors', () => {
             },
           }),
         ),
-      ).toBe(false);
+      ).toBe(true);
     });
   });
 
@@ -785,6 +787,60 @@ describe('perps-controller selectors', () => {
 
     it('defaults to null', () => {
       expect(selectPerpsMarketFilterPreferences(buildState())).toBeNull();
+    });
+  });
+
+  describe('selectProLayoutPreferences', () => {
+    it('fills missing fields from the controller defaults', () => {
+      expect(
+        selectProLayoutPreferences(
+          buildState({ proLayoutPreferences: { orderBookPosition: 'right' } }),
+        ),
+      ).toStrictEqual({
+        orderBookExpanded: false,
+        chartExpanded: false,
+        orderBookPosition: 'right',
+        orderFormPosition: 'right',
+      });
+    });
+
+    it('returns the defaults when nothing is persisted', () => {
+      expect(selectProLayoutPreferences(buildState())).toStrictEqual({
+        orderBookExpanded: false,
+        chartExpanded: false,
+        orderBookPosition: 'left',
+        orderFormPosition: 'right',
+      });
+    });
+
+    it('returns a stable reference for unrelated state changes', () => {
+      // Unmemoized, the fresh merge object would fail useSelector's check.
+      const preferences = { orderBookPosition: 'right' as const };
+      const first = selectProLayoutPreferences(
+        buildState({ proLayoutPreferences: preferences, isEligible: true }),
+      );
+      const second = selectProLayoutPreferences(
+        buildState({ proLayoutPreferences: preferences, isEligible: false }),
+      );
+
+      expect(second).toBe(first);
+    });
+  });
+
+  describe('selectOrderBookPosition', () => {
+    it('returns the persisted position', () => {
+      expect(
+        selectOrderBookPosition(
+          buildState({ proLayoutPreferences: { orderBookPosition: 'right' } }),
+        ),
+      ).toBe('right');
+    });
+
+    it("defaults to 'left'", () => {
+      expect(selectOrderBookPosition(buildState())).toBe('left');
+      expect(
+        selectOrderBookPosition(buildState({ proLayoutPreferences: {} })),
+      ).toBe('left');
     });
   });
 });

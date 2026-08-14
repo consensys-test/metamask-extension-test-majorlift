@@ -452,6 +452,32 @@ jobs:
             });
             core.info(`Posted build-source-hash: ${process.env.BUILD_HASH}`);
 
+      # Publish the canonical run that holds the builds for this commit — this
+      # run when builds are fresh, or the donor run when builds are reused — as a
+      # commit status on the PR head. Out-of-band workflows (e.g.
+      # update-e2e-fixtures.yml) read this to locate build artifacts without
+      # re-deriving the reuse lookup. Best-effort, like the build-source-hash
+      # status above.
+      - name: Post builds-from-run commit status
+        if: ${{ steps.compute-build-hash.outputs.build-hash }}
+        continue-on-error: true
+        uses: actions/github-script@v8
+        env:
+          BUILDS_FROM_RUN: ${{ steps.find-reusable-builds.outputs.builds-from-run || env.RUN_ID }}
+          HEAD_COMMIT_HASH: ${{ env.HEAD_COMMIT_HASH }}
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.HEAD_COMMIT_HASH,
+              state: 'success',
+              context: 'builds-from-run',
+              description: process.env.BUILDS_FROM_RUN,
+              target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.BUILDS_FROM_RUN}`,
+            });
+            core.info(`Posted builds-from-run: ${process.env.BUILDS_FROM_RUN}`);
+
       - id: filter
         if: ${{ steps.check-skip-merge-queue.outputs.up-to-date != 'true' }}
         uses: dorny/paths-filter@9d7afb8d214ad99e78fbd4247752c4caed2b6e4c
@@ -637,15 +663,30 @@ jobs:
           }}
         env:
           BUILDS_FROM_BASE_BRANCH: ${{ steps.find-reusable-builds.outputs.builds-from-base-branch }}
+          FILTER_BENCHMARK_COUNT: ${{ steps.filter.outputs.benchmark_files_count }}
         run: |
           echo "=== Benchmarks skip decision ==="
           echo "  Builds from base branch: $BUILDS_FROM_BASE_BRANCH"
+          echo "  Benchmark-owned files changed: $FILTER_BENCHMARK_COUNT"
 
-          if [[ "$BUILDS_FROM_BASE_BRANCH" == "true" ]]; then
+          # A change to the measurement apparatus needs benchmarking even when
+          # builds are reused. The build hash covers application sources only, so
+          # a PR touching just the harness, the mocks, the thresholds or the gate
+          # allowlist always matches the base branch and would otherwise never
+          # run the benchmarks it changes. Mirrors the unit/integration rule above.
+          #
+          # Such a run measures the reused base build with the new apparatus,
+          # which is the comparison that isolates the apparatus change, and it is
+          # the cheap option since no fresh build is needed.
+          if [[ "$BUILDS_FROM_BASE_BRANCH" == "true" && "$FILTER_BENCHMARK_COUNT" == "0" ]]; then
             echo "-> needs-benchmarks=false (builds from base branch — identical output)"
           else
             echo "needs-benchmarks=true" >> "$GITHUB_OUTPUT"
-            echo "-> needs-benchmarks=true (fresh builds)"
+            if [[ "$BUILDS_FROM_BASE_BRANCH" == "true" ]]; then
+              echo "-> needs-benchmarks=true (benchmark-owned files changed)"
+            else
+              echo "-> needs-benchmarks=true (fresh builds)"
+            fi
           fi
 
       - name: Compute needs-e2e flag

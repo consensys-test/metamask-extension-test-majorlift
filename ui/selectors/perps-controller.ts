@@ -4,9 +4,11 @@ import {
   TransactionType,
   type TransactionMeta,
 } from '@metamask/transaction-controller';
-import type { PerpsControllerState } from '@metamask/perps-controller';
-import { getNativeTokenAddress } from '@metamask/assets-controllers';
-import type { Hex } from '@metamask/utils';
+import {
+  type PerpsControllerState,
+  DEFAULT_PRO_LAYOUT_PREFERENCES,
+  type ProLayoutPreferences,
+} from '@metamask/perps-controller';
 
 /**
  * The PerpsController state is flattened into state.metamask by
@@ -38,10 +40,6 @@ const PERPS_DEPOSIT_TRANSACTION_TYPES: ReadonlySet<TransactionType> = new Set([
 ]);
 
 const EMPTY_ARRAY: never[] = [];
-const EMPTY_TRANSACTION_DATA: Record<
-  string,
-  { paymentToken?: { address: Hex; chainId: Hex } }
-> = {};
 const EMPTY_TRADE_CONFIGURATIONS: PerpsControllerState['tradeConfigurations'] =
   { testnet: {}, mainnet: {} };
 
@@ -76,53 +74,15 @@ type PerpsDepositPendingState = {
   metamask: {
     transactions?: TransactionMeta[];
     lastDepositTransactionId?: string | null;
-    transactionData?: Record<
-      string,
-      {
-        paymentToken?: {
-          address: Hex;
-          chainId: Hex;
-        };
-      }
-    >;
   };
 };
 
-const isNativePayToken = (
-  paymentToken?:
-    | {
-        address: Hex;
-        chainId: Hex;
-      }
-    | undefined,
-) => {
-  if (!paymentToken) {
-    return true;
-  }
-
-  return (
-    paymentToken.address.toLowerCase() ===
-    getNativeTokenAddress(paymentToken.chainId).toLowerCase()
-  );
-};
-
-const isPerpsToastOwnedDepositTransaction = (
-  transaction?: TransactionMeta,
-  paymentToken?:
-    | {
-        address: Hex;
-        chainId: Hex;
-      }
-    | undefined,
-) => {
+const isPerpsToastOwnedDepositTransaction = (transaction?: TransactionMeta) => {
   if (!transaction?.type) {
     return false;
   }
 
-  return (
-    PERPS_DEPOSIT_TRANSACTION_TYPES.has(transaction.type) &&
-    isNativePayToken(paymentToken)
-  );
+  return PERPS_DEPOSIT_TRANSACTION_TYPES.has(transaction.type);
 };
 
 const selectPerpsActiveDepositTransaction = createSelector(
@@ -143,13 +103,8 @@ const selectPerpsActiveDepositTransaction = createSelector(
 
 export const selectPerpsShouldShowDepositToast = createSelector(
   selectPerpsActiveDepositTransaction,
-  (state: PerpsDepositPendingState) =>
-    state.metamask.transactionData ?? EMPTY_TRANSACTION_DATA,
-  (transaction, transactionData) =>
-    isPerpsToastOwnedDepositTransaction(
-      transaction ?? undefined,
-      transaction ? transactionData[transaction.id]?.paymentToken : undefined,
-    ),
+  (transaction) =>
+    isPerpsToastOwnedDepositTransaction(transaction ?? undefined),
 );
 
 /**
@@ -167,15 +122,8 @@ export const selectPerpsShouldShowDepositToast = createSelector(
  */
 export const selectPerpsDepositPending = createSelector(
   selectPerpsActiveDepositTransaction,
-  (state: PerpsDepositPendingState) =>
-    state.metamask.transactionData ?? EMPTY_TRANSACTION_DATA,
-  (tx, transactionData) => {
-    if (
-      !isPerpsToastOwnedDepositTransaction(
-        tx ?? undefined,
-        tx ? transactionData[tx.id]?.paymentToken : undefined,
-      )
-    ) {
+  (tx) => {
+    if (!isPerpsToastOwnedDepositTransaction(tx ?? undefined)) {
       return false;
     }
 
@@ -264,6 +212,32 @@ export const selectPerpsPerpsBalances = (state: PerpsState) =>
 
 export const selectPerpsMarketFilterPreferences = (state: PerpsState) =>
   state.metamask.marketFilterPreferences ?? null;
+
+/**
+ * Pro-mode layout preferences, with the controller defaults filled in for
+ * persisted state that predates a field. Memoized because the merge builds a
+ * fresh object: unmemoized, `useSelector` would re-render every consumer on
+ * every dispatch.
+ */
+export const selectProLayoutPreferences = createSelector(
+  (state: PerpsState) => state.metamask.proLayoutPreferences,
+  (proLayoutPreferences): ProLayoutPreferences => ({
+    ...DEFAULT_PRO_LAYOUT_PREFERENCES,
+    ...proLayoutPreferences,
+  }),
+);
+
+/**
+ * Which side of the pro-mode trading view the order book is pinned to. Returns
+ * a primitive, so prefer it over `selectProLayoutPreferences` in components
+ * that only need the position.
+ *
+ * @param state - Perps controller state.
+ * @returns 'left' or 'right'.
+ */
+export const selectOrderBookPosition = (state: PerpsState) =>
+  state.metamask.proLayoutPreferences?.orderBookPosition ??
+  DEFAULT_PRO_LAYOUT_PREFERENCES.orderBookPosition;
 
 export const selectPerpsTradeConfigurations = (state: PerpsState) =>
   state.metamask.tradeConfigurations ?? EMPTY_TRADE_CONFIGURATIONS;

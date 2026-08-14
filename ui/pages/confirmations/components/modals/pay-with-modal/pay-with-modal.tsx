@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useCallback, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Hex } from '@metamask/utils';
 import {
   TransactionMeta,
@@ -15,19 +15,28 @@ import {
 import { ScrollContainer } from '../../../../../contexts/scroll-container';
 import { useTransactionPayToken } from '../../../hooks/pay/useTransactionPayToken';
 import { useTransactionPayRequiredTokens } from '../../../hooks/pay/useTransactionPayData';
-import { getAvailableTokens } from '../../../utils/transaction-pay';
+import { useTransactionPayBlockedTokens } from '../../../hooks/pay/useTransactionPayBlockedTokens';
+import {
+  clearPaymentOverride,
+  getAvailableTokens,
+} from '../../../utils/transaction-pay';
 import { Asset } from '../../send/asset';
 import { type Asset as AssetType } from '../../../types/send';
 import {
   useMusdConversionTokens,
   useMusdPaymentToken,
 } from '../../../../../hooks/musd';
+import { usePostQuoteWithdrawTokenFilter } from '../../../hooks/pay/useWithdrawTokenFilter';
 import { useConfirmContext } from '../../../context/confirm';
 import {
   addToken,
   findNetworkClientIdByChainId,
 } from '../../../../../store/actions';
-import { isPerpsWithdrawTransaction } from '../../../../../../shared/lib/transactions.utils';
+import { isPostQuoteWithdrawTransaction } from '../../../../../../shared/lib/transactions.utils';
+import { useDispatch } from '../../../../../store/hooks';
+import { selectIsMoneyAccountTransactionEnabled } from '../../../selectors/feature-flags';
+import { usePayWithSections } from '../../../hooks/pay/usePayWithSections';
+import { PayWithSection } from './pay-with-section';
 
 export type PayWithModalProps = {
   isOpen: boolean;
@@ -40,24 +49,55 @@ export const PayWithModal = ({ isOpen, onClose }: PayWithModalProps) => {
   const { currentConfirmation } = useConfirmContext<TransactionMeta>();
   const { payToken, setPayToken } = useTransactionPayToken();
   const requiredTokens = useTransactionPayRequiredTokens();
+  const blockedTokens = useTransactionPayBlockedTokens();
+  const [showOtherAssets, setShowOtherAssets] = useState(false);
+
+  const isMoneyAccountPayEnabled = useSelector((state) =>
+    selectIsMoneyAccountTransactionEnabled(state, currentConfirmation?.type),
+  );
 
   const { filterTokens: musdTokenFilter } = useMusdConversionTokens({
     transactionType: currentConfirmation?.type,
   });
+  const {
+    filterTokens: postQuoteWithdrawTokenFilter,
+    isFilterApplied: isPostQuoteWithdrawTokenFilterApplied,
+  } = usePostQuoteWithdrawTokenFilter();
 
   // Use the mUSD-specific payment token handler for same-chain enforcement
   const { onPaymentTokenChange: onMusdPaymentTokenChange } =
     useMusdPaymentToken();
 
-  const isPerpsWithdraw = isPerpsWithdrawTransaction(currentConfirmation);
+  const isPostQuoteWithdraw =
+    isPostQuoteWithdrawTransaction(currentConfirmation);
 
   const handleClose = useCallback(() => {
+    setShowOtherAssets(false);
     onClose();
   }, [onClose]);
+
+  const handleOtherAssetsPress = useCallback(() => {
+    setShowOtherAssets(true);
+  }, []);
+
+  const { sections } = usePayWithSections({
+    onClose: handleClose,
+    onOtherAssetsPress: handleOtherAssetsPress,
+  });
 
   const handleTokenSelect = useCallback(
     async (token: AssetType) => {
       if (token.disabled) {
+        return;
+      }
+
+      if (
+        payToken &&
+        payToken.address.toLowerCase() === token.address?.toLowerCase() &&
+        payToken.chainId.toLowerCase() ===
+          (token.chainId as string)?.toLowerCase()
+      ) {
+        handleClose();
         return;
       }
 
@@ -80,7 +120,7 @@ export const PayWithModal = ({ isOpen, onClose }: PayWithModalProps) => {
       // found" and the selection silently fails. Ensure the token is imported
       // first, then update the pay token.
       if (
-        isPerpsWithdraw &&
+        isPostQuoteWithdraw &&
         !token.isNative &&
         (token.rawBalance === '0x0' || !token.rawBalance)
       ) {
@@ -110,35 +150,66 @@ export const PayWithModal = ({ isOpen, onClose }: PayWithModalProps) => {
         }
       }
 
+      if (currentConfirmation?.id) {
+        clearPaymentOverride(currentConfirmation.id);
+      }
       setPayToken(tokenSelection);
       handleClose();
     },
     [
-      currentConfirmation?.type,
+      currentConfirmation,
       dispatch,
       handleClose,
-      isPerpsWithdraw,
+      isPostQuoteWithdraw,
       onMusdPaymentTokenChange,
+      payToken,
       setPayToken,
     ],
   );
 
   const tokenFilter = useCallback(
     (tokens: AssetType[]) => {
-      let available = getAvailableTokens({ payToken, requiredTokens, tokens });
+      if (isPostQuoteWithdraw && isPostQuoteWithdrawTokenFilterApplied) {
+        return postQuoteWithdrawTokenFilter(tokens);
+      }
+
+      let available = getAvailableTokens({
+        payToken,
+        requiredTokens,
+        tokens,
+        blockedTokens,
+      });
 
       available = musdTokenFilter(available);
 
       return available;
     },
-    [payToken, requiredTokens, musdTokenFilter],
+    [
+      blockedTokens,
+      isPostQuoteWithdraw,
+      isPostQuoteWithdrawTokenFilterApplied,
+      musdTokenFilter,
+      payToken,
+      postQuoteWithdrawTokenFilter,
+      requiredTokens,
+    ],
   );
+
+  const showSections =
+    isMoneyAccountPayEnabled && !showOtherAssets && !isPostQuoteWithdraw;
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} isClosedOnOutsideClick={false}>
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader onClose={handleClose}>
+        <ModalHeader
+          onClose={handleClose}
+          {...(showOtherAssets
+            ? {
+                onBack: () => setShowOtherAssets(false),
+              }
+            : {})}
+        >
           {t('payWithModalTitle')}
         </ModalHeader>
         <ScrollContainer
@@ -147,12 +218,20 @@ export const PayWithModal = ({ isOpen, onClose }: PayWithModalProps) => {
             overflow: 'auto',
           }}
         >
-          <Asset
-            includeNoBalance
-            hideNfts
-            tokenFilter={tokenFilter}
-            onAssetSelect={handleTokenSelect}
-          />
+          {showSections ? (
+            <div data-testid="pay-with-sections">
+              {sections.map((section) => (
+                <PayWithSection key={section.id} config={section} />
+              ))}
+            </div>
+          ) : (
+            <Asset
+              includeNoBalance
+              hideNfts
+              tokenFilter={tokenFilter}
+              onAssetSelect={handleTokenSelect}
+            />
+          )}
         </ScrollContainer>
       </ModalContent>
     </Modal>

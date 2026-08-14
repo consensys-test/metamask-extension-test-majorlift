@@ -10,8 +10,9 @@ import {
   createERC20BalanceChangeTerms,
   createERC721BalanceChangeTerms,
   createNativeBalanceChangeTerms,
+  BalanceChangeType,
 } from '@metamask/delegation-core';
-import { TransactionControllerInitMessenger } from '../../../messenger-client-init/messengers/transaction-controller-messenger';
+import { TransactionControllerInitMessenger } from '../../../wallet-init/messengers/transaction-controller-messenger';
 import { getEnforcedSimulationsSlippage } from '../../../../../shared/lib/transaction/enforced-simulations';
 import {
   getDeleGatorEnvironment,
@@ -82,6 +83,7 @@ export async function enforceSimulations({
   log('Data', data);
 
   return {
+    slippage,
     updateTransaction: (transaction: TransactionMeta) => {
       transaction.txParams.data = data;
       transaction.txParams.to = to;
@@ -106,8 +108,17 @@ function generateCaveats(
   const { nativeBalanceChange, tokenBalanceChanges = [] } = simulationData;
 
   if (nativeBalanceChange) {
-    const { difference, isDecrease: enforceDecrease } = nativeBalanceChange;
-    const delta = applySlippage(difference, slippage, enforceDecrease);
+    const {
+      difference,
+      isDecrease: enforceDecrease,
+      previousBalance,
+    } = nativeBalanceChange;
+    const delta = applySlippage(
+      difference,
+      slippage,
+      enforceDecrease,
+      previousBalance,
+    );
 
     log('Caveat - Native Balance Change', {
       enforceDecrease,
@@ -135,6 +146,7 @@ function generateCaveats(
       address: token,
       standard,
       id: tokenIdHex,
+      previousBalance,
     } = tokenChange;
 
     const delta = BigInt(difference);
@@ -143,6 +155,7 @@ function generateCaveats(
       difference,
       slippage,
       enforceDecrease,
+      previousBalance,
     );
 
     const tokenId = tokenIdHex ? BigInt(tokenIdHex) : 0n;
@@ -211,23 +224,28 @@ function generateCaveats(
   return caveats;
 }
 
-enum BalanceChangeType {
-  INCREASE = 0,
-  DECREASE = 1,
-}
-
 function getBalanceChangeType(enforceDecrease: boolean): BalanceChangeType {
   return enforceDecrease
-    ? BalanceChangeType.DECREASE
-    : BalanceChangeType.INCREASE;
+    ? BalanceChangeType.Decrease
+    : BalanceChangeType.Increase;
 }
 
 function applySlippage(
   value: Hex,
   slippage: number,
   isDecrease: boolean,
+  previousBalance: Hex,
 ): bigint {
   const valueBN = new BigNumber(value);
   const slippageMultiplier = (100 + (isDecrease ? slippage : -slippage)) / 100;
-  return BigInt(valueBN.mul(slippageMultiplier).toFixed(0));
+  const valueWithSlippage = BigInt(valueBN.mul(slippageMultiplier).toFixed(0));
+
+  if (!isDecrease) {
+    return valueWithSlippage;
+  }
+
+  const maximumDecrease = BigInt(previousBalance);
+  return valueWithSlippage > maximumDecrease
+    ? maximumDecrease
+    : valueWithSlippage;
 }
