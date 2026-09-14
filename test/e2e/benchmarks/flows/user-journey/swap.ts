@@ -168,6 +168,49 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
           ),
         );
 
+        // Fork validation only: log each swap and quote transaction's trace
+        // context, to see whether the quote spans nest under Swap Quote Fetch.
+        for (const endpoint of mockedEndpoint) {
+          for (const request of await endpoint.getSeenRequests()) {
+            if (!/sentry\.io\/api\/\d+\/envelope/u.test(request.url)) {
+              continue;
+            }
+            for (const line of ((await request.body.getText()) ?? '').split(
+              '\n',
+            )) {
+              try {
+                const item = JSON.parse(line);
+                if (
+                  typeof item.transaction === 'string' &&
+                  /Swap|Bridge|Quote/u.test(item.transaction)
+                ) {
+                  const traceContext = item.contexts?.trace ?? {};
+                  console.log(
+                    'Trace context:',
+                    JSON.stringify({
+                      name: item.transaction,
+                      ms: Math.round(
+                        (item.timestamp - item.start_timestamp) * 1000,
+                      ),
+                      start: item.start_timestamp,
+                      end: item.timestamp,
+                      traceId: traceContext.trace_id,
+                      spanId: traceContext.span_id,
+                      parentSpanId: traceContext.parent_span_id,
+                      childSpans: (item.spans ?? []).map(
+                        (span: { description?: string; op?: string }) =>
+                          span.description ?? span.op,
+                      ),
+                    }),
+                  );
+                }
+              } catch {
+                // Not a JSON line.
+              }
+            }
+          }
+        }
+
         try {
           webVitals = await collectWebVitals(driver);
         } catch (error) {
