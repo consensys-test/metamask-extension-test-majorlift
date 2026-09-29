@@ -28,15 +28,16 @@ jobs:
         # Startup + interaction + user journeys: chrome/firefox × webpack × preset (test build: build-test-webpack / build-test-mv2-webpack).
         browser: [chrome, firefox]
         buildType: [webpack]
+        # A/A window for admission stage 3 (fork lane only): the three presets
+        # carrying a converted span with no stage 3 window. `accountList` and
+        # `showAccountList` come from onboarding-import, `showAccountList` again
+        # from account-management, `assetDetails` from both assets flows. The
+        # other five presets are not what this window measures and would cost
+        # runner time per sample without producing a row.
         pageType:
-          - startupStandardHome
-          - startupPowerUserHome
-          - interactionUserActions
           - userJourneyOnboardingImport
-          - userJourneyOnboardingNew
-          - userJourneyAssets
-          - userJourneyTransactions
           - userJourneyAccountManagement
+          - userJourneyAssets
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
