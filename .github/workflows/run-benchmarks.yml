@@ -28,15 +28,11 @@ jobs:
         # Startup + interaction + user journeys: chrome/firefox × webpack × preset (test build: build-test-webpack / build-test-mv2-webpack).
         browser: [chrome, firefox]
         buildType: [webpack]
+        # A/A window for admission stage 3 (fork lane only): the swap leg alone.
+        # The other presets are not what this window measures; running them
+        # would cost about 8x the runner time per sample.
         pageType:
-          - startupStandardHome
-          - startupPowerUserHome
-          - interactionUserActions
-          - userJourneyOnboardingImport
-          - userJourneyOnboardingNew
-          - userJourneyAssets
           - userJourneyTransactions
-          - userJourneyAccountManagement
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
