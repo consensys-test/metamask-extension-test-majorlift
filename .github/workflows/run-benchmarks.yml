@@ -80,6 +80,10 @@ jobs:
         run: >-
           ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {2} --out test-artifacts/benchmarks/benchmark-{0}-{1}-{2}.json --retries 2', matrix.browser, matrix.buildType, matrix.pageType) }}
         shell: bash
+        env:
+          # Stage 4 power arm (fork lane only). 2 x delta_block for swapQuoteFetch:
+          # 452.8 ms on Chrome, 461.2 on Firefox, so 462 clears both at 2.04x / 2.00x.
+          BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '462'
 
       - name: Send benchmark results to Sentry (main/release only)
         if: >-
