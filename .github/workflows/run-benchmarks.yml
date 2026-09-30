@@ -36,6 +36,8 @@ jobs:
     env:
       SELENIUM_BROWSER: ${{ matrix.browser }}
       SELENIUM_HEADLESS: true
+      # V14 injection arm. The only difference from release/v14-assets-control.
+      BENCHMARK_V14_INJECT: asset-details
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
       TEST_SRP_2: ${{ secrets.TEST_SRP_2 }}
       SENTRY_DSN_PERFORMANCE: ${{ vars.SENTRY_DSN_PERFORMANCE }}
