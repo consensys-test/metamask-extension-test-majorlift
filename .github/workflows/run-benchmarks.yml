@@ -40,6 +40,8 @@ jobs:
       # override is read before `defaultSampleRate`, so `tracesSampleRate: 1`
       # cannot lift it. This build-time map can. Present in BOTH arms.
       SENTRY_SAMPLE_RATE_OVERRIDES: '{"Swap Quote Fetch": 1}'
+      # V14 injection arm. The only difference from release/v14-swap-control.
+      BENCHMARK_V14_INJECT: swap-quote
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
       TEST_SRP_2: ${{ secrets.TEST_SRP_2 }}
       SENTRY_DSN_PERFORMANCE: ${{ vars.SENTRY_DSN_PERFORMANCE }}
