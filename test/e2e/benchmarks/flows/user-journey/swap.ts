@@ -162,10 +162,24 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         // The app's own spans over the same two steps, as the Sentry SDK sent
         // them, timed on the browser's clock (extension#46006). Report-only:
         // no threshold is registered for them.
+        // 30s rather than the 10s default: the control arm of the V14 run
+        // returned an empty entry because `Swap Quote Fetch` had not reached
+        // the mock inside 10s, which is a property of the flush rather than of
+        // the span. Raised in both arms so they still differ by one variable.
+        //
+        // Under the fixture a second `Swap Quote Fetch` is expected, and the
+        // wait has to require it: without a per-name count it returns as soon
+        // as one of each name is present and the count reads 1 either way.
         const transactions = await waitForSentryTransactions(
           driver,
           mockedEndpoint,
           [TraceName.SwapViewLoaded, TraceName.SwapQuoteFetch],
+          {
+            timeoutMs: 30000,
+            ...(process.env.BENCHMARK_V14_INJECT === 'swap-quote'
+              ? { expected: { [TraceName.SwapQuoteFetch]: 2 } }
+              : {}),
+          },
         );
         traceTimers.push(
           sentryTimerResult(
