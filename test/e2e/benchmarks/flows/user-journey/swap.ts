@@ -142,6 +142,23 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
           ),
         );
 
+        // V14 known-answer fixture for `swapQuoteFetchCount`. The count reads 1
+        // in every run of the A/A window, and a constant has no variance for
+        // stage 3 to read, so that window cannot tell a true constant from a
+        // count that never moves. Replacing the amount re-fires the debounced
+        // quote request in `prepare-bridge-page.tsx`, so a second
+        // `Swap Quote Fetch` completes and the count must read 2.
+        //
+        // `fillSwapAmount` rather than `enterSwapAmount`: the latter sends keys
+        // to the existing value and would append rather than replace it.
+        //
+        // Off unless the fixture asks for it — a known-answer arm, not part of
+        // the measured flow.
+        if (process.env.BENCHMARK_V14_INJECT === 'swap-quote') {
+          await swapPage.fillSwapAmount('0.02');
+          await swapPage.checkQuoteIsDisplayed({ timeout: 60000 });
+        }
+
         // The app's own spans over the same two steps, as the Sentry SDK sent
         // them, timed on the browser's clock (extension#46006). Report-only:
         // no threshold is registered for them.
