@@ -286,6 +286,20 @@ export async function runBenchmarkWithIterations(
     thresholdViolations: thresholdResult?.violations ?? [],
     thresholdsPassed: thresholdResult?.passed ?? true,
     ...(webVitalsSummary && { webVitals: webVitalsSummary }),
+    // Carry the reasons only when nothing succeeded. Each failed iteration
+    // already records why it failed; that was discarded here, so a benchmark
+    // whose every iteration threw produced empty statistics and no trace of
+    // the cause.
+    ...(successfulRuns === 0 &&
+      allResults.length > 0 && {
+        iterationErrors: [
+          ...new Set(
+            allResults
+              .map((result) => result.error)
+              .filter((message): message is string => Boolean(message)),
+          ),
+        ],
+      }),
     benchmarkType,
   };
 }
@@ -374,7 +388,7 @@ export function convertSummaryToResults(
   platform?: string,
   buildType?: string,
 ): BenchmarkResults {
-  return convertTimerStatisticsToBenchmarkResults(
+  const results = convertTimerStatisticsToBenchmarkResults(
     summary.timers,
     testTitle,
     persona,
@@ -383,6 +397,21 @@ export function convertSummaryToResults(
     buildType,
     summary.webVitals,
   );
+
+  if (summary.successfulRuns > 0) {
+    return results;
+  }
+
+  // Every iteration failed. Without this the entry carries empty statistics
+  // maps and nothing else, which is shape-identical to a healthy benchmark
+  // and is why a totally failed flow can read as merely quiet.
+  const reasons = summary.iterationErrors?.length
+    ? `: ${summary.iterationErrors.join('; ')}`
+    : '';
+  return {
+    ...results,
+    error: `every iteration failed (0 of ${summary.iterations} succeeded)${reasons}`,
+  };
 }
 
 /**
