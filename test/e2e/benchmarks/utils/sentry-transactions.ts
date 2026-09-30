@@ -13,6 +13,14 @@ export type SentryTransaction = {
   durationMs: number;
   endTimestamp: number;
   success: boolean;
+  /**
+   * The outcome the app recorded via `endTrace`'s `data.result`, where the
+   * trace sets one. `success` does not capture it: a trace ended as
+   * `cancelled` carries an ok status and an undefined `data.success`, so it
+   * reads as successful and its duration is not the duration of a completed
+   * operation.
+   */
+  result?: string;
 };
 
 type TransactionPayload = {
@@ -21,7 +29,7 @@ type TransactionPayload = {
   start_timestamp?: number;
   timestamp?: number;
   contexts?: {
-    trace?: { status?: string; data?: { success?: unknown } };
+    trace?: { status?: string; data?: { success?: unknown; result?: unknown } };
   };
 };
 
@@ -66,6 +74,9 @@ export function parseEnvelopeTransactions(body: string): SentryTransaction[] {
             success:
               trace?.data?.success !== false &&
               (trace?.status === undefined || trace.status === 'ok'),
+            ...(typeof trace?.data?.result === 'string' && {
+              result: trace.data.result,
+            }),
           });
         }
       } catch {
@@ -174,6 +185,14 @@ export function sentryTimerResult(
   if (!last.success) {
     throw new Error(
       `Trace "${name}" last completed unsuccessfully, so "${id}" is not a timing`,
+    );
+  }
+  // A trace that records its own outcome must have completed, not been
+  // cancelled or errored. `success` cannot see this: the outcome lives in
+  // `data.result` and a cancelled span still carries an ok status.
+  if (last.result !== undefined && last.result !== 'success') {
+    throw new Error(
+      `Trace "${name}" last completed as "${last.result}", so "${id}" is not a timing`,
     );
   }
 
