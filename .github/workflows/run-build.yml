@@ -77,6 +77,9 @@ jobs:
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       SENTRY_DSN_DEV: ${{ secrets.SENTRY_DSN_DEV }}
       SENTRY_DSN_PERFORMANCE: ${{ vars.SENTRY_DSN_PERFORMANCE }}
+      # V14 arm: lift the 0.001 pin on `Swap Quote Fetch` (extension#46618).
+      # Build-time: the benchmark job downloads this artifact and cannot set it.
+      SENTRY_SAMPLE_RATE_OVERRIDES: '{"Swap Quote Fetch": 1}'
       TZ: 'UTC' # Ensures the bundles are consistent across machine time zones
       VAPID_KEY: ${{ secrets.VAPID_KEY }}
     steps:
