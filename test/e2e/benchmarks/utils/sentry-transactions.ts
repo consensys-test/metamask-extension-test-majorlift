@@ -116,13 +116,27 @@ export async function waitForSentryTransactions(
   driver: Driver,
   endpoints: MockedEndpoint[],
   names: TraceName[],
-  timeoutMs = 10000,
+  {
+    timeoutMs = 10000,
+    expected = {},
+  }: {
+    timeoutMs?: number;
+    expected?: Partial<Record<TraceName, number>>;
+  } = {},
 ): Promise<SentryTransaction[]> {
   const pollMs = 250;
   let transactions = await readSentryTransactions(endpoints);
   for (let waited = 0; waited < timeoutMs; waited += pollMs) {
-    const sent = new Set(transactions.map((transaction) => transaction.name));
-    if (names.every((name) => sent.has(name))) {
+    // Count instances, not names. Breaking on name-presence returns as soon as
+    // one transaction of each name has arrived, so a caller expecting a second
+    // occurrence of the same trace reads whatever happened to have flushed --
+    // which makes a count-based known-answer check a race rather than a check.
+    const enough = names.every(
+      (name) =>
+        transactions.filter((transaction) => transaction.name === name)
+          .length >= (expected[name] ?? 1),
+    );
+    if (enough) {
       break;
     }
     await driver.delay(pollMs);
