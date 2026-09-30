@@ -162,6 +162,12 @@ export type BenchmarkResults = {
   /** The machine this run executed on */
   host?: HostProvenance;
   webVitals?: WebVitalsSummary;
+  /**
+   * Set when every iteration failed. The statistics maps are then empty
+   * rather than absent, so a reader cannot otherwise tell this entry from a
+   * healthy one by shape alone.
+   */
+  error?: string;
 };
 
 export const STAT_KEY = {

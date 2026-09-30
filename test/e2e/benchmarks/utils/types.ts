@@ -116,6 +116,12 @@ export type BenchmarkSummary = {
   benchmarkType?: BenchmarkType;
   /** Web vitals per-run data and aggregated statistics */
   webVitals?: WebVitalsSummary;
+  /**
+   * Distinct failure reasons, set only when every iteration failed. Without
+   * it a benchmark whose iterations all threw is indistinguishable in the
+   * artifact from one that ran clean: the statistics are simply empty.
+   */
+  iterationErrors?: string[];
 };
 
 /**
