@@ -29,19 +29,17 @@ jobs:
         browser: [chrome, firefox]
         buildType: [webpack]
         pageType:
-          - startupStandardHome
-          - startupPowerUserHome
-          - interactionUserActions
-          - userJourneyOnboardingImport
-          - userJourneyOnboardingNew
-          - userJourneyAssets
+          # V14 arm: only the preset that carries the swap-quote injection.
           - userJourneyTransactions
-          - userJourneyAccountManagement
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       SELENIUM_BROWSER: ${{ matrix.browser }}
       SELENIUM_HEADLESS: true
+      # extension#46618 pins `Swap Quote Fetch` to 0.001, and the per-name
+      # override is read before `defaultSampleRate`, so `tracesSampleRate: 1`
+      # cannot lift it. This build-time map can. Present in BOTH arms.
+      SENTRY_SAMPLE_RATE_OVERRIDES: '{"Swap Quote Fetch": 1}'
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
       TEST_SRP_2: ${{ secrets.TEST_SRP_2 }}
       SENTRY_DSN_PERFORMANCE: ${{ vars.SENTRY_DSN_PERFORMANCE }}
