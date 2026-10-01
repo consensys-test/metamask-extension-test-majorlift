@@ -29,14 +29,13 @@ jobs:
         browser: [chrome, firefox]
         buildType: [webpack]
         pageType:
+          # LANE: trimmed for the runner-provenance window. Each job is one VM,
+          # so these three presets give three independent metric families per
+          # run to test machine speed against, at a third of the full matrix's
+          # cost. Restore the full list before this goes anywhere near a PR.
           - startupStandardHome
-          - startupPowerUserHome
           - interactionUserActions
           - userJourneyOnboardingImport
-          - userJourneyOnboardingNew
-          - userJourneyAssets
-          - userJourneyTransactions
-          - userJourneyAccountManagement
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
