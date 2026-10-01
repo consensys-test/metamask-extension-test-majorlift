@@ -16,7 +16,7 @@ permissions:
 jobs:
   benchmarks:
     if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
-    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}
+    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}-r${{ matrix.rep }}
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
     strategy:
@@ -29,13 +29,16 @@ jobs:
         browser: [chrome, firefox]
         buildType: [webpack]
         pageType:
-          # LANE: trimmed for the runner-provenance window. Each job is one VM,
-          # so these three presets give three independent metric families per
-          # run to test machine speed against, at a third of the full matrix's
-          # cost. Restore the full list before this goes anywhere near a PR.
+          # LANE: one preset, repeated. Each job is one VM, so `rep` buys four
+          # independent machines per run for the SAME series -- which is what
+          # this window needs, since depth per series is what decides whether
+          # holding the CPU model fixed clears the bar. Four reps over nine
+          # runs gives 36 samples per series, about 20 on the commonest model,
+          # at roughly a third the cost of 36 single-sample runs because the
+          # build is paid once per run rather than once per sample.
+          # Restore the full list before this goes anywhere near a PR.
           - startupStandardHome
-          - interactionUserActions
-          - userJourneyOnboardingImport
+        rep: [1, 2, 3, 4]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -125,7 +128,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
-          name: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
+          name: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}-r${{ matrix.rep }}.json
           path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
           retention-days: 7
           if-no-files-found: ignore
