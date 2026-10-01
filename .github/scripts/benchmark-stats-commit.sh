@@ -90,7 +90,11 @@ assemble_performance_data() {
             # The inner key is the camelCase filename (e.g. "standardHome"), NOT the preset name
             # (e.g. "startupStandardHome"), so we unwrap by checking for a single-key object.
             local preset_data startup_key
-            preset_data=$(jq 'if (keys | length) == 1 then .[keys[0]] else . end' "${file}")
+            # `timerRuns` is dropped here: the append-only store copies whole artifacts and
+            # per-iteration samples multiply the per-commit payload. Stage 3 reads them from the
+            # CI artifact, which keeps them; the historical series needs only mean/stdDev/p75/p95.
+            # This filter runs AFTER the unwrap, so the key sits at this level, not under map_values.
+            preset_data=$(jq 'if (keys | length) == 1 then .[keys[0]] else . end | del(.timerRuns)' "${file}")
             startup_key="${browser}-${build_type}-${preset_name}"
             echo "  Adding startup preset '${startup_key}'" >&2
             page_load_json=$(echo "${page_load_json}" | jq \
@@ -101,7 +105,8 @@ assemble_performance_data() {
             # For interaction, user journey, and dapp page load presets, only store chrome-webpack —
             # that is what the PR comment displays.
             local preset_data
-            preset_data=$(jq . "${file}")
+            # Still wrapped as { "<name>": {...} } on this branch, so descend one level.
+            preset_data=$(jq 'map_values(del(.timerRuns))' "${file}")
             echo "  Adding preset '${preset_name}' (chrome-webpack)" >&2
             presets_json=$(echo "${presets_json}" | jq \
                 --arg key "${preset_name}" \
