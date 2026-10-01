@@ -41,15 +41,22 @@ export function aggregateDappPageLoadStatistics(
   const summaries: DappPageLoadStats[] = [];
 
   for (const [page, pageResults] of Object.entries(resultsByPage)) {
-    const metricRows = pageResults.map((r) => r.metrics);
-
     const timers: TimerStatistics[] = [];
     for (const key of NUMERIC_METRIC_KEYS) {
-      const values = metricRows
-        .map((m) => m[key])
-        .filter((v): v is number => typeof v === 'number');
-      if (values.length > 0) {
-        timers.push(calculateTimerStatistics(key, values));
+      // `run` is the absolute page-load index (`browserLoad * pageLoads +
+      // pageLoad`), so it stays correct even when a sample is dropped here or
+      // when samples for a page are not contiguous.
+      const metricSamples = pageResults
+        .map((r) => ({ iteration: r.run, value: r.metrics[key] }))
+        .filter(({ value }) => typeof value === 'number');
+      if (metricSamples.length > 0) {
+        timers.push(
+          calculateTimerStatistics(
+            key,
+            metricSamples.map(({ value }) => value),
+            { iterations: metricSamples.map(({ iteration }) => iteration) },
+          ),
+        );
       }
     }
 

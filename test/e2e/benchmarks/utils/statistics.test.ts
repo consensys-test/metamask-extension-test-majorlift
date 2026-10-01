@@ -3,7 +3,9 @@ import type {
   TimerStatistics,
   WebVitalsMetrics,
 } from '../../../../shared/constants/benchmarks';
+import { SAMPLE_EXCLUSION } from '../../../../shared/constants/benchmarks';
 import {
+  buildTimerRuns,
   calculateMean,
   calculateStdDev,
   calculatePercentile,
@@ -255,6 +257,127 @@ describe('Statistics Utils', () => {
       const stats = calculateTimerStatistics('mixedTimer', durations);
       expect(stats.samples).toBeLessThan(durations.length);
       expect(stats.outliers).toBeGreaterThan(0);
+    });
+
+    it('retains one run per duration, in iteration order', () => {
+      const durations = [100, 110, 105, 108, 102, 107, 103, 109, 104, 106];
+      const stats = calculateTimerStatistics('testTimer', durations);
+
+      expect(stats.runs).toHaveLength(durations.length);
+      expect(stats.runs?.map((run) => run.value)).toStrictEqual(durations);
+      expect(stats.runs?.map((run) => run.iteration)).toStrictEqual([
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+      ]);
+      expect(stats.runs?.every((run) => run.excludedBy === undefined)).toBe(
+        true,
+      );
+    });
+
+    it('retains excluded values and names the filter that dropped them', () => {
+      const durations = [100, 105, 102, 0, -5, 10000000];
+      const stats = calculateTimerStatistics('mixedTimer', durations);
+
+      // Nothing is discarded: the reported statistics cover 3 of 6 samples,
+      // and all 6 are still readable off `runs`.
+      expect(stats.samples).toBe(3);
+      expect(stats.runs).toHaveLength(durations.length);
+      expect(
+        stats.runs
+          ?.filter((run) => run.excludedBy === SAMPLE_EXCLUSION.Sanity)
+          .map((run) => run.value),
+      ).toStrictEqual([0, -5, 10000000]);
+      expect(
+        stats.runs?.filter((run) => run.excludedBy === undefined),
+      ).toHaveLength(3);
+    });
+
+    it('distinguishes IQR exclusions from z-score exclusions', () => {
+      // IQR fences drop 426 and 1000; z-score then drops 264 from what
+      // survived, while 165 stays in.
+      const durations = [
+        98, 99, 98, 99, 99, 102, 101, 100, 101, 99, 426, 264, 165, 1000,
+      ];
+      const stats = calculateTimerStatistics('twoStageTimer', durations);
+      const excludedBy = (stage: string) =>
+        stats.runs
+          ?.filter((run) => run.excludedBy === stage)
+          .map((run) => run.value);
+
+      expect(excludedBy(SAMPLE_EXCLUSION.Iqr)).toStrictEqual([426, 1000]);
+      expect(excludedBy(SAMPLE_EXCLUSION.ZScore)).toStrictEqual([264]);
+      expect(stats.runs).toHaveLength(durations.length);
+      expect(stats.samples).toBe(durations.length - 3);
+    });
+
+    it('uses supplied iteration indices when an iteration produced nothing', () => {
+      // Iterations 1 and 3 failed, so only 0, 2 and 4 reported a duration.
+      const stats = calculateTimerStatistics('gappyTimer', [100, 105, 102], {
+        iterations: [0, 2, 4],
+      });
+
+      expect(stats.runs?.map((run) => run.iteration)).toStrictEqual([0, 2, 4]);
+    });
+  });
+
+  describe('buildTimerRuns', () => {
+    const samples = [
+      { iteration: 0, value: 100 },
+      { iteration: 1, value: 200 },
+      { iteration: 2, value: 300 },
+    ];
+
+    it('leaves excludedBy unset for samples that survive every stage', () => {
+      const runs = buildTimerRuns(samples, [
+        {
+          excludedBy: SAMPLE_EXCLUSION.Sanity,
+          survivors: [100, 200, 300],
+        },
+      ]);
+
+      expect(runs).toStrictEqual(samples);
+    });
+
+    it('attributes a value to the first stage that dropped it', () => {
+      // 100 is missing from every stage, so it was dropped by the first one.
+      const runs = buildTimerRuns(samples, [
+        { excludedBy: SAMPLE_EXCLUSION.Sanity, survivors: [200, 300] },
+        { excludedBy: SAMPLE_EXCLUSION.Iqr, survivors: [200] },
+        { excludedBy: SAMPLE_EXCLUSION.ZScore, survivors: [200] },
+      ]);
+
+      expect(runs).toStrictEqual([
+        { iteration: 0, value: 100, excludedBy: SAMPLE_EXCLUSION.Sanity },
+        { iteration: 1, value: 200 },
+        { iteration: 2, value: 300, excludedBy: SAMPLE_EXCLUSION.Iqr },
+      ]);
+    });
+
+    it('gives equal values the same verdict', () => {
+      const runs = buildTimerRuns(
+        [
+          { iteration: 0, value: 100 },
+          { iteration: 1, value: 100 },
+        ],
+        [{ excludedBy: SAMPLE_EXCLUSION.Iqr, survivors: [] }],
+      );
+
+      expect(runs.map((run) => run.excludedBy)).toStrictEqual([
+        SAMPLE_EXCLUSION.Iqr,
+        SAMPLE_EXCLUSION.Iqr,
+      ]);
+    });
+
+    it('omits non-finite samples, which JSON cannot represent', () => {
+      const runs = buildTimerRuns(
+        [
+          { iteration: 0, value: 100 },
+          { iteration: 1, value: NaN },
+          { iteration: 2, value: Number.POSITIVE_INFINITY },
+        ],
+        [{ excludedBy: SAMPLE_EXCLUSION.Sanity, survivors: [100] }],
+      );
+
+      expect(runs).toStrictEqual([{ iteration: 0, value: 100 }]);
     });
   });
 

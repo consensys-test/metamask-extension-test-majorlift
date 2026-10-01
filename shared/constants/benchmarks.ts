@@ -57,6 +57,41 @@ export type RatingDistribution = {
   null: number;
 };
 
+/**
+ * Filter stage that removed a per-iteration sample.
+ *
+ * Stages run in this order inside `calculateTimerStatistics`: sanity bounds,
+ * then IQR fences, then z-score. A sample is attributed to the first stage that
+ * dropped it.
+ */
+export const SAMPLE_EXCLUSION = {
+  Sanity: 'sanity',
+  Iqr: 'iqr',
+  ZScore: 'zScore',
+} as const;
+
+export type SampleExclusion =
+  (typeof SAMPLE_EXCLUSION)[keyof typeof SAMPLE_EXCLUSION];
+
+/** One raw measurement together with the iteration that produced it. */
+export type TimerSample = {
+  /** Zero-based index of the iteration (or page load) this value came from. */
+  iteration: number;
+  value: number;
+};
+
+/**
+ * A {@link TimerSample} carrying its trimming verdict, so a consumer can
+ * recompute the distribution with or without trimming. `excludedBy` is absent
+ * when the value survived every filter and is part of the reported statistics.
+ */
+export type TimerRun = TimerSample & {
+  excludedBy?: SampleExclusion;
+};
+
+/** Per-iteration samples keyed by metric id. */
+export type TimerRunsResult = Record<string, TimerRun[]>;
+
 /** Per-metric statistics (mean, percentiles, etc.) */
 export type TimerStatistics = {
   id: string;
@@ -72,6 +107,15 @@ export type TimerStatistics = {
   samples: number;
   outliers: number;
   trimmedCount?: number;
+  /**
+   * Every per-iteration value behind this summary, excluded ones included, so
+   * the three stage-3 admission tests (dip, BIC against a two-component
+   * mixture, ICC) can be run against the raw distribution.
+   *
+   * Optional because not every aggregation path has iteration indices to
+   * attribute: web vitals keep theirs in {@link WebVitalsSummary.runs}.
+   */
+  runs?: TimerRun[];
   dataQuality: 'good' | 'poor' | 'unreliable';
 };
 
@@ -111,6 +155,12 @@ export type BenchmarkResults = {
   p95: StatisticalResult;
   trimmedCount?: StatisticalResult;
   outliers?: StatisticalResult;
+  /**
+   * Per-iteration samples per metric id — the timer counterpart to
+   * {@link WebVitalsSummary.runs}. Named separately from `webVitals.runs`
+   * because this one is keyed by metric id rather than being one flat array.
+   */
+  timerRuns?: TimerRunsResult;
   webVitals?: WebVitalsSummary;
 };
 

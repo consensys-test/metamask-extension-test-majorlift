@@ -8,16 +8,22 @@
  * - Sanity checks for metric validation
  */
 
-import { THRESHOLD_SEVERITY } from '../../../../shared/constants/benchmarks';
+import {
+  SAMPLE_EXCLUSION,
+  THRESHOLD_SEVERITY,
+} from '../../../../shared/constants/benchmarks';
 import type {
   BenchmarkResults,
   PercentileKey,
   PercentileThreshold,
   RatingDistribution,
+  SampleExclusion,
   StatisticalResult,
   ThresholdConfig,
   ThresholdSeverity,
   ThresholdViolation,
+  TimerRun,
+  TimerSample,
   TimerStatistics,
   WebVitalsAggregated,
   WebVitalsMetrics,
@@ -340,6 +346,66 @@ export type TimerStatisticsOptions = {
   maxDurationMs?: number;
   /** Override min duration (ms) for sanity check. Set to 0 for metrics that are legitimately zero (e.g. long task counts, TBT). */
   minDurationMs?: number;
+  /**
+   * Iteration index of each entry in `durations`, positionally aligned.
+   *
+   * Pass this whenever an iteration can be missing: a failed run contributes no
+   * duration, so array position stops matching iteration number and an
+   * order-effects or ICC read would be attributed to the wrong position.
+   * Defaults to array position.
+   */
+  iterations?: number[];
+};
+
+/**
+ * One stage of the trimming pipeline paired with the values that survived it.
+ */
+type ExclusionStage = {
+  excludedBy: SampleExclusion;
+  survivors: readonly number[];
+};
+
+/**
+ * Pair each raw sample with its iteration index and the stage that dropped it.
+ *
+ * Attribution is by VALUE rather than by position: every filter in the pipeline
+ * (`validateMetricValue`, `detectOutliersIQR`, `detectOutliersZScore`) decides
+ * from the value alone, so equal values always share a verdict and a set
+ * membership test reproduces each stage's decision exactly. Reconstructing it
+ * this way leaves the filters, and their callers, unchanged.
+ *
+ * Stage order is significant — each stage's input is the previous stage's
+ * output, so a dropped value is missing from every later survivor list and is
+ * attributed to the first stage that lacks it.
+ *
+ * Non-finite samples are omitted: `JSON.stringify` writes `NaN` as `null`, so
+ * emitting them would put a non-number into a `number` field.
+ *
+ * @param samples - Raw samples with their iteration indices, in run order.
+ * @param stages - Survivor lists per stage, in the order the stages ran.
+ */
+export const buildTimerRuns = (
+  samples: readonly TimerSample[],
+  stages: readonly ExclusionStage[],
+): TimerRun[] => {
+  const survivorSets = stages.map(({ excludedBy, survivors }) => ({
+    excludedBy,
+    survivors: new Set(survivors),
+  }));
+
+  const runs: TimerRun[] = [];
+  for (const { iteration, value } of samples) {
+    if (!Number.isFinite(value)) {
+      continue;
+    }
+    const stage = survivorSets.find(({ survivors }) => !survivors.has(value));
+    runs.push(
+      stage
+        ? { iteration, value, excludedBy: stage.excludedBy }
+        : { iteration, value },
+    );
+  }
+  return runs;
 };
 
 export const calculateTimerStatistics = (
@@ -349,6 +415,10 @@ export const calculateTimerStatistics = (
 ): TimerStatistics => {
   const maxDuration = options?.maxDurationMs ?? MAX_METRIC_DURATION_MS;
   const minDuration = options?.minDurationMs ?? MIN_METRIC_DURATION_MS;
+  const indexedSamples: TimerSample[] = durations.map((value, idx) => ({
+    iteration: options?.iterations?.[idx] ?? idx,
+    value,
+  }));
   const sanityResult = filterBySanityChecks(
     durations,
     maxDuration,
@@ -380,6 +450,14 @@ export const calculateTimerStatistics = (
     samples: filtered.length,
     outliers: totalExcluded,
     trimmedCount: iqrResult.outlierCount,
+    runs: buildTimerRuns(indexedSamples, [
+      {
+        excludedBy: SAMPLE_EXCLUSION.Sanity,
+        survivors: sanityResult.filtered,
+      },
+      { excludedBy: SAMPLE_EXCLUSION.Iqr, survivors: iqrResult.filtered },
+      { excludedBy: SAMPLE_EXCLUSION.ZScore, survivors: zScoreResult.filtered },
+    ]),
     dataQuality: assessDataQuality(cv),
   };
 };
