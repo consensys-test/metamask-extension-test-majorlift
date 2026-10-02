@@ -85,6 +85,19 @@ export function readQuoteDelayMs(): number {
  *
  * @param mockServer - The Mockttp server instance
  */
+/**
+ * NOT CURRENTLY REACHED. Its only caller guards on `!shouldUseMockedRequests()`,
+ * and that function returns `true` unconditionally — it is marked dead code with
+ * a TODO to delete it. The live quote mocks are in `performance-mocks.ts`, under
+ * `mockBenchmarkEndpoints`, and that is where a response delay takes effect.
+ *
+ * Stated because the opposite assumption cost a run: a quote delay added here
+ * produced ten CI runs whose means were within 6 ms of the undelayed baseline,
+ * and the absence of any effect reads as the metric failing to detect a
+ * regression rather than as an injection that never executed.
+ *
+ * @param mockServer - The mockttp server to attach the interceptor to.
+ */
 export function registerSwapInterceptor(mockServer: Mockttp): void {
   const sseBody = buildSseResponseBody([swapQuoteSolUsdc]);
 

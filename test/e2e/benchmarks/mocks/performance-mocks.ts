@@ -14,7 +14,7 @@ import {
   mockTokensV3Assets,
 } from '../../tests/btc/mocks/tokens-api';
 import { POWER_USER_PRICES } from './price-data';
-import { buildSseResponseBody } from './swap-mocks';
+import { buildSseResponseBody, readQuoteDelayMs } from './swap-mocks';
 import bridgeNetworkTokens from './bridge-network-tokens.json';
 import bridgeTokens from './bridge-tokens.json';
 import bridgeTokensPopular from './bridge-tokens-popular.json';
@@ -92,6 +92,22 @@ function delayedResponse<TResponse>(
     return response;
   };
 }
+
+/**
+ * Baseline delay the quote mocks have always applied, plus any injected on top.
+ *
+ * The injected part exists for the admission gate's stage 5 check, which needs
+ * runs carrying a regression of a known size. It is read once at module load:
+ * absent or unparseable means no injection and behaviour identical to before,
+ * which is what keeps the A/A window these runs are compared against honest.
+ *
+ * Both quote endpoints share it. `getQuoteStream` and `getQuote` are selected
+ * by a feature flag at runtime, so delaying one would silently do nothing on
+ * builds taking the other.
+ */
+const QUOTE_MOCK_BASE_DELAY_MS = 2000;
+export const QUOTE_MOCK_DELAY_MS =
+  QUOTE_MOCK_BASE_DELAY_MS + readQuoteDelayMs();
 
 function delayedCallback<TResponse>(
   delayMs: number,
@@ -1217,7 +1233,7 @@ export async function mockBenchmarkEndpoints(
       .asPriority(MOCK_PRIORITIES.TEST_OVERRIDE)
       .always()
       .thenCallback(
-        delayedCallback(2000, (req) => {
+        delayedCallback(QUOTE_MOCK_DELAY_MS, (req) => {
           const isSolana = req.url.includes('srcChainId=1151111081099710');
           const quote = isSolana ? swapQuoteSolUsdc : swapQuoteEthUsdc;
           return {
@@ -1235,7 +1251,7 @@ export async function mockBenchmarkEndpoints(
       .asPriority(MOCK_PRIORITIES.TEST_OVERRIDE)
       .always()
       .thenCallback(
-        delayedCallback(2000, (req) => {
+        delayedCallback(QUOTE_MOCK_DELAY_MS, (req) => {
           const isSolana = req.url.includes('srcChainId=1151111081099710');
           const quote = isSolana ? swapQuoteSolUsdc : swapQuoteEthUsdc;
           return { statusCode: 200, json: [quote] };
