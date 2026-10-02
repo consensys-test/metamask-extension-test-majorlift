@@ -290,7 +290,18 @@ class SwapPage {
       },
       { timeout: 30000 },
     );
-    await this.driver.clickElement({
+    // Wait for the source picker to close before opening the destination one.
+    // `selectNetwork` clicks `[data-testid="multichain-asset-picker__network"]`,
+    // which both pickers render, so a source modal still mounted means the
+    // destination's network is never the one set -- and the destination picker
+    // then lists the wrong chain's assets. `BridgeQuotePage` uses this form for
+    // every picker row it clicks; this call site did not.
+    //
+    // Measured on run 37025943536: the network click succeeded (no throw, so the
+    // 'Solana' entry was found) and the destination picker still fetched icons
+    // for `eip155/1/slip44/60` and Ethereum USDC, so the control clicked was not
+    // the destination's.
+    await this.driver.clickElementAndWaitToDisappear({
       css: this.bridgeAsset,
       text: options.swapFrom,
     });
