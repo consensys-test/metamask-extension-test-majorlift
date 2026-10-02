@@ -2151,10 +2151,11 @@ function collectMetrics() {
   results.longTaskObserverAttached = longTaskData?.observed ? 1 : 0;
   results.longTaskTypeSupported = longTaskTypeSupported ? 1 : 0;
 
-  // Absent, not zero: a metric the browser cannot measure is omitted rather
-  // than reported as a quiet main thread, which the gate types constant and
-  // routes to a known-answer check that cannot pass.
-  if (longTaskData && longTaskTypeSupported) {
+  // REVERTED to the pre-2026-10-02 condition on purpose. Two gates shipped this
+  // session on an unverified reading of what `observed` means -- the first was
+  // inert, the second removed Chrome's real startup measurements. The flags above
+  // are the instrument; the gate goes back only once a run has reported them.
+  if (longTaskData) {
     results.longTaskCount = longTaskData.count;
     results.longTaskTotalDuration = longTaskData.totalDuration;
     results.longTaskMaxDuration = longTaskData.maxDuration;

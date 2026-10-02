@@ -164,16 +164,18 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
               : {}),
           },
         );
+        // DIAGNOSTIC ORDER, deliberate. `sentryTimerResult` throws on an absent
+        // trace and `runner.ts` discards the whole iteration on a throw, so the
+        // artifact has never been able to say WHICH of the two traces arrived --
+        // only that something was missing. Counts first and unconditionally, then
+        // the durations behind a catch, so a run where `Swap Quote Fetch` never
+        // arrives still reports `swapQuoteFetchCount: 0` beside
+        // `swapViewLoadedCount: 1` instead of an empty entry.
         traceTimers.push(
-          sentryTimerResult(
+          sentryCountResult(
             transactions,
             TraceName.SwapViewLoaded,
-            'swapViewLoaded',
-          ),
-          sentryTimerResult(
-            transactions,
-            TraceName.SwapQuoteFetch,
-            'swapQuoteFetch',
+            'swapViewLoadedCount',
           ),
           sentryCountResult(
             transactions,
@@ -181,6 +183,19 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
             'swapQuoteFetchCount',
           ),
         );
+
+        for (const [name, id] of [
+          [TraceName.SwapViewLoaded, 'swapViewLoaded'],
+          [TraceName.SwapQuoteFetch, 'swapQuoteFetch'],
+        ] as const) {
+          try {
+            traceTimers.push(sentryTimerResult(transactions, name, id));
+          } catch (error) {
+            console.log(
+              `[benchmark] ${id} unavailable: ${(error as Error).message}`,
+            );
+          }
+        }
 
         try {
           webVitals = await collectWebVitals(driver);
