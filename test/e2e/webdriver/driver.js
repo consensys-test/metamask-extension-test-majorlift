@@ -2135,13 +2135,26 @@ function collectMetrics() {
     });
 
   const longTaskData = window.stateHooks?.getLongTaskMetricsWithTBT?.();
-  // Gate on `observed`, not on the object. `PerformanceObserver` rejects the
-  // `longtask` type outside Chromium, so on Firefox the hook returns a populated
-  // object whose counters are all zero and whose `observed` is false. A truthy
-  // check on the object therefore writes four zeros that read as a quiet main
-  // thread, and the gate types them constant and routes them to a known-answer
-  // check that cannot pass. Absent is the honest value.
-  if (longTaskData?.observed) {
+
+  // Whether the browser implements the entry type at all. `observe({ type })`
+  // is a no-op rather than a throw where the type is unsupported, so the app's
+  // `observed` flag reads true on a browser that will never deliver an entry --
+  // which is why gating on `observed` alone left four zeros on Firefox.
+  // `supportedEntryTypes` is the only signal that distinguishes them.
+  const longTaskTypeSupported = Boolean(
+    window.PerformanceObserver?.supportedEntryTypes?.includes('longtask'),
+  );
+
+  // Both emitted unconditionally, as numbers, so one run discriminates three
+  // readings: attached-but-unsupported (the zeros are meaningless), neither
+  // (something else writes the keys), or both (the zeros are real).
+  results.longTaskObserverAttached = longTaskData?.observed ? 1 : 0;
+  results.longTaskTypeSupported = longTaskTypeSupported ? 1 : 0;
+
+  // Absent, not zero: a metric the browser cannot measure is omitted rather
+  // than reported as a quiet main thread, which the gate types constant and
+  // routes to a known-answer check that cannot pass.
+  if (longTaskData && longTaskTypeSupported) {
     results.longTaskCount = longTaskData.count;
     results.longTaskTotalDuration = longTaskData.totalDuration;
     results.longTaskMaxDuration = longTaskData.maxDuration;
