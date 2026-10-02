@@ -9,14 +9,28 @@ type SetupMockReturn = {
 };
 
 /**
+ * What an interceptor hands back: a mock response that short-circuits
+ * the request, or `null`/`undefined` to let it pass through.
+ */
+export type PassThroughInterceptorResult =
+  | { response: Record<string, unknown> }
+  | null
+  | undefined;
+
+/**
  * A callback that can intercept a request inside `thenPassThrough()`.
  * Return an object with a `response` property to short-circuit the
  * request. Return `null` or `undefined` to let it pass through.
+ *
+ * A Promise of either is also accepted, so an interceptor can delay a
+ * response (see the quote-delay knob in `benchmarks/mocks/swap-mocks`).
+ * mockttp awaits `beforeRequest`, and the call site below awaits the
+ * interceptor, so a synchronous interceptor stays synchronous.
  */
 export type PassThroughInterceptor = (req: {
   url: string;
   method: string;
-}) => { response: Record<string, unknown> } | null | undefined;
+}) => PassThroughInterceptorResult | Promise<PassThroughInterceptorResult>;
 
 /**
  * Attach a request interceptor to the mock server that will be
@@ -64,9 +78,9 @@ export async function setupMockingPassThrough(
     .forAnyRequest()
     .asPriority(-1)
     .thenPassThrough({
-      beforeRequest: (req) => {
+      beforeRequest: async (req) => {
         if (interceptor) {
-          const result = interceptor(req);
+          const result = await interceptor(req);
           if (result?.response) {
             return result;
           }
