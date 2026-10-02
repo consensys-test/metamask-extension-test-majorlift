@@ -2135,26 +2135,6 @@ function collectMetrics() {
     });
 
   const longTaskData = window.stateHooks?.getLongTaskMetricsWithTBT?.();
-
-  // Whether the browser implements the entry type at all. `observe({ type })`
-  // is a no-op rather than a throw where the type is unsupported, so the app's
-  // `observed` flag reads true on a browser that will never deliver an entry --
-  // which is why gating on `observed` alone left four zeros on Firefox.
-  // `supportedEntryTypes` is the only signal that distinguishes them.
-  const longTaskTypeSupported = Boolean(
-    window.PerformanceObserver?.supportedEntryTypes?.includes('longtask'),
-  );
-
-  // Both emitted unconditionally, as numbers, so one run discriminates three
-  // readings: attached-but-unsupported (the zeros are meaningless), neither
-  // (something else writes the keys), or both (the zeros are real).
-  results.longTaskObserverAttached = longTaskData?.observed ? 1 : 0;
-  results.longTaskTypeSupported = longTaskTypeSupported ? 1 : 0;
-
-  // REVERTED to the pre-2026-10-02 condition on purpose. Two gates shipped this
-  // session on an unverified reading of what `observed` means -- the first was
-  // inert, the second removed Chrome's real startup measurements. The flags above
-  // are the instrument; the gate goes back only once a run has reported them.
   if (longTaskData) {
     results.longTaskCount = longTaskData.count;
     results.longTaskTotalDuration = longTaskData.totalDuration;

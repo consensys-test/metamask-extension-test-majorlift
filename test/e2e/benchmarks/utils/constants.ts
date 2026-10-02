@@ -73,11 +73,6 @@ export const ALL_METRICS = {
   longTaskTotalDuration: 'longTaskTotalDuration',
   longTaskMaxDuration: 'longTaskMaxDuration',
   tbt: 'tbt',
-  // Diagnostics, not performance metrics. `ALL_METRICS` is an allowlist, so a
-  // field written into the page results and absent here never reaches the
-  // artifact -- which is why two runs reported nothing about either flag.
-  longTaskObserverAttached: 'longTaskObserverAttached',
-  longTaskTypeSupported: 'longTaskTypeSupported',
 } as const;
 
 export const WITH_STATE_POWER_USER = {
