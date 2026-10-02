@@ -46,6 +46,12 @@ jobs:
       # unset: GitHub-hosted runners do not expose the Azure region in the
       # environment, and guessing it is worse than leaving the field undefined.
       BENCHMARK_RUNNER_LABEL: ubuntu-latest
+      # Zero arm of the composition check. The mocked quote delay is a
+      # `setTimeout` inside the mockttp server, which runs in THIS job's Node
+      # process -- not in the extension bundle -- so it belongs here and not on
+      # the build job. `SENTRY_SAMPLE_RATE_OVERRIDES` is the opposite case and
+      # sits in `run-build.yml`; putting that one here cost a void arm already.
+      BENCHMARK_QUOTE_RESPONSE_DELAY_MS: '0'
       SELENIUM_BROWSER: ${{ matrix.browser }}
       SELENIUM_HEADLESS: true
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}

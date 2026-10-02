@@ -93,7 +93,13 @@ function delayedResponse<TResponse>(
   };
 }
 
-const QUOTE_RESPONSE_DELAY_MS = 2000;
+// Env-overridable so the two arms of the composition check differ by a workflow
+// line rather than a code diff. Run 37052047892 measured `swapQuoteFetch` at
+// 2263.5 ms (chrome) with this at 2000, so subtraction predicts ~263 ms of
+// app-side work; setting it to 0 tests that by measurement instead of arithmetic.
+const QUOTE_RESPONSE_DELAY_MS = Number(
+  process.env.BENCHMARK_QUOTE_RESPONSE_DELAY_MS ?? 2000,
+);
 
 /**
  * Extra delay on the mocked quote responses, for a known-answer check of the
