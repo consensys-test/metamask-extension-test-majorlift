@@ -19,6 +19,28 @@ export type SwapQuoteFetchTraceResult =
 
 let activeTraceId: string | undefined;
 
+/**
+ * Known-answer injection for the admission gate, set only by the benchmark
+ * harness and absent in every other build path. The mock-side delay
+ * (`BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS`) slows the quote RESPONSE, and the
+ * span absorbs the first ~180 ms of that because the app is not waiting on it
+ * yet. This slows the app's own work INSIDE the span instead, which is on the
+ * critical path by construction, so the two arms together separate "the span
+ * cannot see a small regression" from "the span cannot see a small regression
+ * in response latency specifically".
+ *
+ * A busy-wait rather than a timer: a real regression occupies the main thread,
+ * and an awaited timeout would yield it and measure something else.
+ *
+ * @returns Milliseconds to burn before closing the span; 0 unless injected.
+ */
+const getInjectedSpanDelayMs = (): number => {
+  const raw = (globalThis as { __benchmarkSpanDelayMs__?: unknown })
+    .__benchmarkSpanDelayMs__;
+  const delayMs = Number(raw);
+  return Number.isInteger(delayMs) && delayMs > 0 ? delayMs : 0;
+};
+
 const finishTrace = (
   result: SwapQuoteFetchTraceResult,
   id: string | undefined = activeTraceId,
@@ -26,6 +48,14 @@ const finishTrace = (
 ): void => {
   if (!id || activeTraceId !== id) {
     return;
+  }
+
+  const injectedDelayMs = getInjectedSpanDelayMs();
+  if (injectedDelayMs > 0) {
+    const until = Date.now() + injectedDelayMs;
+    while (Date.now() < until) {
+      // Occupying the main thread is the point: see getInjectedSpanDelayMs.
+    }
   }
 
   endTrace({
