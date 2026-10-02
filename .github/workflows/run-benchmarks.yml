@@ -52,6 +52,12 @@ jobs:
       # the build job. `SENTRY_SAMPLE_RATE_OVERRIDES` is the opposite case and
       # sits in `run-build.yml`; putting that one here cost a void arm already.
       BENCHMARK_QUOTE_RESPONSE_DELAY_MS: '0'
+      # Criterion 2, re-derived against the app-side delta_block. 2 x delta_block is
+      # 89.50 ms (chrome) and 97.18 (firefox) on the 15-run zero-delay window, so 98
+      # clears both -- 2.19x and 2.02x of delta_block, the ratios the 462 ms arm ran
+      # at against the mock-inflated base. The 462 arm is 5.2x/4.8x too large to say
+      # anything about the current threshold.
+      BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '98'
       SELENIUM_BROWSER: ${{ matrix.browser }}
       SELENIUM_HEADLESS: true
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
