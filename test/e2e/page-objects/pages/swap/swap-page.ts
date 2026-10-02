@@ -462,7 +462,26 @@ class SwapPage {
     // keys only on `srcChainId` a quote still came back, so nothing failed
     // visibly and `Swap Quote Fetch` never closed as success.
     const assetRow = `[data-testid^="bridge-asset--"][data-testid$="${contractAddress}"]`;
-    await this.driver.waitForSelector(assetRow);
+    try {
+      await this.driver.waitForSelector(assetRow);
+    } catch (error) {
+      // Report what the picker DID render. Run 37035729466 fetched the icon for
+      // this exact mint -- `tokenIcons/assets/solana/<chain>/token/<mint>.png`,
+      // and an icon is fetched when a row renders -- while this selector timed
+      // out, so the row exists under a testid this does not match. A bare
+      // timeout cannot distinguish "row absent" from "row named differently",
+      // and that distinction is the whole question.
+      const rendered = await this.driver.executeScript(
+        `return Array.from(
+           document.querySelectorAll('[data-testid^="bridge-asset--"]')
+         ).map((el) => el.getAttribute('data-testid')).slice(0, 40);`,
+      );
+      throw new Error(
+        `No asset row matched ${contractAddress}. ` +
+          `Rendered bridge-asset testids (max 40): ${JSON.stringify(rendered)}. ` +
+          `Original: ${(error as Error).message}`,
+      );
+    }
     await this.driver.clickElement(assetRow);
   }
 
