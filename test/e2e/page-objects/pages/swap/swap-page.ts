@@ -307,7 +307,37 @@ class SwapPage {
     });
 
     await this.driver.clickElement(this.bridgeDestinationButton);
+
+    // Count the network controls before clicking one. Run 37041203535 reported
+    // the picker rendering exactly three rows, all `eip155:1`, after
+    // `selectNetwork` had been called on the destination without throwing -- so a
+    // control was clicked and the scope did not change. Either more than one
+    // control matches and the click lands on the wrong one, or one matches and
+    // selecting the network does not rescope the list. This is the count I
+    // deferred twice and it is the only thing that separates them.
+    const networkControls = await this.driver.executeScript(
+      `return Array.from(
+         document.querySelectorAll('[data-testid="multichain-asset-picker__network"]')
+       ).map((el) => el.textContent.trim().slice(0, 40));`,
+    );
+    console.log(
+      `[benchmark] destination picker open: ${
+        (networkControls as string[]).length
+      } network control(s) ${JSON.stringify(networkControls)}`,
+    );
+
     await bridgeQuotePage.selectNetwork(options.network);
+
+    const afterNetwork = await this.driver.executeScript(
+      `return Array.from(
+         document.querySelectorAll('[data-testid^="bridge-asset--"]')
+       ).map((el) => el.getAttribute('data-testid')).slice(0, 12);`,
+    );
+    console.log(
+      `[benchmark] after selectNetwork(${options.network}): ${JSON.stringify(
+        afterNetwork,
+      )}`,
+    );
     if (options.swapToContractAddress) {
       await this.selectDestinationTokenByContract(
         options.swapToContractAddress,
