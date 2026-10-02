@@ -81,6 +81,14 @@ jobs:
         # This must be set below the job timeout so that the job itself does not timeout.
         timeout-minutes: 25
         id: run-benchmark
+        env:
+          # INJECTED ARM for the admission gate's stage 5 injection check: the
+          # quote mocks hold every response back an extra 538 ms on top of their
+          # 2000 ms baseline, which is 2 x delta_block against the measured means
+          # (20.0% of chrome's 2689.4 ms, 20.3% of firefox's 2648.1 ms). The
+          # criterion asks that the decision rule block at least 8 of 10 such
+          # runs. Fork validation only; never merged.
+          BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '538'
         run: >-
           ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {2} --out test-artifacts/benchmarks/benchmark-{0}-{1}-{2}.json --retries 2', matrix.browser, matrix.buildType, matrix.pageType) }}
         shell: bash
