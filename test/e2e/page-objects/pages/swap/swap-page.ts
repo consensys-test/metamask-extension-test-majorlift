@@ -435,7 +435,24 @@ class SwapPage {
       await this.driver.clickElement(this.importTokensButton);
       await this.driver.waitForSelector(this.bridgeAsset);
     }
-    await this.driver.clickElement(this.bridgeAsset);
+
+    // Click the row FOR THIS CONTRACT, not the first row in the list. The asset
+    // rows carry `bridge-asset--${asset.assetId}` and an assetId ends in the
+    // contract address, so this is exact rather than a text match.
+    //
+    // An unfiltered `clickElement(this.bridgeAsset)` here selects whatever the
+    // list is showing at that moment, and the `Promise.any` above resolves as
+    // soon as ANY row exists -- which is true of the unfiltered list before the
+    // search has applied. Measured on run 37012380317: every quote request the
+    // swap benchmark made was `destChainId=1, destTokenAddress=0x0000...0000`,
+    // Ethereum native, which is the default row, while token metadata was
+    // correctly fetched for the Solana USDC assetId that had been typed in. The
+    // destination was never the token the flow asked for, and because the mock
+    // keys only on `srcChainId` a quote still came back, so nothing failed
+    // visibly and `Swap Quote Fetch` never closed as success.
+    const assetRow = `[data-testid^="bridge-asset--"][data-testid$="${contractAddress}"]`;
+    await this.driver.waitForSelector(assetRow);
+    await this.driver.clickElement(assetRow);
   }
 
   async selectSourceToken(sourceToken: string): Promise<void> {
