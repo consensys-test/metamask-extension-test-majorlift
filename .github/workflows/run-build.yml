@@ -44,7 +44,7 @@ jobs:
       # close path, so it is on the critical path rather than in the mocked response.
       # Build-time for the same reason as the line above: the benchmark job downloads
       # a prebuilt artifact and never sees a build-time variable.
-      BENCHMARK_APP_SPAN_DELAY_MS: '98'
+      BENCHMARK_APP_SPAN_DELAY_MS: '0'
       # Environment variables used in production builds
       # Keep this list synchronized with:
       # * The environment variables exported by `.github/scripts/bundle.sh`

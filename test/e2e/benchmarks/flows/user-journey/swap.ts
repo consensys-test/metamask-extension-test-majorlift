@@ -143,6 +143,19 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
           ),
         );
 
+        // V14 injection for `swapQuoteFetchCount`. The count reads 1 in every
+        // A/A run, and a tripwire never shown able to move is indistinguishable
+        // from a blind one. Refilling the amount after the first quotes display
+        // forces a refetch, which opens a second `Swap Quote Fetch` span; the
+        // wait below then REQUIRES 2, so an injection that fails to fire is a
+        // timeout rather than a silent 1. The flag previously reached only that
+        // wait, with nothing producing the second fetch -- a detector wired to
+        // no injection, which is the defect this arm exists to close.
+        if (process.env.BENCHMARK_V14_INJECT === 'swap-quote') {
+          await swapPage.fillSwapAmount('0.02');
+          await swapPage.checkQuoteIsDisplayed({ timeout: 60000 });
+        }
+
         // The app's own spans over the same two steps, as the Sentry SDK sent
         // them, timed on the browser's clock (extension#46006). Report-only:
         // no threshold is registered for them.
