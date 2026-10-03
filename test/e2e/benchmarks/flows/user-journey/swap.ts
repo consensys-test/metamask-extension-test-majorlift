@@ -16,6 +16,7 @@ import { Driver } from '../../../webdriver/driver';
 import { collectTimerResults } from '../../utils/timer-helper';
 import {
   sentryCountResult,
+  sentryInitialTimerResult,
   sentryTimerResult,
   waitForSentryTransactions,
 } from '../../utils/sentry-transactions';
@@ -197,6 +198,23 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
             'swapQuoteFetchCount',
           ),
         );
+
+        // Emitted beside `swapQuoteFetch` rather than replacing it, so one run
+        // carries both selections and the difference between them is a
+        // within-run reading rather than a comparison across arms.
+        try {
+          traceTimers.push(
+            sentryInitialTimerResult(
+              transactions,
+              TraceName.SwapQuoteFetch,
+              'swapQuoteFetchInitial',
+            ),
+          );
+        } catch (error) {
+          console.log(
+            `[benchmark] swapQuoteFetchInitial unavailable: ${(error as Error).message}`,
+          );
+        }
 
         for (const [name, id] of [
           [TraceName.SwapViewLoaded, 'swapViewLoaded'],

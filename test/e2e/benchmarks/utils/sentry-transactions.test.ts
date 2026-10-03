@@ -3,6 +3,7 @@ import type { SentryTransaction } from './sentry-transactions';
 import {
   parseEnvelopeTransactions,
   sentryCountResult,
+  sentryInitialTimerResult,
   sentryTimerResult,
 } from './sentry-transactions';
 
@@ -161,5 +162,56 @@ describe('sentryCountResult', () => {
         'swapQuoteFetchCount',
       ),
     ).toStrictEqual({ id: 'swapQuoteFetchCount', value: 3, unit: 'count' });
+  });
+});
+
+describe('sentryInitialTimerResult', () => {
+  const QUOTE = TraceName.SwapQuoteFetch;
+
+  it('times the non-refresh completion, not the last one', () => {
+    const transactions: SentryTransaction[] = [
+      { ...transaction(QUOTE, 450, 1), isRefresh: false },
+      { ...transaction(QUOTE, 337, 2), isRefresh: true },
+    ];
+
+    expect(
+      sentryInitialTimerResult(transactions, QUOTE, 'swapQuoteFetchInitial'),
+    ).toStrictEqual({ id: 'swapQuoteFetchInitial', value: 450, unit: 'ms' });
+    // The control: the positional selector takes the refresh.
+    expect(
+      sentryTimerResult(transactions, QUOTE, 'swapQuoteFetch'),
+    ).toStrictEqual({ id: 'swapQuoteFetch', value: 337, unit: 'ms' });
+  });
+
+  it('falls back to the last completion when no transaction carries the attribute', () => {
+    const transactions = [transaction(QUOTE, 450, 1), transaction(QUOTE, 337, 2)];
+
+    expect(
+      sentryInitialTimerResult(transactions, QUOTE, 'swapQuoteFetchInitial'),
+    ).toStrictEqual({ id: 'swapQuoteFetchInitial', value: 337, unit: 'ms' });
+  });
+
+  it('throws when the initial completion was unsuccessful', () => {
+    const transactions: SentryTransaction[] = [
+      { ...transaction(QUOTE, 450, 1, false), isRefresh: false },
+      { ...transaction(QUOTE, 337, 2), isRefresh: true },
+    ];
+
+    expect(() =>
+      sentryInitialTimerResult(transactions, QUOTE, 'swapQuoteFetchInitial'),
+    ).toThrow('initial completion was unsuccessful');
+  });
+
+  it('parses isRefresh off the envelope, on the same path as result', () => {
+    const body = envelope(
+      transactionItem(QUOTE, 1, 1.45, {
+        status: 'ok',
+        data: { isRefresh: false, result: 'success' },
+      }),
+    );
+
+    const [parsed] = parseEnvelopeTransactions(body);
+    expect(parsed.isRefresh).toBe(false);
+    expect(parsed.result).toBe('success');
   });
 });
