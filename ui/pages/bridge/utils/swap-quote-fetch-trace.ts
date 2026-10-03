@@ -20,26 +20,25 @@ export type SwapQuoteFetchTraceResult =
 let activeTraceId: string | undefined;
 
 /**
- * Known-answer injection for the admission gate, set only by the benchmark
- * harness and absent in every other build path. The mock-side delay
+ * Milliseconds to busy-wait inside the span before closing it, for the
+ * admission gate's app-side known-answer arm. The mock-side delay
  * (`BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS`) slows the quote RESPONSE, and the
  * span absorbs the first ~180 ms of that because the app is not waiting on it
- * yet. This slows the app's own work INSIDE the span instead, which is on the
- * critical path by construction, so the two arms together separate "the span
- * cannot see a small regression" from "the span cannot see a small regression
- * in response latency specifically".
+ * yet. This slows the app's own work INSIDE the span, which is on the critical
+ * path by construction, so the two arms separate "the span cannot see a small
+ * regression" from "the span cannot see a small regression in response latency".
  *
- * A busy-wait rather than a timer: a real regression occupies the main thread,
- * and an awaited timeout would yield it and measure something else.
+ * A busy-wait rather than an awaited timer: a real regression occupies the main
+ * thread, and awaiting would yield it and measure something else.
  *
- * @returns Milliseconds to burn before closing the span; 0 unless injected.
+ * Read at webpack build time, like `SENTRY_SAMPLE_RATE_OVERRIDES`. A page
+ * global does not work here: `driver.executeScript` writes the page realm and
+ * this module does not share it, which an arm on 2026-10-02 established by
+ * reading `98` back from the page while the module read nothing.
  */
-const getInjectedSpanDelayMs = (): number => {
-  const raw = (globalThis as { __benchmarkSpanDelayMs__?: unknown })
-    .__benchmarkSpanDelayMs__;
-  const delayMs = Number(raw);
-  return Number.isInteger(delayMs) && delayMs > 0 ? delayMs : 0;
-};
+const INJECTED_SPAN_DELAY_MS = Number(
+  process.env.BENCHMARK_APP_SPAN_DELAY_MS ?? 0,
+);
 
 const finishTrace = (
   result: SwapQuoteFetchTraceResult,
@@ -50,11 +49,12 @@ const finishTrace = (
     return;
   }
 
-  const injectedDelayMs = getInjectedSpanDelayMs();
-  if (injectedDelayMs > 0) {
-    const until = Date.now() + injectedDelayMs;
+  // Do not collapse to an unconditional loop. Unset, the env var inlines to a
+  // falsy literal (`builds.yml` defaults it to null) and this drops out.
+  if (INJECTED_SPAN_DELAY_MS > 0) {
+    const until = Date.now() + INJECTED_SPAN_DELAY_MS;
     while (Date.now() < until) {
-      // Occupying the main thread is the point: see getInjectedSpanDelayMs.
+      // Occupying the main thread is the point: see INJECTED_SPAN_DELAY_MS.
     }
   }
 

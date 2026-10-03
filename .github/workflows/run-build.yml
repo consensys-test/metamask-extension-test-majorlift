@@ -40,6 +40,11 @@ jobs:
       # it has to be set on the BUILD job: the benchmark job downloads a prebuilt artifact and
       # never sees a build-time variable. A/A window lane only, not for main.
       SENTRY_SAMPLE_RATE_OVERRIDES: '{"Swap Quote Fetch": 1}'
+      # App-side arm of the known-answer check. A busy-wait inside the span's own
+      # close path, so it is on the critical path rather than in the mocked response.
+      # Build-time for the same reason as the line above: the benchmark job downloads
+      # a prebuilt artifact and never sees a build-time variable.
+      BENCHMARK_APP_SPAN_DELAY_MS: '98'
       # Environment variables used in production builds
       # Keep this list synchronized with:
       # * The environment variables exported by `.github/scripts/bundle.sh`

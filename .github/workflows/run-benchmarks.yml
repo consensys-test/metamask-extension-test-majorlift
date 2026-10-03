@@ -58,12 +58,6 @@ jobs:
       # at against the mock-inflated base. The 462 arm is 5.2x/4.8x too large to say
       # anything about the current threshold.
       BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '0'
-      # The app-side arm. 98 ms is the size the MOCK-side arm recovered at
-      # 0.5%, so injecting the same amount on the critical path discriminates
-      # "the span cannot see a small regression" from "the span cannot see a
-      # small regression in response latency". Mock-side delay is zero here so
-      # the two arms differ by one variable.
-      BENCHMARK_APP_SPAN_DELAY_MS: '98'
       SELENIUM_BROWSER: ${{ matrix.browser }}
       SELENIUM_HEADLESS: true
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}

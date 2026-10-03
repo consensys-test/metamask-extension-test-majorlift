@@ -125,27 +125,6 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         // Measure: Fetch quotes
         const swapPage = new SwapPage(driver);
 
-        // App-side arm of the known-answer check. Set before the quote request
-        // is issued, so the busy-wait in `swap-quote-fetch-trace.ts` lands
-        // inside the span rather than after it. Unset, the app reads 0 and
-        // nothing is injected.
-        const appSpanDelayMs = Number(
-          process.env.BENCHMARK_APP_SPAN_DELAY_MS ?? 0,
-        );
-        if (Number.isInteger(appSpanDelayMs) && appSpanDelayMs > 0) {
-          await driver.executeScript(
-            `globalThis.__benchmarkSpanDelayMs__ = ${appSpanDelayMs};`,
-          );
-          const applied = await driver.executeScript(
-            'return globalThis.__benchmarkSpanDelayMs__;',
-          );
-          if (Number(applied) !== appSpanDelayMs) {
-            throw new Error(
-              `BENCHMARK_APP_SPAN_DELAY_MS=${appSpanDelayMs} did not reach the page (read back ${String(applied)})`,
-            );
-          }
-        }
-
         await swapPage.createSwap({
           amount: 0.01,
           swapTo: 'USDC',

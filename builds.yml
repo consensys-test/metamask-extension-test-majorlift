@@ -289,6 +289,10 @@ env:
   # built-in defaults in app/scripts/lib/sentry-traces-sampler.ts to throttle
   # high-volume custom transactions per build. Null/absent = defaults only.
   - SENTRY_SAMPLE_RATE_OVERRIDES: null
+  # Milliseconds to busy-wait inside the `Swap Quote Fetch` span before closing
+  # it, for the admission gate's app-side known-answer arm. Null/absent = no
+  # injection, and the branch drops out of the build. Benchmark lanes only.
+  - BENCHMARK_APP_SPAN_DELAY_MS: null
   # also INFURA_PROJECT_ID below
 
   ###
