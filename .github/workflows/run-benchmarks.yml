@@ -62,6 +62,9 @@ jobs:
       # 2 `Swap Quote Fetch` spans. Read by `swap.ts` in THIS job's Node process,
       # so it belongs here rather than on the build job.
       BENCHMARK_V14_INJECT: ''
+      # Zeroes all 73 artificial delays in the mocks, so the fixture's share of
+      # every span is measurable by subtraction against the `aa-delay1` control.
+      BENCHMARK_ZERO_MOCK_DELAYS: '1'
       SELENIUM_BROWSER: ${{ matrix.browser }}
       SELENIUM_HEADLESS: true
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
