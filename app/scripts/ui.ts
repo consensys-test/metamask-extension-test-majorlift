@@ -87,6 +87,22 @@ type UiSubstreams = {
   provider: Substream;
 };
 
+/**
+ * Milliseconds to busy-wait immediately before the UI's first render, for the
+ * admission gate's known-answer arm on first contentful paint.
+ *
+ * FCP is reported by the browser, so unlike a traced span it cannot be moved
+ * by a harness mock -- nothing the test controls sits inside it, and the
+ * extension's own documents do not load through the mock server. Delaying the
+ * first render is the only lever available.
+ *
+ * Read at webpack build time, like `SENTRY_SAMPLE_RATE_OVERRIDES`. A page
+ * global does not work: `driver.executeScript` writes a different realm from
+ * this module, established 2026-10-02 by reading `98` back from the page
+ * while the module read nothing.
+ */
+const PAINT_DELAY_MS = Number(process.env.BENCHMARK_PAINT_DELAY_MS ?? 0);
+
 function getContainer(): HTMLElement {
   if (!container) {
     throw new Error('UI container not found');
@@ -283,6 +299,17 @@ async function initializeUiWithTab(
   initialState: unknown,
 ): Promise<void> {
   try {
+    // Synchronous on purpose: awaiting yields the main thread and the paint
+    // happens during the wait rather than after it, which would measure
+    // nothing. Gated on IN_TEST as well as on the build-time value, so a
+    // non-benchmark build cannot busy-wait even if the variable is set.
+    if (process.env.IN_TEST && PAINT_DELAY_MS > 0) {
+      const until = Date.now() + PAINT_DELAY_MS;
+      while (Date.now() < until) {
+        // Intentionally empty.
+      }
+    }
+
     const store = await launchMetamaskUi({
       activeTab,
       container: getContainer(),

@@ -289,6 +289,12 @@ env:
   # built-in defaults in app/scripts/lib/sentry-traces-sampler.ts to throttle
   # high-volume custom transactions per build. Null/absent = defaults only.
   - SENTRY_SAMPLE_RATE_OVERRIDES: null
+  # Milliseconds to busy-wait immediately before the UI's first render, for the
+  # admission gate's known-answer arm on first contentful paint. There is no
+  # other way to move FCP by a known amount: it is browser-reported, so no
+  # harness mock reaches it. Null/absent = no injection and the branch drops
+  # out of the build. Benchmark lanes only, and gated on IN_TEST as well.
+  - BENCHMARK_PAINT_DELAY_MS: null
   # also INFURA_PROJECT_ID below
 
   ###
