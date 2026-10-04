@@ -739,7 +739,12 @@ async function withFixtures(options, testSuite) {
          * forcing background exceptions to be captured
          * proving more helpful context
          */
-        await driver.navigate(PAGES.BACKGROUND);
+        // `waitForControllers: false` because the MV3 background page never
+        // adds `.controller-loaded` when the offscreen document is present
+        // (`app/scripts/background.ts` takes the sendMessage branch), so the
+        // default wait always times out. This `await` is outside any
+        // try/catch, so that TimeoutError replaced the real error below.
+        await driver.navigate(PAGES.BACKGROUND, { waitForControllers: false });
       }
     }
 

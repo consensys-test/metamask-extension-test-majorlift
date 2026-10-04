@@ -54,6 +54,18 @@ async function measurePagePowerUser(
       useMockingPassThrough: true,
       disableServerMochaToBackground: true,
       extendedTimeoutMultiplier: 3,
+      // Caught and logged by app code during home-page load, 61 ms before
+      // `.controller-loaded` appears, on all 21 measured loads of a 29-run
+      // window -- the metrics are unaffected. Left un-ignored it accumulates
+      // in `driver.errors`, so `withFixtures` throws AFTER the body succeeds
+      // and its recovery path waits for `.controller-loaded` on the MV3
+      // background page, which can never set it. That is what exhausts the
+      // retries. The bundle offset in the logged text is the stack's tail,
+      // so it names the entry point rather than the thrower; the throwing
+      // frame is still unidentified and is tracked separately.
+      ignoredConsoleErrors: [
+        "Cannot read properties of undefined (reading 'mutations')",
+      ],
       testSpecificMock: async (server: Mockttp) => {
         await mockNotificationServices(server);
         await userStorageHostMock(server);
