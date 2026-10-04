@@ -34,6 +34,12 @@ jobs:
       IS_EXPERIMENTAL_BUILD: ${{ contains(inputs.build-name, 'experimental') }}
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
       SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_WRITE_KEY }}
+      # Known-answer arm for first contentful paint. Busy-waits immediately
+      # before the UI's first render, so the delay is on the critical path to
+      # the paint rather than in a mocked response. Set on the BUILD job: the
+      # benchmark job downloads a prebuilt artifact and never sees a build-time
+      # variable. Benchmark lane only, never main.
+      BENCHMARK_PAINT_DELAY_MS: '500'
       # Environment variables used in production builds
       # Keep this list synchronized with:
       # * The environment variables exported by `.github/scripts/bundle.sh`
