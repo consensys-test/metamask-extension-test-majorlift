@@ -621,6 +621,51 @@ export function userStorageHostMock(server: Mockttp): Promise<MockedEndpoint> {
   return endpointPromise;
 }
 
+/**
+ * Serve the subscriptions list locally.
+ *
+ * Left live, this endpoint 500s intermittently and the controller surfaces
+ * `[getSubscriptions] error -32603` to the console, where it is not on the
+ * ignore list and so fails the leg after the test body has already passed.
+ * Only `/v1/subscriptions` is intercepted -- `/v1/subscriptions/eligibility`
+ * returns a different shape and is left alone rather than guessed at.
+ *
+ * Both halves are required: in pass-through mode the catch-all answers
+ * anything the interceptor declines, so a `forGet` rule alone does not take
+ * effect. Shape is the no-subscription branch of the shield mock.
+ *
+ * @param server - The mock server
+ */
+export function subscriptionsHostMock(
+  server: Mockttp,
+): Promise<MockedEndpoint> {
+  const body = { subscriptions: [], trialedProducts: [] };
+
+  const endpointPromise = server
+    .forGet('https://subscription.api.cx.metamask.io/v1/subscriptions')
+    .always()
+    .thenCallback(() => ({ statusCode: 200, json: body }));
+
+  const existingInterceptor = (server as unknown as Record<string, unknown>)
+    .__passThroughInterceptor as PassThroughInterceptor | undefined;
+  setPassThroughInterceptor(server, (req) => {
+    try {
+      const url = new URL(req.url);
+      if (
+        url.host === 'subscription.api.cx.metamask.io' &&
+        url.pathname === '/v1/subscriptions'
+      ) {
+        return { response: { statusCode: 200, json: body } };
+      }
+    } catch {
+      // not a parseable URL; fall through to the next interceptor
+    }
+    return existingInterceptor?.(req) ?? null;
+  });
+
+  return endpointPromise;
+}
+
 const SOLANA_URL_REGEX = /^https:\/\/solana-mainnet\.infura\.io\/v3\/.*/u;
 
 export async function mockBenchmarkEndpoints(

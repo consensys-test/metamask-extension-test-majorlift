@@ -9,9 +9,11 @@ import { withFixtures } from '../../../helpers';
 import { login } from '../../../page-objects/flows/login.flow';
 import AccountListPage from '../../../page-objects/pages/accounts/list-page';
 import HeaderNavbar from '../../../page-objects/pages/home/header-navbar';
-import { userStorageHostMock } from '../../mocks/performance-mocks';
+import {
+  subscriptionsHostMock,
+  userStorageHostMock,
+} from '../../mocks/performance-mocks';
 import { mockNotificationServices } from '../../../tests/notifications/mocks';
-import { SUBSCRIPTION_API } from '../../../helpers/shield/constants';
 import {
   BENCHMARK_PERSONA,
   type BenchmarkResults,
@@ -70,18 +72,9 @@ async function measurePagePowerUser(
       testSpecificMock: async (server: Mockttp) => {
         await mockNotificationServices(server);
         await userStorageHostMock(server);
-        // Left live, this 500s intermittently and reaches the console as an
-        // un-ignored error, which fails the leg. Shape copied from the house
-        // mock's no-subscription branch (`helpers/shield/mocks.ts`), not
-        // invented. Mocking rather than ignoring also removes a network
-        // round trip from a measurement whose whole subject is page timing.
-        await server
-          .forGet(SUBSCRIPTION_API.SUBSCRIPTIONS)
-          .always()
-          .thenCallback(() => ({
-            statusCode: 200,
-            json: { subscriptions: [], trialedProducts: [] },
-          }));
+        // Registered after userStorageHostMock so its interceptor chains
+        // rather than clobbering that one.
+        await subscriptionsHostMock(server);
       },
     },
     async ({ driver, getNetworkReport, clearNetworkReport }) => {
