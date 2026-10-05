@@ -293,6 +293,11 @@ env:
   # it, for the admission gate's app-side known-answer arm. Null/absent = no
   # injection, and the branch drops out of the build. Benchmark lanes only.
   - BENCHMARK_APP_SPAN_DELAY_MS: null
+  # Pixels of layout shift to inject into the swap page after first paint, for the
+  # admission gate's V14 on `cls`. The timing knobs cannot move `cls` -- it is a
+  # function of geometry -- so this one changes geometry. Null/absent = no injection.
+  # Benchmark lanes only.
+  - BENCHMARK_CLS_INJECT_PX: null
   # also INFURA_PROJECT_ID below
 
   ###

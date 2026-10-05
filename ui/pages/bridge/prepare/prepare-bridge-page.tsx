@@ -355,6 +355,22 @@ const PrepareBridgePage = ({
   );
   const previousSlippageRef = useRef(slippage);
 
+  // Read at webpack build time, like the sibling span knobs: the benchmark job
+  // downloads a prebuilt artifact and never sees a build-job variable.
+  const clsInjectPx = Number(process.env.BENCHMARK_CLS_INJECT_PX ?? 0);
+  const [clsSpacerHeight, setClsSpacerHeight] = useState(0);
+  useEffect(() => {
+    if (clsInjectPx <= 0) {
+      return undefined;
+    }
+    // After the first paint, so the growth is a SHIFT rather than part of the
+    // initial layout. A shift that is present from the first frame contributes
+    // nothing to CLS, which is the way this arm would silently measure nothing.
+    const t = setTimeout(() => setClsSpacerHeight(clsInjectPx), 400);
+    return () => clearTimeout(t);
+  }, [clsInjectPx]);
+
+
   useEffect(() => {
     const previousSlippage = previousSlippageRef.current;
     previousSlippageRef.current = slippage;
@@ -465,6 +481,25 @@ const PrepareBridgePage = ({
 
   return (
     <>
+      {/* Layout-geometry arm for the admission gate's V14 on `cls`.
+
+          `cls` is bit-identical across 69 runs on four CPU models, so criterion 1
+          clears by construction and says nothing; only a demonstrated move separates
+          a real constant from a dead field. The timing arms cannot supply one --
+          `swap.cls` read 0.0027815451828558397 both with every mocked delay zeroed
+          and at production configuration, because it is a function of geometry rather
+          than of when things arrive.
+
+          So this shifts geometry instead: a spacer that grows from 0 to N px after the
+          first paint, which is what an unreserved late-loading element does in
+          production. Unset, the env var inlines to a falsy literal and the element
+          never renders. */}
+      {clsInjectPx > 0 && (
+        <div
+          data-testid="benchmark-cls-spacer"
+          style={{ height: `${clsSpacerHeight}px` }}
+        />
+      )}
       <DestinationAccountPickerModal
         isOpen={isDestinationAccountPickerOpen}
         onAccountSelect={(account) => {
