@@ -46,7 +46,7 @@ jobs:
       # a prebuilt artifact and never sees a build-time variable.
       BENCHMARK_APP_SPAN_DELAY_MS: '0'
       # Layout-geometry arm for V14 on `cls`. Build-time, same reason as above.
-      BENCHMARK_CLS_INJECT_PX: '0'
+      BENCHMARK_CLS_INJECT_PX: '20'
       # Environment variables used in production builds
       # Keep this list synchronized with:
       # * The environment variables exported by `.github/scripts/bundle.sh`
