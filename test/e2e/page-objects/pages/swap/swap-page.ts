@@ -290,13 +290,54 @@ class SwapPage {
       },
       { timeout: 30000 },
     );
-    await this.driver.clickElement({
+    // Wait for the source picker to close before opening the destination one.
+    // `selectNetwork` clicks `[data-testid="multichain-asset-picker__network"]`,
+    // which both pickers render, so a source modal still mounted means the
+    // destination's network is never the one set -- and the destination picker
+    // then lists the wrong chain's assets. `BridgeQuotePage` uses this form for
+    // every picker row it clicks; this call site did not.
+    //
+    // Measured on run 37025943536: the network click succeeded (no throw, so the
+    // 'Solana' entry was found) and the destination picker still fetched icons
+    // for `eip155/1/slip44/60` and Ethereum USDC, so the control clicked was not
+    // the destination's.
+    await this.driver.clickElementAndWaitToDisappear({
       css: this.bridgeAsset,
       text: options.swapFrom,
     });
 
     await this.driver.clickElement(this.bridgeDestinationButton);
+
+    // Count the network controls before clicking one. Run 37041203535 reported
+    // the picker rendering exactly three rows, all `eip155:1`, after
+    // `selectNetwork` had been called on the destination without throwing -- so a
+    // control was clicked and the scope did not change. Either more than one
+    // control matches and the click lands on the wrong one, or one matches and
+    // selecting the network does not rescope the list. This is the count I
+    // deferred twice and it is the only thing that separates them.
+    const networkControls = await this.driver.executeScript(
+      `return Array.from(
+         document.querySelectorAll('[data-testid="multichain-asset-picker__network"]')
+       ).map((el) => el.textContent.trim().slice(0, 40));`,
+    );
+    console.log(
+      `[benchmark] destination picker open: ${
+        (networkControls as string[]).length
+      } network control(s) ${JSON.stringify(networkControls)}`,
+    );
+
     await bridgeQuotePage.selectNetwork(options.network);
+
+    const afterNetwork = await this.driver.executeScript(
+      `return Array.from(
+         document.querySelectorAll('[data-testid^="bridge-asset--"]')
+       ).map((el) => el.getAttribute('data-testid')).slice(0, 12);`,
+    );
+    console.log(
+      `[benchmark] after selectNetwork(${options.network}): ${JSON.stringify(
+        afterNetwork,
+      )}`,
+    );
     if (options.swapToContractAddress) {
       await this.selectDestinationTokenByContract(
         options.swapToContractAddress,
@@ -435,7 +476,43 @@ class SwapPage {
       await this.driver.clickElement(this.importTokensButton);
       await this.driver.waitForSelector(this.bridgeAsset);
     }
-    await this.driver.clickElement(this.bridgeAsset);
+
+    // Click the row FOR THIS CONTRACT, not the first row in the list. The asset
+    // rows carry `bridge-asset--${asset.assetId}` and an assetId ends in the
+    // contract address, so this is exact rather than a text match.
+    //
+    // An unfiltered `clickElement(this.bridgeAsset)` here selects whatever the
+    // list is showing at that moment, and the `Promise.any` above resolves as
+    // soon as ANY row exists -- which is true of the unfiltered list before the
+    // search has applied. Measured on run 37012380317: every quote request the
+    // swap benchmark made was `destChainId=1, destTokenAddress=0x0000...0000`,
+    // Ethereum native, which is the default row, while token metadata was
+    // correctly fetched for the Solana USDC assetId that had been typed in. The
+    // destination was never the token the flow asked for, and because the mock
+    // keys only on `srcChainId` a quote still came back, so nothing failed
+    // visibly and `Swap Quote Fetch` never closed as success.
+    const assetRow = `[data-testid^="bridge-asset--"][data-testid$="${contractAddress}"]`;
+    try {
+      await this.driver.waitForSelector(assetRow);
+    } catch (error) {
+      // Report what the picker DID render. Run 37035729466 fetched the icon for
+      // this exact mint -- `tokenIcons/assets/solana/<chain>/token/<mint>.png`,
+      // and an icon is fetched when a row renders -- while this selector timed
+      // out, so the row exists under a testid this does not match. A bare
+      // timeout cannot distinguish "row absent" from "row named differently",
+      // and that distinction is the whole question.
+      const rendered = await this.driver.executeScript(
+        `return Array.from(
+           document.querySelectorAll('[data-testid^="bridge-asset--"]')
+         ).map((el) => el.getAttribute('data-testid')).slice(0, 40);`,
+      );
+      throw new Error(
+        `No asset row matched ${contractAddress}. ` +
+          `Rendered bridge-asset testids (max 40): ${JSON.stringify(rendered)}. ` +
+          `Original: ${(error as Error).message}`,
+      );
+    }
+    await this.driver.clickElement(assetRow);
   }
 
   async selectSourceToken(sourceToken: string): Promise<void> {
