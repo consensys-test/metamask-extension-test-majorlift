@@ -83,17 +83,42 @@ export type MockPriorityLevel = keyof typeof MOCK_PRIORITIES;
  * @param delayMs
  * @param response
  */
+/**
+ * Every artificial delay in these mocks goes through here. Set
+ * `BENCHMARK_ZERO_MOCK_DELAYS=1` and they all become 0, which makes the
+ * fixture's contribution to any span measurable by subtraction — the method
+ * that established `swapQuoteFetch` was four fifths mocked sleep, applied to
+ * the whole suite in one arm instead of one arm per flow.
+ *
+ * There are 73 such sites totalling 25,150 ms, median 350, range 50-800, so
+ * a span enclosing several mocked requests can be mostly fixture. `delta_block`
+ * is 10% of the measured mean, so whatever share that is, it sets the gate's
+ * threshold for that span.
+ *
+ * @param ms - The delay the fixture specifies.
+ * @returns That delay, or 0 when the arm is zeroing them.
+ */
+function mockDelayMs(ms: number): number {
+  return process.env.BENCHMARK_ZERO_MOCK_DELAYS === '1' ? 0 : ms;
+}
+
 function delayedResponse<TResponse>(
   delayMs: number,
   response: TResponse,
 ): (req: { url: string }) => Promise<TResponse> {
   return async () => {
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await new Promise((resolve) => setTimeout(resolve, mockDelayMs(delayMs)));
     return response;
   };
 }
 
-const QUOTE_RESPONSE_DELAY_MS = 2000;
+// Env-overridable so the two arms of the composition check differ by a workflow
+// line rather than a code diff. Run 37052047892 measured `swapQuoteFetch` at
+// 2263.5 ms (chrome) with this at 2000, so subtraction predicts ~263 ms of
+// app-side work; setting it to 0 tests that by measurement instead of arithmetic.
+const QUOTE_RESPONSE_DELAY_MS = Number(
+  process.env.BENCHMARK_QUOTE_RESPONSE_DELAY_MS ?? 2000,
+);
 
 /**
  * Extra delay on the mocked quote responses, for a known-answer check of the
@@ -123,7 +148,7 @@ function delayedCallback<TResponse>(
   callback: (req: { url: string }) => TResponse,
 ): (req: { url: string }) => Promise<TResponse> {
   return async (req) => {
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await new Promise((resolve) => setTimeout(resolve, mockDelayMs(delayMs)));
     return callback(req);
   };
 }
@@ -1120,7 +1145,7 @@ export async function mockBenchmarkEndpoints(
       .always()
       .thenCallback(async (req) => {
         const body = (await req.body.getJson()) as { id?: string };
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await new Promise((resolve) => setTimeout(resolve, mockDelayMs(150)));
         return solanaGetBalanceResponse(body.id || '1337');
       }),
   );
@@ -1133,7 +1158,7 @@ export async function mockBenchmarkEndpoints(
       .always()
       .thenCallback(async (req) => {
         const body = (await req.body.getJson()) as { id?: string };
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await new Promise((resolve) => setTimeout(resolve, mockDelayMs(150)));
         return solanaGetAccountInfoResponse(body.id || '1337');
       }),
   );
@@ -1201,7 +1226,7 @@ export async function mockBenchmarkEndpoints(
       .always()
       .thenCallback(async (req) => {
         const body = (await req.body.getJson()) as { id?: string };
-        await new Promise((resolve) => setTimeout(resolve, 450));
+        await new Promise((resolve) => setTimeout(resolve, mockDelayMs(450)));
         return solanaCatchAllResponse(body.id || '1337');
       }),
   );

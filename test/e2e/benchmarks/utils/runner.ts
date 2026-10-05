@@ -6,6 +6,8 @@ import type {
   Persona,
   StatisticalResult,
   ThresholdConfig,
+  MetricSample,
+  MetricSamples,
   TimerStatistics,
   WebVitalsAggregated,
   WebVitalsMetrics,
@@ -14,6 +16,7 @@ import type {
 } from '../../../../shared/constants/benchmarks';
 import { BENCHMARK_PERSONA } from '../../../../shared/constants/benchmarks';
 import type { Driver } from '../../webdriver/driver';
+import { captureHostProvenance } from './host-provenance';
 import {
   ALL_METRICS,
   DEFAULT_NUM_BROWSER_LOADS,
@@ -178,7 +181,7 @@ export async function runBenchmarkWithIterations(
   }
 
   // Aggregate timer results and collect per-run web vitals
-  const timerMap = new Map<string, number[]>();
+  const timerMap = new Map<string, MetricSample[]>();
   const zeroAllowedTimers = new Set<string>();
   const webVitalsRuns: WebVitalsRun[] = [];
 
@@ -189,9 +192,9 @@ export async function runBenchmarkWithIterations(
         if (!timerMap.has(timer.id)) {
           timerMap.set(timer.id, []);
         }
-        const timerDurations = timerMap.get(timer.id);
-        if (timerDurations) {
-          timerDurations.push(timer.value);
+        const timerSamples = timerMap.get(timer.id);
+        if (timerSamples) {
+          timerSamples.push({ iteration: idx, value: timer.value });
         }
         if (timer.unit) {
           zeroAllowedTimers.add(timer.id);
@@ -207,8 +210,10 @@ export async function runBenchmarkWithIterations(
   const timerStats: TimerStatistics[] = [];
   let excludedDueToQuality = 0;
 
-  for (const [timerId, durations] of timerMap) {
+  for (const [timerId, samples] of timerMap) {
+    const durations = samples.map((sample) => sample.value);
     const stats = calculateTimerStatistics(timerId, durations, {
+      iterations: samples.map((sample) => sample.iteration),
       ...(zeroAllowedTimers.has(timerId) ? { minDurationMs: 0 } : {}),
     });
     timerStats.push(stats);
@@ -233,8 +238,9 @@ export async function runBenchmarkWithIterations(
 
   // Compute per-run total durations and derive total statistics from them
   // (min/max/percentiles are not additive across timers from different runs)
-  const perRunTotalDurations: number[] = [];
-  for (const result of allResults) {
+  const perRunTotals: MetricSample[] = [];
+  for (let idx = 0; idx < allResults.length; idx++) {
+    const result = allResults[idx];
     if (result.success && result.timers.length > 0) {
       // Exclude long task diagnostic metrics (tagged with unit) from the
       // per-run total. They represent blocking time already captured within
@@ -242,13 +248,18 @@ export async function runBenchmarkWithIterations(
       const runTotal = result.timers
         .filter((t) => !t.unit)
         .reduce((acc, t) => acc + t.value, 0);
-      perRunTotalDurations.push(runTotal);
+      perRunTotals.push({ iteration: idx, value: runTotal });
     }
   }
-  if (perRunTotalDurations.length > 0) {
-    const totalStats = calculateTimerStatistics('total', perRunTotalDurations, {
-      maxDurationMs: MAX_TOTAL_DURATION_MS,
-    });
+  if (perRunTotals.length > 0) {
+    const totalStats = calculateTimerStatistics(
+      'total',
+      perRunTotals.map((sample) => sample.value),
+      {
+        iterations: perRunTotals.map((sample) => sample.iteration),
+        maxDurationMs: MAX_TOTAL_DURATION_MS,
+      },
+    );
     timerStats.push(totalStats);
   }
 
@@ -286,6 +297,20 @@ export async function runBenchmarkWithIterations(
     thresholdViolations: thresholdResult?.violations ?? [],
     thresholdsPassed: thresholdResult?.passed ?? true,
     ...(webVitalsSummary && { webVitals: webVitalsSummary }),
+    // Carry the reasons only when nothing succeeded. Each failed iteration
+    // already records why it failed; that was discarded here, so a benchmark
+    // whose every iteration threw produced empty statistics and no trace of
+    // the cause.
+    ...(successfulRuns === 0 &&
+      allResults.length > 0 && {
+        iterationErrors: [
+          ...new Set(
+            allResults
+              .map((result) => result.error)
+              .filter((message): message is string => Boolean(message)),
+          ),
+        ],
+      }),
     benchmarkType,
   };
 }
@@ -319,6 +344,7 @@ export function convertTimerStatisticsToBenchmarkResults(
   const p95: StatisticalResult = {};
   const trimmedCount: StatisticalResult = {};
   const outliers: StatisticalResult = {};
+  const values: MetricSamples = {};
 
   // timers already includes promoted web vitals from runBenchmarkWithIterations
   for (const timer of timers) {
@@ -332,10 +358,15 @@ export function convertTimerStatisticsToBenchmarkResults(
       trimmedCount[timer.id] = timer.trimmedCount;
     }
     outliers[timer.id] = timer.outliers;
+    if (timer.values !== undefined) {
+      values[timer.id] = timer.values;
+    }
   }
 
   const hasTrimmedCounts = Object.keys(trimmedCount).length > 0;
   const hasOutliers = Object.keys(outliers).length > 0;
+  const hasValues = Object.keys(values).length > 0;
+  const host = captureHostProvenance();
 
   return {
     testTitle,
@@ -351,6 +382,8 @@ export function convertTimerStatisticsToBenchmarkResults(
     p95,
     ...(hasTrimmedCounts && { trimmedCount }),
     ...(hasOutliers && { outliers }),
+    ...(hasValues && { values }),
+    host,
     ...(webVitals && { webVitals }),
   };
 }
@@ -374,7 +407,7 @@ export function convertSummaryToResults(
   platform?: string,
   buildType?: string,
 ): BenchmarkResults {
-  return convertTimerStatisticsToBenchmarkResults(
+  const results = convertTimerStatisticsToBenchmarkResults(
     summary.timers,
     testTitle,
     persona,
@@ -383,6 +416,21 @@ export function convertSummaryToResults(
     buildType,
     summary.webVitals,
   );
+
+  if (summary.successfulRuns > 0) {
+    return results;
+  }
+
+  // Every iteration failed. Without this the entry carries empty statistics
+  // maps and nothing else, which is shape-identical to a healthy benchmark
+  // and is why a totally failed flow can read as merely quiet.
+  const reasons = summary.iterationErrors?.length
+    ? `: ${summary.iterationErrors.join('; ')}`
+    : '';
+  return {
+    ...results,
+    error: `every iteration failed (0 of ${summary.iterations} succeeded)${reasons}`,
+  };
 }
 
 /**
@@ -488,11 +536,19 @@ export async function runPageLoadBenchmark(
 
   const result: Record<string, number[]> = {};
   const trimmedCounts: StatisticalResult = {};
+  const values: MetricSamples = {};
   for (const [key, tracePath] of Object.entries(ALL_METRICS)) {
     const rawSamples = measuredResults.map((m) => get(m, tracePath) as number);
     const { filtered, outlierCount } = detectOutliersIQR(rawSamples);
     result[key] = [...filtered].sort((a, b) => a - b);
     trimmedCounts[key] = outlierCount;
+    // `result[key]` is filtered and sorted, so neither the discarded samples nor
+    // the order survives it. The iteration numbering matches `WebVitalsRun`'s:
+    // warm-up sessions are dropped, and the remainder keep their original index.
+    values[key] = rawSamples.map((value, index) => ({
+      iteration: warmupSize + index,
+      value,
+    }));
   }
 
   let webVitals: WebVitalsSummary | undefined;
@@ -535,6 +591,8 @@ export async function runPageLoadBenchmark(
     p95,
     trimmedCount: trimmedCounts,
     outliers: { ...trimmedCounts },
+    values,
+    host: captureHostProvenance(),
     ...(webVitals && { webVitals }),
   };
 }

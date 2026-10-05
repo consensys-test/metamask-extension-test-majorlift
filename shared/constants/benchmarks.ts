@@ -57,6 +57,45 @@ export type RatingDistribution = {
   null: number;
 };
 
+/** One retained observation: the value and the iteration that produced it. */
+export type MetricSample = {
+  iteration: number;
+  value: number;
+};
+
+/** Per-metric retained observations, in iteration order, before filtering */
+export type MetricSamples = {
+  [key: string]: MetricSample[];
+};
+
+/**
+ * The machine a benchmark ran on.
+ *
+ * A runner pool is not homogeneous — on GitHub-hosted runners the same metric
+ * splits into fast and slow job modes by Azure region, 21% apart on Chrome — so
+ * without this a slow box is indistinguishable from slow code, and run-to-run
+ * spread conflates machine variation with the noise a gate is trying to measure.
+ */
+export type HostProvenance = {
+  /** The `runs-on` value the job requested, passed via `BENCHMARK_RUNNER_LABEL`. */
+  label?: string;
+  /** `RUNNER_NAME`, where the provider sets it. */
+  name?: string;
+  /** Cloud region or zone. Undefined on GitHub-hosted runners; see host-provenance.ts. */
+  region?: string;
+  os?: string;
+  arch?: string;
+  cpuModel?: string;
+  cpuCount?: number;
+  cpuSpeedMhz?: number;
+  totalMemMb?: number;
+  /** Cumulative CPU steal since boot, percent. These runners are VMs, so the
+   * hypervisor can deschedule the guest without it appearing anywhere else. */
+  stealPercent?: number;
+  /** Fixed-work CPU probe, ms, timed in the Node process. Not the in-page probe. */
+  cpuProbeMs?: number;
+};
+
 /** Per-metric statistics (mean, percentiles, etc.) */
 export type TimerStatistics = {
   id: string;
@@ -73,6 +112,13 @@ export type TimerStatistics = {
   outliers: number;
   trimmedCount?: number;
   dataQuality: 'good' | 'poor' | 'unreliable';
+  /**
+   * Every observation this metric was computed from, in iteration order, before
+   * sanity, IQR and z-score filtering. The aggregates above are not sufficient
+   * statistics for a dip test, a rank-based interval or a missingness model, so
+   * the values are kept rather than re-derived.
+   */
+  values?: MetricSample[];
 };
 
 /** Per-metric aggregated web vitals with full statistical analysis */
@@ -111,7 +157,17 @@ export type BenchmarkResults = {
   p95: StatisticalResult;
   trimmedCount?: StatisticalResult;
   outliers?: StatisticalResult;
+  /** Per-metric observations behind `mean` and the percentiles, before filtering */
+  values?: MetricSamples;
+  /** The machine this run executed on */
+  host?: HostProvenance;
   webVitals?: WebVitalsSummary;
+  /**
+   * Set when every iteration failed. The statistics maps are then empty
+   * rather than absent, so a reader cannot otherwise tell this entry from a
+   * healthy one by shape alone.
+   */
+  error?: string;
 };
 
 export const STAT_KEY = {

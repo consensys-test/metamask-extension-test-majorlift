@@ -59,8 +59,12 @@
         "baseBpsFee": 87.5
       }
     },
-    "bridges": ["lifi"],
-    "protocols": ["lifi"],
+    "bridges": [
+      "lifi"
+    ],
+    "protocols": [
+      "lifi"
+    ],
     "steps": [],
     "slippage": 2,
     "priceData": {
@@ -68,6 +72,38 @@
       "totalToAmountUsd": "3400.00",
       "priceImpact": "0.001",
       "totalFeeAmountUsd": "30.00"
+    },
+    "src": {
+      "amount": "1000000000000000000",
+      "asset": {
+        "address": "0x0000000000000000000000000000000000000000",
+        "chainId": 1,
+        "assetId": "eip155:1/slip44:60",
+        "symbol": "ETH",
+        "decimals": 18,
+        "name": "Ethereum",
+        "coingeckoId": "ethereum",
+        "aggregators": [],
+        "occurrences": 100,
+        "iconUrl": "https://static.cx.metamask.io/api/v2/tokenIcons/assets/eip155/1/slip44/60.png",
+        "metadata": {}
+      }
+    },
+    "dest": {
+      "amount": "3400000000",
+      "asset": {
+        "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "chainId": 1,
+        "assetId": "eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "symbol": "USDC",
+        "decimals": 6,
+        "name": "USD Coin",
+        "coingeckoId": "usd-coin",
+        "aggregators": [],
+        "occurrences": 100,
+        "iconUrl": "https://static.cx.metamask.io/api/v1/tokenIcons/1/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png",
+        "metadata": {}
+      }
     }
   },
   "trade": {
