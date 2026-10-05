@@ -1,3 +1,7 @@
+// Negative control for the admission gate's stage 4 criterion 3. This comment is
+// the entire diff: it rebuilds the bundle and reruns the benchmark on the swap
+// critical path's own module, and it cannot move a timing. A gate that blocks
+// this is blocking the act of changing a file rather than a regression.
 import { v4 as uuidv4 } from 'uuid';
 import {
   formatChainIdToCaip,
