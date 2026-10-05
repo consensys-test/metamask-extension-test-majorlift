@@ -40,6 +40,32 @@ const INJECTED_SPAN_DELAY_MS = Number(
   process.env.BENCHMARK_APP_SPAN_DELAY_MS ?? 0,
 );
 
+/**
+ * Milliseconds to busy-wait CONCURRENTLY WITH the awaited quote response, for the
+ * absorbed-regression arm.
+ *
+ * `BENCHMARK_APP_SPAN_DELAY_MS` above injects into the span's CLOSE path, after the
+ * response has arrived, so it is additive by construction -- 465 ms came back as
+ * +461.9 on 2026-10-05. That arm therefore says nothing about the class of regression
+ * the span cannot see.
+ *
+ * The span ends when the first quote becomes available, and the response is a mocked
+ * timer that does not run on the main thread. So app work that overlaps the wait does
+ * not extend the span at all until it outlasts the wait, which is why prodcfg `sd` is
+ * 3.497 ms against 12.416 with the mocked delays zeroed: 72% of app-work variance is
+ * absorbed on chrome.
+ *
+ * Scheduled on a later task rather than inline. Inline would block before
+ * `updateQuoteRequestParams` dispatches the request, delaying the response by the same
+ * amount and making this additive too -- which is the mistake that makes the arm void.
+ *
+ * Prediction, and the arm is built to be falsified: below the mocked response delay the
+ * span does not move; above it, it moves by the excess.
+ */
+const CONCURRENT_SPAN_DELAY_MS = Number(
+  process.env.BENCHMARK_SPAN_CONCURRENT_DELAY_MS ?? 0,
+);
+
 const finishTrace = (
   result: SwapQuoteFetchTraceResult,
   id: string | undefined = activeTraceId,
@@ -118,6 +144,17 @@ export const swapQuoteFetchTrace = {
       },
       startTime: Date.now(),
     });
+    // Do not collapse to an unconditional schedule: unset, the env var inlines to a
+    // falsy literal and this drops out of the build.
+    if (CONCURRENT_SPAN_DELAY_MS > 0) {
+      setTimeout(() => {
+        const until = Date.now() + CONCURRENT_SPAN_DELAY_MS;
+        while (Date.now() < until) {
+          // Occupying the main thread WHILE the request is in flight is the point.
+        }
+      }, 50);
+    }
+
     activeTraceId = id;
     return id;
   },

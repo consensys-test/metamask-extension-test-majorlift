@@ -293,6 +293,11 @@ env:
   # it, for the admission gate's app-side known-answer arm. Null/absent = no
   # injection, and the branch drops out of the build. Benchmark lanes only.
   - BENCHMARK_APP_SPAN_DELAY_MS: null
+  # Milliseconds to busy-wait CONCURRENTLY with the awaited quote response, for the
+  # admission gate's absorbed-regression arm. The knob above injects after the response
+  # and is additive by construction; this one overlaps the wait, which is the class the
+  # span cannot see. Null/absent = no injection. Benchmark lanes only.
+  - BENCHMARK_SPAN_CONCURRENT_DELAY_MS: null
   # also INFURA_PROJECT_ID below
 
   ###

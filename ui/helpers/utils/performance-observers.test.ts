@@ -445,6 +445,7 @@ describe('performance-observers', () => {
         tasks: [{ name: 'test', duration: 200, startTime: 0 }],
         tbt: 150,
         tbtRating: 'good' as const,
+        observed: true,
       };
 
       reportLongTaskMetricsToSentry(customMetrics);
@@ -475,6 +476,7 @@ describe('performance-observers', () => {
         totalDuration: 0,
         maxDuration: 0,
         tasks: [],
+        observed: true,
         tbt: 0,
         tbtRating: 'good',
       });
