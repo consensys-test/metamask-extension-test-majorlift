@@ -13,6 +13,22 @@ export type SentryTransaction = {
   durationMs: number;
   endTimestamp: number;
   success: boolean;
+  /**
+   * The outcome the app recorded via `endTrace`'s `data.result`, where the
+   * trace sets one. `success` does not capture it: a trace ended as
+   * `cancelled` carries an ok status and an undefined `data.success`, so it
+   * reads as successful and its duration is not the duration of a completed
+   * operation.
+   */
+  result?: string;
+  /**
+   * The `isRefresh` attribute the trace set when it started, where it sets
+   * one. `swapQuoteFetchTrace.start` passes it, and `startSpan` forwards the
+   * start `data` as span attributes exactly as `endTrace` does for `result`,
+   * so it arrives on the same `contexts.trace.data` path this parser already
+   * reads `result` from.
+   */
+  isRefresh?: boolean;
 };
 
 type TransactionPayload = {
@@ -21,7 +37,10 @@ type TransactionPayload = {
   start_timestamp?: number;
   timestamp?: number;
   contexts?: {
-    trace?: { status?: string; data?: { success?: unknown } };
+    trace?: {
+      status?: string;
+      data?: { success?: unknown; result?: unknown; isRefresh?: unknown };
+    };
   };
 };
 
@@ -66,6 +85,12 @@ export function parseEnvelopeTransactions(body: string): SentryTransaction[] {
             success:
               trace?.data?.success !== false &&
               (trace?.status === undefined || trace.status === 'ok'),
+            ...(typeof trace?.data?.result === 'string' && {
+              result: trace.data.result,
+            }),
+            ...(typeof trace?.data?.isRefresh === 'boolean' && {
+              isRefresh: trace.data.isRefresh,
+            }),
           });
         }
       } catch {
@@ -116,13 +141,27 @@ export async function waitForSentryTransactions(
   driver: Driver,
   endpoints: MockedEndpoint[],
   names: TraceName[],
-  timeoutMs = 10000,
+  {
+    timeoutMs = 10000,
+    expected = {},
+  }: {
+    timeoutMs?: number;
+    expected?: Partial<Record<TraceName, number>>;
+  } = {},
 ): Promise<SentryTransaction[]> {
   const pollMs = 250;
   let transactions = await readSentryTransactions(endpoints);
   for (let waited = 0; waited < timeoutMs; waited += pollMs) {
-    const sent = new Set(transactions.map((transaction) => transaction.name));
-    if (names.every((name) => sent.has(name))) {
+    // Count instances, not names. Breaking on name-presence returns as soon as
+    // one transaction of each name has arrived, so a caller expecting a second
+    // occurrence of the same trace reads whatever happened to have flushed --
+    // which makes a count-based known-answer check a race rather than a check.
+    const enough = names.every(
+      (name) =>
+        transactions.filter((transaction) => transaction.name === name)
+          .length >= (expected[name] ?? 1),
+    );
+    if (enough) {
       break;
     }
     await driver.delay(pollMs);
@@ -162,11 +201,69 @@ export function sentryTimerResult(
       `Trace "${name}" last completed unsuccessfully, so "${id}" is not a timing`,
     );
   }
+  // A trace that records its own outcome must have completed, not been
+  // cancelled or errored. `success` cannot see this: the outcome lives in
+  // `data.result` and a cancelled span still carries an ok status.
+  if (last.result !== undefined && last.result !== 'success') {
+    throw new Error(
+      `Trace "${name}" last completed as "${last.result}", so "${id}" is not a timing`,
+    );
+  }
 
   // Tagged with a unit so the runner leaves it out of the per-run `total`,
   // which sums only untagged timers: the spans overlap the step timers, and
   // adding both would count the same time twice.
   return { id, value: last.durationMs, unit: 'ms' };
+}
+
+/**
+ * The same timing, but over the trace's FIRST non-refresh completion rather
+ * than its last completion of any kind.
+ *
+ * `sentryTimerResult` takes `matching[matching.length - 1]`, so its value
+ * depends on how many times the trace ran. Measured on `Swap Quote Fetch`,
+ * a second fetch is **113.97 ms faster on Chrome and 110.67 on Firefox**
+ * (`release/aa-v14-*` against the 30-run A/A window), which is 2.5x the
+ * gate's `delta_block`. A flow change that merely adds a refresh therefore
+ * moves the metric further than the rule blocks at, downward, resetting the
+ * baseline without firing.
+ *
+ * The initial fetch is the one a user waits on when the page opens; a
+ * refresh happens while quotes are already on screen. Where no transaction
+ * carries the attribute this falls back to the same span
+ * `sentryTimerResult` would have picked, so a trace that does not set
+ * `isRefresh` behaves exactly as before.
+ *
+ * @param transactions - Transactions read by {@link readSentryTransactions}.
+ * @param name - The trace to time.
+ * @param id - The benchmark metric id to report it under.
+ * @returns The initial completion's duration as a timer result.
+ */
+export function sentryInitialTimerResult(
+  transactions: SentryTransaction[],
+  name: TraceName,
+  id: string,
+): TimerResult {
+  const matching = transactions.filter(
+    (transaction) => transaction.name === name,
+  );
+  const initial = matching.find(
+    (transaction) => transaction.isRefresh === false,
+  );
+  if (!initial) {
+    return sentryTimerResult(transactions, name, id);
+  }
+  if (!initial.success) {
+    throw new Error(
+      `Trace "${name}" initial completion was unsuccessful, so "${id}" is not a timing`,
+    );
+  }
+  if (initial.result !== undefined && initial.result !== 'success') {
+    throw new Error(
+      `Trace "${name}" initial completion was "${initial.result}", so "${id}" is not a timing`,
+    );
+  }
+  return { id, value: initial.durationMs, unit: 'ms' };
 }
 
 /**

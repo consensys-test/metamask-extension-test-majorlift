@@ -16,6 +16,7 @@ import { Driver } from '../../../webdriver/driver';
 import { collectTimerResults } from '../../utils/timer-helper';
 import {
   sentryCountResult,
+  sentryInitialTimerResult,
   sentryTimerResult,
   waitForSentryTransactions,
 } from '../../utils/sentry-transactions';
@@ -124,6 +125,7 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
 
         // Measure: Fetch quotes
         const swapPage = new SwapPage(driver);
+
         await swapPage.createSwap({
           amount: 0.01,
           swapTo: 'USDC',
@@ -142,24 +144,53 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
           ),
         );
 
+        // V14 injection for `swapQuoteFetchCount`. The count reads 1 in every
+        // A/A run, and a tripwire never shown able to move is indistinguishable
+        // from a blind one. Refilling the amount after the first quotes display
+        // forces a refetch, which opens a second `Swap Quote Fetch` span; the
+        // wait below then REQUIRES 2, so an injection that fails to fire is a
+        // timeout rather than a silent 1. The flag previously reached only that
+        // wait, with nothing producing the second fetch -- a detector wired to
+        // no injection, which is the defect this arm exists to close.
+        if (process.env.BENCHMARK_V14_INJECT === 'swap-quote') {
+          await swapPage.fillSwapAmount('0.02');
+          await swapPage.checkQuoteIsDisplayed({ timeout: 60000 });
+        }
+
         // The app's own spans over the same two steps, as the Sentry SDK sent
         // them, timed on the browser's clock (extension#46006). Report-only:
         // no threshold is registered for them.
+        // 30s rather than the 10s default: the control arm of the V14 run
+        // returned an empty entry because `Swap Quote Fetch` had not reached
+        // the mock inside 10s, which is a property of the flush rather than of
+        // the span. Raised in both arms so they still differ by one variable.
+        //
+        // Under the fixture a second `Swap Quote Fetch` is expected, and the
+        // wait has to require it: without a per-name count it returns as soon
+        // as one of each name is present and the count reads 1 either way.
         const transactions = await waitForSentryTransactions(
           driver,
           mockedEndpoint,
           [TraceName.SwapViewLoaded, TraceName.SwapQuoteFetch],
+          {
+            timeoutMs: 30000,
+            ...(process.env.BENCHMARK_V14_INJECT === 'swap-quote'
+              ? { expected: { [TraceName.SwapQuoteFetch]: 2 } }
+              : {}),
+          },
         );
+        // DIAGNOSTIC ORDER, deliberate. `sentryTimerResult` throws on an absent
+        // trace and `runner.ts` discards the whole iteration on a throw, so the
+        // artifact has never been able to say WHICH of the two traces arrived --
+        // only that something was missing. Counts first and unconditionally, then
+        // the durations behind a catch, so a run where `Swap Quote Fetch` never
+        // arrives still reports `swapQuoteFetchCount: 0` beside
+        // `swapViewLoadedCount: 1` instead of an empty entry.
         traceTimers.push(
-          sentryTimerResult(
+          sentryCountResult(
             transactions,
             TraceName.SwapViewLoaded,
-            'swapViewLoaded',
-          ),
-          sentryTimerResult(
-            transactions,
-            TraceName.SwapQuoteFetch,
-            'swapQuoteFetch',
+            'swapViewLoadedCount',
           ),
           sentryCountResult(
             transactions,
@@ -167,6 +198,36 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
             'swapQuoteFetchCount',
           ),
         );
+
+        // Emitted beside `swapQuoteFetch` rather than replacing it, so one run
+        // carries both selections and the difference between them is a
+        // within-run reading rather than a comparison across arms.
+        try {
+          traceTimers.push(
+            sentryInitialTimerResult(
+              transactions,
+              TraceName.SwapQuoteFetch,
+              'swapQuoteFetchInitial',
+            ),
+          );
+        } catch (error) {
+          console.log(
+            `[benchmark] swapQuoteFetchInitial unavailable: ${(error as Error).message}`,
+          );
+        }
+
+        for (const [name, id] of [
+          [TraceName.SwapViewLoaded, 'swapViewLoaded'],
+          [TraceName.SwapQuoteFetch, 'swapQuoteFetch'],
+        ] as const) {
+          try {
+            traceTimers.push(sentryTimerResult(transactions, name, id));
+          } catch (error) {
+            console.log(
+              `[benchmark] ${id} unavailable: ${(error as Error).message}`,
+            );
+          }
+        }
 
         try {
           webVitals = await collectWebVitals(driver);
