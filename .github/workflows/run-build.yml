@@ -34,6 +34,12 @@ jobs:
       IS_EXPERIMENTAL_BUILD: ${{ contains(inputs.build-name, 'experimental') }}
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
       SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_WRITE_KEY }}
+      # `Swap Quote Fetch` is pinned to 0.001 in DEFAULT_TRANSACTION_SAMPLE_RATES,
+      # so the span is absent from almost every run without this. Set on the
+      # BUILD job: `createTracesSampler` reads it at webpack build time, and the
+      # benchmark job downloads a prebuilt artifact that never sees it. A/A
+      # window lane only, never main.
+      SENTRY_SAMPLE_RATE_OVERRIDES: '{"Swap Quote Fetch": 1}'
       # Environment variables used in production builds
       # Keep this list synchronized with:
       # * The environment variables exported by `.github/scripts/bundle.sh`
