@@ -102,6 +102,30 @@ const INJECTED_SPAN_DELAY_MS = Number(
  *       without `Timing-Allow-Origin`, and the mock serves a different origin
  *   >=0 the offset in milliseconds
  */
+/**
+ * How many resource entries the UI realm recorded inside the span, at all.
+ *
+ * `quoteResponseStartOffsetMs` returned -1 on every sample of both browsers, and -1
+ * has two causes that look identical: the entry is absent because the fetch happens
+ * in another realm, or it is present under a name the regex missed. The code settles
+ * where the fetch runs -- `callBridgeControllerMethod` dispatches into a background
+ * controller -- but it does not settle whether the UI realm fetches anything else
+ * during the span, and only the second case would mean the filter is at fault.
+ *
+ * A count discriminates them without carrying names out: zero means the UI realm
+ * issued no requests at all while the span was open, which is the structural reading;
+ * nonzero means entries existed and none of them matched.
+ */
+function resourceEntriesInSpan(startMs: number, endMs: number): number {
+  try {
+    return (
+      performance.getEntriesByType('resource') as PerformanceResourceTiming[]
+    ).filter((e) => e.startTime >= startMs && e.startTime <= endMs).length;
+  } catch {
+    return -1;
+  }
+}
+
 function quoteResponseStartOffsetMs(startMs: number, endMs: number): number {
   let found: PerformanceResourceTiming | undefined;
   try {
@@ -165,6 +189,10 @@ const finishTrace = (
         activeTraceStartMs === undefined
           ? -1
           : quoteResponseStartOffsetMs(activeTraceStartMs, performance.now()),
+      resource_entries_in_span:
+        activeTraceStartMs === undefined
+          ? -1
+          : resourceEntriesInSpan(activeTraceStartMs, performance.now()),
       /* eslint-enable @typescript-eslint/naming-convention */
       ...(result === 'no_quotes' || result === 'error'
         ? {

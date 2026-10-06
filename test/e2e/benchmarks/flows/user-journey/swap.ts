@@ -220,6 +220,16 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
               'swapQuoteResponseStartMs',
             ),
           ),
+          // Resource entries the UI realm recorded inside the span, at all. Zero
+          // separates "the fetch is in another realm" from "the name filter missed".
+          ...((result) => (result ? [result] : []))(
+            sentryDataResult(
+              transactions,
+              TraceName.SwapQuoteFetch,
+              'resource_entries_in_span',
+              'swapQuoteResourceEntries',
+            ),
+          ),
         );
 
         // Emitted beside `swapQuoteFetch` rather than replacing it, so one run
