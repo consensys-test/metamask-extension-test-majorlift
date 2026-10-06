@@ -743,7 +743,7 @@ async function setupMocking(
     .forAnyRequest()
     .asPriority(RulePriority.FALLBACK)
     .thenPassThrough({
-      beforeRequest: ({ headers: { host }, url }) => {
+      beforeRequest: ({ headers: { host }, url, method }) => {
         // Reaching this rule at all is the signal: it is FALLBACK priority on
         // `forAnyRequest`, so no specific, shared or test-specific mock matched.
         unmockedTotal += 1;
@@ -758,7 +758,12 @@ async function setupMocking(
           //
           // Redacting also improves the key: the id is per-environment, so two
           // runs with different ids would otherwise count as different endpoints.
-          const key = `${parsed.host}${parsed.pathname
+          // The METHOD is part of the key, and it is the field that decides
+          // whether a rule exists. `/api/v2/nonce/batch` escaped while a regex
+          // covering `/api/v2/nonce` is registered -- but with `forGet`, so a POST
+          // never matches it. Without the method, the list says "write a rule" when
+          // the rule exists and is bound to the wrong verb, which is a different fix.
+          const key = `${method} ${parsed.host}${parsed.pathname
             .split('/')
             .map((seg) => (/^[0-9a-f]{16,}$/iu.test(seg) ? '<redacted>' : seg))
             .join('/')}`;
