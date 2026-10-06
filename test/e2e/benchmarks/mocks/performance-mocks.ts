@@ -1088,6 +1088,31 @@ export async function mockBenchmarkEndpoints(
       .thenCallback(delayedResponse(0, { statusCode: 200, json: {} })),
   );
 
+  // Tron's REST API, surfaced BY the POST rule above rather than alongside it.
+  // Before that rule existed the `/wallet/*` POSTs got an empty 200, the account
+  // lookup failed, and the flow stopped. Answered properly it proceeds to
+  // `/v1/accounts/<address>` and `/v1/accounts/<address>/transactions`, which no
+  // earlier escape list contained. Closing part of a mock gap moves the frontier
+  // outward, so each wave has to re-read the list rather than trust the last one.
+  //
+  // A WELL-FORMED EMPTY RESULT, not a populated one. `data: []` is the valid
+  // "no such account"
+  // answer -- terminal, so the flow stops here. A populated account would be
+  // equally well-formed and would invite the next request, which is how this
+  // endpoint appeared in the first place.
+  endpoints.push(
+    await server
+      .forGet(/tron-mainnet\.infura\.io/u)
+      .asPriority(MOCK_PRIORITIES.TEST_OVERRIDE)
+      .always()
+      .thenCallback(
+        delayedResponse(0, {
+          statusCode: 200,
+          json: { data: [], success: true },
+        }),
+      ),
+  );
+
   endpoints.push(
     await server
       .forGet(
