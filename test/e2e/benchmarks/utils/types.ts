@@ -87,6 +87,19 @@ export type BenchmarkArguments = {
 
 export type NetworkReport = {
   numNetworkReqs: number;
+  /**
+   * Requests that reached the FALLBACK catch-all, meaning no specific, shared or
+   * test-specific mock matched them. I7 asks for this count per iteration and
+   * `numNetworkReqs` cannot supply it: that counts every request the server sees,
+   * matched or not.
+   */
+  unmockedTotal?: number;
+  /** Of those, the ones sent to the live network (allowlisted URLs only). */
+  unmockedPassedThroughLive?: number;
+  /** Of those, the ones answered with a synthetic empty 200. */
+  unmockedSynthesized200?: number;
+  /** Of those, the ones redirected to the local node because the host is blocklisted. */
+  unmockedRedirectedToLocalNode?: number;
 };
 
 export type BenchmarkRunResult = {

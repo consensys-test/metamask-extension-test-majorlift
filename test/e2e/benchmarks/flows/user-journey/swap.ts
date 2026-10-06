@@ -39,6 +39,7 @@ import { collectWebVitals } from '../../utils';
 import type {
   BenchmarkRunResult,
   LongTaskStepResult,
+  NetworkReport,
   TimerResult,
 } from '../../utils/types';
 import { registerSwapInterceptor } from '../../mocks/swap-mocks';
@@ -92,10 +93,18 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
       async ({
         driver,
         mockedEndpoint,
+        getNetworkReport,
+        clearNetworkReport,
       }: {
         driver: Driver;
         mockedEndpoint: MockedEndpoint[];
+        getNetworkReport: () => NetworkReport;
+        clearNetworkReport: () => void;
       }) => {
+        // I7: count what escaped mocking in THIS iteration. Cleared here rather
+        // than relying on a fresh server per iteration, so the count means the
+        // same thing however the fixture lifecycle changes.
+        clearNetworkReport();
         // Login flow
         await login(driver, { validateBalance: false });
         const homePage = new HomePage(driver);
@@ -228,6 +237,24 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
             );
           }
         }
+
+        // I7's count, emitted beside the timings rather than asserted, so a run
+        // that escaped mocking is visible in the artifact instead of throwing and
+        // discarding the iteration. Tagged `count` so the runner leaves it out of
+        // the per-run `total`, which sums only untagged timers.
+        const net = getNetworkReport();
+        traceTimers.push(
+          {
+            id: 'unmockedRequestCount',
+            value: net.unmockedTotal ?? -1,
+            unit: 'count' as const,
+          },
+          {
+            id: 'unmockedLiveRequestCount',
+            value: net.unmockedPassedThroughLive ?? -1,
+            unit: 'count' as const,
+          },
+        );
 
         try {
           webVitals = await collectWebVitals(driver);

@@ -715,6 +715,20 @@ async function setupMocking(
   } = {},
 ) {
   let numNetworkReqs = 0;
+  // I7 wants an unmocked-request count per iteration, and nothing counted one:
+  // `numNetworkReqs` counts EVERY request the server sees, matched or not, so it
+  // cannot distinguish a request a mock answered from one that escaped every rule.
+  // These count the catch-all's own invocations, which is what "unmocked" means --
+  // reaching a FALLBACK-priority `forAnyRequest` rule is proof no other rule matched.
+  //
+  // Broken out by branch because the branches differ in what they risk. A live
+  // pass-through puts real network latency inside a measured span; a synthetic 200
+  // returns an empty body the app has to handle, which changes behaviour silently
+  // rather than erroring. Both are defects and only one is loud.
+  let unmockedTotal = 0;
+  let unmockedPassedThroughLive = 0;
+  let unmockedSynthesized200 = 0;
+  let unmockedRedirectedToLocalNode = 0;
   const privacyReport = new Set();
   // FALLBACK priority so that this catch-all only handles requests no other
   // DEFAULT-priority mock matches. This also lets other FALLBACK-priority
@@ -725,7 +739,11 @@ async function setupMocking(
     .asPriority(RulePriority.FALLBACK)
     .thenPassThrough({
       beforeRequest: ({ headers: { host }, url }) => {
+        // Reaching this rule at all is the signal: it is FALLBACK priority on
+        // `forAnyRequest`, so no specific, shared or test-specific mock matched.
+        unmockedTotal += 1;
         if (!host || !url) {
+          unmockedSynthesized200 += 1;
           return {
             response: {
               statusCode: 200,
@@ -733,13 +751,16 @@ async function setupMocking(
           };
         }
         if (blocklistedHosts.includes(host)) {
+          unmockedRedirectedToLocalNode += 1;
           return {
             url: 'http://localhost:8545',
           };
         } else if (ALLOWLISTED_URLS.includes(url)) {
           // If the URL or the host is in the allowlist, we pass the request as it is, to the live server.
+          unmockedPassedThroughLive += 1;
           return {};
         }
+        unmockedSynthesized200 += 1;
         return {
           // If the URL or the host is not in the allowlist nor blocklisted, we return a 200.
           response: {
@@ -750,11 +771,21 @@ async function setupMocking(
     });
 
   function getNetworkReport() {
-    return { numNetworkReqs };
+    return {
+      numNetworkReqs,
+      unmockedTotal,
+      unmockedPassedThroughLive,
+      unmockedSynthesized200,
+      unmockedRedirectedToLocalNode,
+    };
   }
 
   function clearNetworkReport() {
     numNetworkReqs = 0;
+    unmockedTotal = 0;
+    unmockedPassedThroughLive = 0;
+    unmockedSynthesized200 = 0;
+    unmockedRedirectedToLocalNode = 0;
   }
 
   const mockedEndpoint = await testSpecificMock(server);
