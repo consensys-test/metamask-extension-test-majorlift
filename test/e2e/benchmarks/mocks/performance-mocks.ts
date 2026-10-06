@@ -1013,6 +1013,81 @@ export async function mockBenchmarkEndpoints(
       .thenCallback(delayedResponse(500, SUPPORTED_NETWORKS)),
   );
 
+  // I7's escape list, measured rather than guessed. Six endpoints reached the
+  // FALLBACK catch-all on every iteration -- 23 requests on chrome, 26 on firefox
+  // -- and got a synthetic empty 200 that no rule wrote.
+  //
+  // EVERY DELAY HERE IS 0, deliberately, and it is the whole reason this is a
+  // minimal pivot. The catch-all answers these instantly today, so giving them a
+  // sibling's 500 ms would not close a gap -- it would add latency that was never
+  // in the measurement, on 23 requests per iteration. The change under test is the
+  // response SHAPE, not its timing.
+  //
+  // The verbs are measured. A regex covering `/api/v2/nonce` already exists in
+  // `getCommonMocks` registered with `forGet`, and the traffic is POST, so moving
+  // that rule into scope would not have matched it. `/profile/accounts` is PUT and
+  // no `forPut` was registered for this host anywhere.
+
+  /* eslint-disable @typescript-eslint/naming-convention */
+  endpoints.push(
+    await server
+      .forPost(/authentication\.api\.cx\.metamask\.io\/api\/v\d+\/nonce/u)
+      .asPriority(MOCK_PRIORITIES.TEST_OVERRIDE)
+      .always()
+      .thenCallback(
+        delayedResponse(0, {
+          statusCode: 200,
+          json: {
+            nonce: 'mock-nonce-for-benchmark',
+            identifier: '0x0000000000000000000000000000000000000000',
+            expires_in: 300,
+          },
+        }),
+      ),
+  );
+  /* eslint-enable @typescript-eslint/naming-convention */
+
+  endpoints.push(
+    await server
+      .forPut(
+        /authentication\.api\.cx\.metamask\.io\/api\/v\d+\/profile\/accounts/u,
+      )
+      .asPriority(MOCK_PRIORITIES.TEST_OVERRIDE)
+      .always()
+      .thenCallback(delayedResponse(0, { statusCode: 200, json: [] })),
+  );
+
+  endpoints.push(
+    await server
+      .forGet(/token\.api\.cx\.metamask\.io\/v\d+\/supportedNetworks/u)
+      .asPriority(MOCK_PRIORITIES.TEST_OVERRIDE)
+      .always()
+      .thenCallback(delayedResponse(0, SUPPORTED_NETWORKS)),
+  );
+
+  // Two Infura hosts absent from the enumeration above. A hardcoded list of
+  // networks reads as complete and silently excludes every chain added after it
+  // was written, which is how these two escaped while ten siblings are covered.
+  endpoints.push(
+    await server
+      .forPost(/monad-mainnet\.infura\.io/u)
+      .asPriority(MOCK_PRIORITIES.TEST_OVERRIDE)
+      .always()
+      .thenCallback(delayedResponse(0, jsonRpcResponse('0x0'))),
+  );
+
+  // Tron is not JSON-RPC: the escaped paths are `/wallet/getReward` and
+  // `/wallet/getaccountresource`, Tron's own HTTP API, so an empty object rather
+  // than a JSON-RPC envelope -- which is what the stranded INTERCEPTED_PATTERNS
+  // entry for this host already specified.
+  endpoints.push(
+    await server
+      .forPost(/tron-mainnet\.infura\.io/u)
+      .asPriority(MOCK_PRIORITIES.TEST_OVERRIDE)
+      .always()
+      .thenCallback(delayedResponse(0, { statusCode: 200, json: {} })),
+  );
+
   endpoints.push(
     await server
       .forGet(
