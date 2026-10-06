@@ -240,15 +240,17 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             },
           ),
         );
-        // BUG #42792 This test is failing with the ASSETS_UNIFIED_STATE_ENABLED='true'
-        // commenting out temporarily to unblock the release
-        /*
+        // Restored. This was commented out for #42792 (onboarding benchmarks
+        // degrade with ASSETS_UNIFIED_STATE_ENABLED), which closed as COMPLETED on
+        // 2026-08-31. While it was out, `webVitals` was never assigned and the
+        // result assembler omitted the key, so `cls` -- a GATED metric -- produced
+        // no value and could not fail its threshold on any run. `fcp`, `lcp` and
+        // `inp` were lost with it; those are not gated, so nothing reported them.
         try {
           webVitals = await collectWebVitals(driver);
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
-        */
       },
     );
 
