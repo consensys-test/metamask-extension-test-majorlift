@@ -20,6 +20,49 @@ export type SwapQuoteFetchTraceResult =
 let activeTraceId: string | undefined;
 
 /**
+ * `performance.now()` when the active span opened, for the long-task overlap below.
+ */
+let activeTraceStartMs: number | undefined;
+
+/**
+ * Milliseconds of main-thread long task that fell INSIDE this span.
+ *
+ * The excursion measured on 2026-10-06 is a ~3% per-iteration event worth +60 to
+ * +280 ms. Seven of ten cases coincided with a long task of 51-66 ms and three
+ * carried none, but the artifact records long tasks as a per-RUN aggregate, so
+ * whether the task fell inside the span or merely in the same iteration was not
+ * decidable -- and neither was the direction, since a long task could delay the
+ * span's end or be produced by whatever slowed it.
+ *
+ * The observer already keeps per-task `startTime` and `duration`; nothing exports
+ * them. This computes the overlap with the span's own interval at close time, so
+ * the answer rides the span that raised the question.
+ */
+function longTaskOverlapMs(startMs: number, endMs: number): number {
+  const hooks = (
+    globalThis as unknown as {
+      stateHooks?: {
+        getLongTaskMetricsWithTBT?: () => {
+          observed?: boolean;
+          tasks?: { startTime: number; duration: number }[];
+        };
+      };
+    }
+  ).stateHooks;
+  const m = hooks?.getLongTaskMetricsWithTBT?.();
+  // Gate on `observed`: outside Chromium the hook returns initialised zeros and an
+  // empty task list, which is absent rather than quiet.
+  if (!m?.observed || !m.tasks) {
+    return -1;
+  }
+  return m.tasks.reduce((acc, t) => {
+    const lo = Math.max(t.startTime, startMs);
+    const hi = Math.min(t.startTime + t.duration, endMs);
+    return acc + Math.max(hi - lo, 0);
+  }, 0);
+}
+
+/**
  * Milliseconds to busy-wait inside the span before closing it, for the
  * admission gate's app-side known-answer arm. The mock-side delay
  * (`BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS`) slows the quote RESPONSE, and the
@@ -58,12 +101,21 @@ const finishTrace = (
     }
   }
 
+  const overlapMs =
+    activeTraceStartMs === undefined
+      ? -1
+      : longTaskOverlapMs(activeTraceStartMs, performance.now());
+
   endTrace({
     name: TraceName.SwapQuoteFetch,
     id,
     timestamp: Date.now(),
     data: {
       result,
+      /* eslint-disable @typescript-eslint/naming-convention -- Sentry trace attributes use snake_case */
+      // -1 means the observer never attached, which is not the same as zero overlap.
+      long_task_ms_in_span: overlapMs,
+      /* eslint-enable @typescript-eslint/naming-convention */
       ...(result === 'no_quotes' || result === 'error'
         ? {
             /* eslint-disable @typescript-eslint/naming-convention -- Sentry trace attributes use snake_case */
@@ -74,6 +126,7 @@ const finishTrace = (
     },
   });
   activeTraceId = undefined;
+  activeTraceStartMs = undefined;
 };
 
 export const swapQuoteFetchTrace = {
@@ -119,6 +172,7 @@ export const swapQuoteFetchTrace = {
       startTime: Date.now(),
     });
     activeTraceId = id;
+    activeTraceStartMs = performance.now();
     return id;
   },
 

@@ -14,6 +14,12 @@ export type SentryTransaction = {
   endTimestamp: number;
   success: boolean;
   /**
+   * The span's whole `data`, so a numeric field the app attached can be read back
+   * without adding a named property here per diagnostic. `result` and `isRefresh`
+   * below stay as named fields because callers branch on them.
+   */
+  data?: Record<string, unknown>;
+  /**
    * The outcome the app recorded via `endTrace`'s `data.result`, where the
    * trace sets one. `success` does not capture it: a trace ended as
    * `cancelled` carries an ok status and an undefined `data.success`, so it
@@ -91,6 +97,7 @@ export function parseEnvelopeTransactions(body: string): SentryTransaction[] {
             ...(typeof trace?.data?.isRefresh === 'boolean' && {
               isRefresh: trace.data.isRefresh,
             }),
+            ...(trace?.data && { data: trace.data }),
           });
         }
       } catch {
@@ -287,4 +294,41 @@ export function sentryCountResult(
       .length,
     unit: 'count',
   };
+}
+
+
+/**
+ * Read a numeric field the app attached to a span's `data` and report it as a timer.
+ *
+ * Added for `long_task_ms_in_span`. The excursion in `swapQuoteFetch` coincided with
+ * a main-thread long task in 7 of 10 cases, but the artifact's long-task figures are
+ * per-RUN aggregates, so neither containment nor direction was decidable: a task in
+ * the same iteration need not fall inside the span, and one that does could be its
+ * cause or its consequence. The app now computes the overlap at close time; this
+ * carries it back out.
+ *
+ * Tagged with a unit so `runner.ts` leaves it out of the per-run `total`, which sums
+ * only untagged timers -- a millisecond count that is a diagnostic, not a step.
+ *
+ * @param transactions - Transactions read by {@link readSentryTransactions}.
+ * @param name - The trace whose data to read.
+ * @param key - The field within that span's `data`.
+ * @param id - The benchmark metric id to report it under.
+ * @returns The timer result, or null where the field is absent so a caller can omit it.
+ */
+export function sentryDataResult(
+  transactions: SentryTransaction[],
+  name: TraceName,
+  key: string,
+  id: string,
+): TimerResult | null {
+  const matching = transactions.filter(
+    (transaction) => transaction.name === name,
+  );
+  const last = matching[matching.length - 1];
+  const raw = last?.data?.[key];
+  if (typeof raw !== 'number') {
+    return null;
+  }
+  return { id, value: raw, unit: 'ms' };
 }

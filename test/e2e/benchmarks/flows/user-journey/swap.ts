@@ -16,6 +16,7 @@ import { Driver } from '../../../webdriver/driver';
 import { collectTimerResults } from '../../utils/timer-helper';
 import {
   sentryCountResult,
+  sentryDataResult,
   sentryInitialTimerResult,
   sentryTimerResult,
   waitForSentryTransactions,
@@ -196,6 +197,17 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
             transactions,
             TraceName.SwapQuoteFetch,
             'swapQuoteFetchCount',
+          ),
+          // Milliseconds of main-thread long task that fell inside the span, which
+          // the per-run long-task aggregates cannot show. -1 where the observer
+          // never attached, which is not zero overlap.
+          ...((result) => (result ? [result] : []))(
+            sentryDataResult(
+              transactions,
+              TraceName.SwapQuoteFetch,
+              'long_task_ms_in_span',
+              'swapQuoteFetchLongTaskMs',
+            ),
           ),
         );
 
