@@ -82,6 +82,51 @@ async function loadBaseline(): Promise<HistoricalBaselineReference> {
  * @param benchmarks - Loaded benchmark files.
  * @param baseline - Historical baseline reference.
  */
+/**
+ * Gated metrics that a benchmark entry was expected to carry and did not.
+ *
+ * I2 -- ABSENCE FAILS. `runComparison` iterates the ARTIFACT, so a gated metric the
+ * artifact does not contain is never compared, never violates a threshold, and
+ * exits 0. A change that drops a span therefore clears the gate meant to catch it,
+ * and the only trace is a `console.warn`.
+ *
+ * KEPT OUT OF `runComparison` ON PURPOSE. That function's job is to compare what is
+ * present; this one asks whether anything is missing. Folding the check into the
+ * loop made six existing unit tests fail, because their fixtures are minimal by
+ * construction -- one metric per entry -- while a production artifact carries every
+ * metric its benchmark emits. Those fixtures are not wrong, they are just not
+ * artifacts, so the check belongs where real artifacts arrive rather than retrofitted
+ * onto tests that were asserting something else.
+ *
+ * SCOPED PER ENTRY, because `GATED_METRICS` spans every preset and no single
+ * artifact carries all of them. If `swap` is present, every gated `swap.*` metric
+ * must be present in it; gated metrics of benchmarks this artifact does not contain
+ * are not its responsibility. An unscoped check would fail every run.
+ *
+ * @param benchmarks - The loaded benchmark artifacts.
+ * @returns Dotted `<artifact>:<benchmark>.<metricId>` keys for every absence found.
+ */
+export function findMissingGatedMetrics(
+  benchmarks: LoadedBenchmark[],
+): string[] {
+  const missing: string[] = [];
+  for (const { name, data } of benchmarks) {
+    for (const [entryName, results] of Object.entries(data)) {
+      const prefix = `${entryName}.`;
+      for (const key of GATED_METRICS) {
+        if (!key.startsWith(prefix)) {
+          continue;
+        }
+        const metricId = key.slice(prefix.length);
+        if (results.p75?.[metricId] === undefined) {
+          missing.push(`${name}:${entryName}.${metricId}`);
+        }
+      }
+    }
+  }
+  return missing;
+}
+
 export function runComparison(
   benchmarks: LoadedBenchmark[],
   baseline: HistoricalBaselineReference,
@@ -419,7 +464,24 @@ async function main(): Promise<void> {
   const result = runComparison(benchmarks, baseline);
   printReport(result);
 
-  process.exit(result.anyFailed ? 1 : 0);
+  // I2: a gated metric absent from the artifact was never compared, so it never
+  // violated a threshold and the exit below was 0. Checked here rather than inside
+  // `runComparison` so it sees real artifacts; the metric is named, and the
+  // comparison count printed above is left alone so the declared family keeps its
+  // denominator rather than shrinking by whatever went missing.
+  const missingGated = findMissingGatedMetrics(benchmarks);
+  if (missingGated.length > 0) {
+    console.log('\n───────────────────────────────────────');
+    console.error(
+      `FAIL: ${missingGated.length} gated metric(s) produced no value. ` +
+        `A gated metric that is absent is a failure, not a pass.`,
+    );
+    for (const key of missingGated) {
+      console.error(`      missing: ${key}`);
+    }
+  }
+
+  process.exit(result.anyFailed || missingGated.length > 0 ? 1 : 0);
 }
 
 if (require.main === module) {

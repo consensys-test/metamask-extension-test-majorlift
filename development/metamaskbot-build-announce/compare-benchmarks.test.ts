@@ -4,6 +4,7 @@ import { THRESHOLD_SEVERITY } from '../../shared/constants/benchmarks';
 import {
   runComparison,
   buildMetricLines,
+  findMissingGatedMetrics,
   loadCurrentBenchmarks,
   printReport,
 } from './compare-benchmarks';
@@ -889,5 +890,77 @@ describe('buildMetricLines', () => {
     expect(lines[0].icon).toBe(COMPARISON_SEVERITY.Warn.icon);
     expect(lines[0].hasIssue).toBe(true);
     expect(lines[0].details).toContain('1560ms');
+  });
+
+  describe('findMissingGatedMetrics', () => {
+    it('reports a gated metric absent from an entry that is present', () => {
+      // `swap.total` and `swap.fetchAndDisplaySwapQuotes` are both in GATED_METRICS.
+      // This artifact carries `total` and not the other, which before I2 was
+      // compared as a pass: the loop iterates the artifact, so what is missing is
+      // never examined.
+      const benchmarks = [
+        {
+          name: 'benchmark-chrome-webpack-userJourneyTransactions',
+          data: {
+            swap: makeBenchmarkResults('total', {
+              p75: { total: 2800 },
+              p95: { total: 3000 },
+              mean: { total: 2700 },
+            }),
+          },
+        },
+      ];
+
+      const missing = findMissingGatedMetrics(benchmarks);
+      expect(missing).toContain(
+        'benchmark-chrome-webpack-userJourneyTransactions:swap.fetchAndDisplaySwapQuotes',
+      );
+      expect(missing).not.toContain(
+        'benchmark-chrome-webpack-userJourneyTransactions:swap.total',
+      );
+    });
+
+    it('does not report gated metrics of benchmarks the artifact does not contain', () => {
+      // THE SCOPING TEST, and the one that matters: GATED_METRICS spans every
+      // preset, so an unscoped check would flag `startupStandardHome.uiStartup`
+      // against a swap artifact and fail every run.
+      const benchmarks = [
+        {
+          name: 'benchmark-chrome-webpack-userJourneyTransactions',
+          data: {
+            swap: makeBenchmarkResults('total', {
+              p75: { total: 2800 },
+              p95: { total: 3000 },
+              mean: { total: 2700 },
+            }),
+          },
+        },
+      ];
+
+      const missing = findMissingGatedMetrics(benchmarks);
+      expect(missing.every((key) => key.includes(':swap.'))).toBe(true);
+      expect(missing.join(',')).not.toContain('startupStandardHome');
+    });
+
+    it('reports nothing when every gated metric of a present entry has a p75', () => {
+      // `assetDetails.cls` is the only gated metric under this benchmark, so the
+      // clean negative supplies it. My first version of this test omitted `cls` on
+      // the assumption that `assetDetails` had no gated metrics, and the check
+      // correctly reported it -- the fixture's premise was wrong, not the check.
+      const benchmarks = [
+        {
+          name: 'benchmark-chrome-webpack-userJourneyAssets',
+          data: {
+            assetDetails: makeBenchmarkResults('total', {
+              p75: { total: 900, cls: 0.01 },
+              p95: { total: 1000, cls: 0.02 },
+              mean: { total: 850, cls: 0.01 },
+            }),
+          },
+        },
+      ];
+
+      expect(findMissingGatedMetrics(benchmarks)).toStrictEqual([]);
+    });
   });
 });
