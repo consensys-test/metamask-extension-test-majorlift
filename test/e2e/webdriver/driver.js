@@ -574,25 +574,42 @@ class Driver {
     if (!['visible', 'detached', 'enabled', 'disabled'].includes(state)) {
       throw new Error(`Provided state selector ${state} is not supported`);
     }
+    // I1's falsifier: a span whose end is discovered by polling carries the poll
+    // granularity inside the measurement, so varying this and watching the median
+    // is what distinguishes a clock in the browser from a clock in the harness.
+    // Unset leaves selenium's own default in force -- `undefined` reaches the
+    // parameter default rather than overriding it with a copy of the number, so an
+    // unset variable cannot change behaviour even if that default moves.
+    const pollTimeout = process.env.BENCHMARK_POLL_TIMEOUT_MS
+      ? Number(process.env.BENCHMARK_POLL_TIMEOUT_MS)
+      : undefined;
     if (state === 'visible') {
       element = await this.driver.wait(
         until.elementLocated(this.buildLocator(rawLocator)),
         timeout,
+        undefined,
+        pollTimeout,
       );
     } else if (state === 'detached') {
       element = await this.driver.wait(
         until.stalenessOf(await this.findElement(rawLocator)),
         timeout,
+        undefined,
+        pollTimeout,
       );
     } else if (state === 'enabled') {
       element = await this.driver.wait(
         until.elementIsEnabled(await this.findElement(rawLocator)),
         timeout,
+        undefined,
+        pollTimeout,
       );
     } else if (state === 'disabled') {
       element = await this.driver.wait(
         until.elementIsDisabled(await this.findElement(rawLocator)),
         timeout,
+        undefined,
+        pollTimeout,
       );
     }
 

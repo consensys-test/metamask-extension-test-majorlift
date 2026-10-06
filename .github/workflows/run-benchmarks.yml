@@ -79,6 +79,12 @@ jobs:
       GITHUB_REF_NAME: ${{ github.head_ref || github.ref_name }}
       # main or release/* only — for S3 / AWS CLI (same ref semantics as Sentry).
       MAIN_OR_RELEASE: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+      # I1's falsifier for any selector-gated span: vary this and the registered
+      # value's median must move less than 5 ms, or the clock is in the harness
+      # rather than in the browser. Empty leaves selenium's default of 200 ms.
+      # Harness-side, so this file and `driver.js` are both outside the
+      # build-source hash and an arm reuses the build rather than rebuilding it.
+      BENCHMARK_POLL_TIMEOUT_MS: ''
     steps:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v3
