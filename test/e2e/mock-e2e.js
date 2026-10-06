@@ -749,7 +749,19 @@ async function setupMocking(
         unmockedTotal += 1;
         try {
           const parsed = new URL(url);
-          const key = `${parsed.host}${parsed.pathname}`;
+          // Redact long opaque path segments before keying or logging. An Infura
+          // URL carries its project id IN THE PATH (`/v3/<id>/...`), so logging
+          // the raw pathname writes a credential into the CI log -- which is what
+          // the first run of this counter did, on one line, while GitHub's own
+          // masking covered 245 others. A diagnostic must not create the exposure
+          // it is diagnosing.
+          //
+          // Redacting also improves the key: the id is per-environment, so two
+          // runs with different ids would otherwise count as different endpoints.
+          const key = `${parsed.host}${parsed.pathname
+            .split('/')
+            .map((seg) => (/^[0-9a-f]{16,}$/iu.test(seg) ? '<redacted>' : seg))
+            .join('/')}`;
           unmockedByUrl.set(key, (unmockedByUrl.get(key) ?? 0) + 1);
         } catch {
           // A request can reach here with a url mockttp could not parse; counting
