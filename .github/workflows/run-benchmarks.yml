@@ -277,6 +277,26 @@ jobs:
       - name: Checkout quality-gate sources
         uses: actions/checkout@v6
         with:
+          # I8 -- THE GATE IS COMPILED FROM THE BASE, NOT THE PR. With no `ref` this
+          # takes actions/checkout's default, which on a `pull_request` event is the
+          # PR's own merge commit -- and the sparse-checkout below names exactly the
+          # files that decide blocking: the gated-metric list, the thresholds and the
+          # statistics. So a PR supplied the gate that judged it, and could raise a
+          # threshold or drop its own metric from the list and be measured by the
+          # edited rule.
+          #
+          # `github.base_ref` is EMPTY on push events -- main, release/*, and every
+          # trigger-ci-* lane -- so the literal pin I8 registers would change
+          # behaviour for all of them, and whether an empty `ref` falls back to the
+          # default is actions/checkout behaviour I have not verified. The `||` makes
+          # that moot by never passing an empty string: on a pull_request it is the
+          # base branch, on a push it is the pushed ref, which is what the default
+          # would have resolved to anyway.
+          #
+          # A consequence worth stating: a change to the gate's own sources now takes
+          # effect only once merged, including a change that fixes the gate. That is
+          # the point rather than a side effect.
+          ref: ${{ github.base_ref || github.ref_name }}
           sparse-checkout: |
             .nvmrc
             tsconfig.json
