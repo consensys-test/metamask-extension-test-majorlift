@@ -209,6 +209,17 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
               'swapQuoteFetchLongTaskMs',
             ),
           ),
+          // Offset of the quote response's first byte from the span's start, which
+          // splits the span into wait-for-response and post-response processing.
+          // -1 no entry, -2 cross-origin timing not exposed.
+          ...((result) => (result ? [result] : []))(
+            sentryDataResult(
+              transactions,
+              TraceName.SwapQuoteFetch,
+              'quote_response_start_offset_ms',
+              'swapQuoteResponseStartMs',
+            ),
+          ),
         );
 
         // Emitted beside `swapQuoteFetch` rather than replacing it, so one run

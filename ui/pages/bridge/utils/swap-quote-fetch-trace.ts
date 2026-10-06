@@ -83,6 +83,52 @@ const INJECTED_SPAN_DELAY_MS = Number(
   process.env.BENCHMARK_APP_SPAN_DELAY_MS ?? 0,
 );
 
+/**
+ * When the quote response's first byte arrived, as an offset from the span's start.
+ *
+ * The excursion is now known not to be in-span main-thread blocking, a uniform
+ * mock delay, a shared slowdown, machine speed, or a restarted trace. What is left
+ * splits in two and this separates them: if the first byte arrives late, the wait
+ * grew; if it arrives on time and the span is still long, the cost is after the
+ * response and before the effect's gate is satisfied.
+ *
+ * `responseStart`, not `responseEnd`: the endpoint is `getQuoteStream`, an SSE
+ * response, so the stream closes well after the first quote the span ends on.
+ *
+ * Three sentinels, because a zero here has three meanings and only one is a
+ * measurement:
+ *   -1  no matching resource entry inside the span
+ *   -2  an entry, but `responseStart` is 0 -- cross-origin timing is not exposed
+ *       without `Timing-Allow-Origin`, and the mock serves a different origin
+ *   >=0 the offset in milliseconds
+ */
+function quoteResponseStartOffsetMs(startMs: number, endMs: number): number {
+  let found: PerformanceResourceTiming | undefined;
+  try {
+    const entries = performance.getEntriesByType(
+      'resource',
+    ) as PerformanceResourceTiming[];
+    for (const e of entries) {
+      if (
+        e.startTime >= startMs &&
+        e.startTime <= endMs &&
+        /getQuote/u.test(e.name)
+      ) {
+        found = e;
+      }
+    }
+  } catch {
+    return -1;
+  }
+  if (!found) {
+    return -1;
+  }
+  if (!found.responseStart) {
+    return -2;
+  }
+  return found.responseStart - startMs;
+}
+
 const finishTrace = (
   result: SwapQuoteFetchTraceResult,
   id: string | undefined = activeTraceId,
@@ -115,6 +161,10 @@ const finishTrace = (
       /* eslint-disable @typescript-eslint/naming-convention -- Sentry trace attributes use snake_case */
       // -1 means the observer never attached, which is not the same as zero overlap.
       long_task_ms_in_span: overlapMs,
+      quote_response_start_offset_ms:
+        activeTraceStartMs === undefined
+          ? -1
+          : quoteResponseStartOffsetMs(activeTraceStartMs, performance.now()),
       /* eslint-enable @typescript-eslint/naming-convention */
       ...(result === 'no_quotes' || result === 'error'
         ? {
