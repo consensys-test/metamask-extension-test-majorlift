@@ -100,6 +100,11 @@ export type NetworkReport = {
   unmockedSynthesized200?: number;
   /** Of those, the ones redirected to the local node because the host is blocklisted. */
   unmockedRedirectedToLocalNode?: number;
+  /**
+   * Which URLs escaped, as host + pathname with the query dropped, sorted by
+   * frequency. A count says how many rules are missing; this says which to write.
+   */
+  unmockedByUrl?: { url: string; count: number }[];
 };
 
 export type BenchmarkRunResult = {

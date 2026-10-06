@@ -243,6 +243,7 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         // discarding the iteration. Tagged `count` so the runner leaves it out of
         // the per-run `total`, which sums only untagged timers.
         const net = getNetworkReport();
+        const escaped = net.unmockedByUrl ?? [];
         traceTimers.push(
           {
             id: 'unmockedRequestCount',
@@ -254,7 +255,19 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
             value: net.unmockedPassedThroughLive ?? -1,
             unit: 'count' as const,
           },
+          // Distinct URLs rather than requests: this is the number that falls when
+          // a rule is written, so it is the one to watch while closing the gap.
+          {
+            id: 'unmockedDistinctUrlCount',
+            value: escaped.length,
+            unit: 'count' as const,
+          },
         );
+        // The identities go to the log because a timer carries a number and these
+        // are strings. Same channel the `unavailable` diagnostics already use.
+        for (const { url, count } of escaped) {
+          console.log(`[benchmark] unmocked ${count}x ${url}`);
+        }
 
         try {
           webVitals = await collectWebVitals(driver);

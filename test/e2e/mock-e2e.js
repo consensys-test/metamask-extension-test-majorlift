@@ -729,6 +729,11 @@ async function setupMocking(
   let unmockedPassedThroughLive = 0;
   let unmockedSynthesized200 = 0;
   let unmockedRedirectedToLocalNode = 0;
+  // Identity, not just quantity. A count says how many rules are missing; it does
+  // not say which to write. Keyed on host + pathname with the query dropped,
+  // because query parameters carry per-request values (nonces, addresses, block
+  // numbers) that would fragment one missing rule into dozens of distinct keys.
+  const unmockedByUrl = new Map();
   const privacyReport = new Set();
   // FALLBACK priority so that this catch-all only handles requests no other
   // DEFAULT-priority mock matches. This also lets other FALLBACK-priority
@@ -742,6 +747,19 @@ async function setupMocking(
         // Reaching this rule at all is the signal: it is FALLBACK priority on
         // `forAnyRequest`, so no specific, shared or test-specific mock matched.
         unmockedTotal += 1;
+        try {
+          const parsed = new URL(url);
+          const key = `${parsed.host}${parsed.pathname}`;
+          unmockedByUrl.set(key, (unmockedByUrl.get(key) ?? 0) + 1);
+        } catch {
+          // A request can reach here with a url mockttp could not parse; counting
+          // it under a single bucket keeps the tally honest without throwing
+          // inside a request handler, where a throw would change what the app sees.
+          unmockedByUrl.set(
+            '(unparseable url)',
+            (unmockedByUrl.get('(unparseable url)') ?? 0) + 1,
+          );
+        }
         if (!host || !url) {
           unmockedSynthesized200 += 1;
           return {
@@ -777,6 +795,10 @@ async function setupMocking(
       unmockedPassedThroughLive,
       unmockedSynthesized200,
       unmockedRedirectedToLocalNode,
+      // Sorted by frequency so the rule worth writing first is listed first.
+      unmockedByUrl: [...unmockedByUrl.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([url, count]) => ({ url, count })),
     };
   }
 
@@ -786,6 +808,7 @@ async function setupMocking(
     unmockedPassedThroughLive = 0;
     unmockedSynthesized200 = 0;
     unmockedRedirectedToLocalNode = 0;
+    unmockedByUrl.clear();
   }
 
   const mockedEndpoint = await testSpecificMock(server);
