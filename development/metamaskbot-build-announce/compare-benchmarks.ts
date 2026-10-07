@@ -356,6 +356,59 @@ function formatName(comparison: BenchmarkEntryComparison): string {
  * @param result.comparisons
  * @param result.anyFailed
  */
+/**
+ * W7's scope block: what the gate examined, and what it could not judge.
+ *
+ * W7 requires the report to OPEN with its scope -- which flows were examined, paused
+ * or unarmed, with each unarmed metric's minimum detectable effect. Before this, the
+ * report opened with a title and a RESULT line, so a reader could not tell the
+ * difference between "every gated metric passed" and "some produced no value and
+ * were never compared". Those print identically without this block, which is the
+ * same defect I2 fixes at the exit code, stated for the reader rather than the shell.
+ *
+ * UNARMED IS NOT THE SAME AS FAILING, and the MDE is what separates them. A metric
+ * present with a wide interval is armed and insensitive; a metric absent entirely is
+ * unarmed and has no MDE at all, because an MDE is computed from a spread that does
+ * not exist. Printing "uncomputable" for those is the honest value -- a zero or a
+ * blank would read as "sensitive to everything".
+ *
+ * @param benchmarks - The loaded benchmark artifacts.
+ * @param missingGated - Dotted keys from `findMissingGatedMetrics`.
+ */
+export function printScope(
+  benchmarks: LoadedBenchmark[],
+  missingGated: string[],
+): void {
+  console.log('\n═══════════════════════════════════════');
+  console.log('  Scope');
+  console.log('═══════════════════════════════════════');
+
+  const examined: string[] = [];
+  for (const { name, data } of benchmarks) {
+    for (const [entryName, results] of Object.entries(data)) {
+      const n = Object.keys(results.p75 ?? {}).length;
+      examined.push(`${entryName} [${parseArtifactName(name)?.browser ?? '?'}] — ${n} metrics`);
+    }
+  }
+  console.log(`\nExamined: ${examined.length} benchmark entries across ${benchmarks.length} artifacts`);
+  for (const line of examined.sort()) {
+    console.log(`      ${line}`);
+  }
+
+  if (missingGated.length === 0) {
+    console.log('\nUnarmed gated metrics: none — every gated metric produced a value.');
+    return;
+  }
+
+  console.log(`\nUnarmed gated metrics: ${missingGated.length} produced no value and were NOT compared.`);
+  console.log('      Each is a gated metric whose threshold could not be evaluated on this run.');
+  for (const key of missingGated) {
+    // The MDE needs a spread, and an absent metric has none. Saying so beats a
+    // number that would imply the metric is sensitive.
+    console.log(`      ${key} — minimum detectable effect: uncomputable (no samples)`);
+  }
+}
+
 export function printReport(result: {
   comparisons: BenchmarkEntryComparison[];
   anyFailed: boolean;
@@ -462,14 +515,20 @@ async function main(): Promise<void> {
   const baseline = await loadBaseline();
 
   const result = runComparison(benchmarks, baseline);
-  printReport(result);
 
   // I2: a gated metric absent from the artifact was never compared, so it never
   // violated a threshold and the exit below was 0. Checked here rather than inside
   // `runComparison` so it sees real artifacts; the metric is named, and the
-  // comparison count printed above is left alone so the declared family keeps its
+  // comparison count printed below is left alone so the declared family keeps its
   // denominator rather than shrinking by whatever went missing.
   const missingGated = findMissingGatedMetrics(benchmarks);
+
+  // W7 asks the report to OPEN with its scope, so this precedes printReport rather
+  // than trailing it. The ordering IS the clause: a scope block printed after the
+  // verdict is read, if at all, by someone who already formed a conclusion from it.
+  printScope(benchmarks, missingGated);
+  printReport(result);
+
   if (missingGated.length > 0) {
     console.log('\n───────────────────────────────────────');
     console.error(
