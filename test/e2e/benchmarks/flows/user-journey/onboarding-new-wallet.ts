@@ -251,8 +251,9 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
         // months two gated metrics produced no value and the gate reported PASS beside
         // them. That is I2 of the admission gate, and these two legs are what it fires on.
         //
-        // If the degradation #42792 named still exists, restoring collection is how it
-        // becomes visible rather than a reason to keep it hidden.
+        // If the degradation `extension#42792` named -- the Assets Unified State
+        // regression on these two onboarding benchmarks -- still exists, restoring
+        // collection is how it becomes visible rather than a reason to keep it hidden.
         try {
           webVitals = await collectWebVitals(driver);
         } catch (error) {
