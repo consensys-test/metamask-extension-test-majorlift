@@ -89,11 +89,60 @@ export type HostProvenance = {
   cpuCount?: number;
   cpuSpeedMhz?: number;
   totalMemMb?: number;
-  /** Cumulative CPU steal since boot, percent. These runners are VMs, so the
-   * hypervisor can deschedule the guest without it appearing anywhere else. */
+  /**
+   * Cumulative CPU steal since boot, percent. These runners are VMs, so the
+   * hypervisor can deschedule the guest without it appearing anywhere else.
+   */
   stealPercent?: number;
   /** Fixed-work CPU probe, ms, timed in the Node process. Not the in-page probe. */
   cpuProbeMs?: number;
+};
+
+/**
+ * Run-level provenance: the configuration a measurement was taken under.
+ *
+ * I6 of the admission gate requires every sample to carry what decided it. `host`
+ * covers the MACHINE; this covers the HARNESS, which is the half that was missing.
+ * The gap was not hypothetical: an I1 poll sweep on 2026-10-06 wrote three arms whose
+ * only distinguishing record was the directory someone filed them in, because the poll
+ * timeout the sweep exists to vary appears nowhere in the artifact.
+ *
+ * Deliberately NOT here: `runId` and `runAttempt`. Those are
+ * `MetaMask/metamask-extension#45431`'s gaps 2 and 3 -- re-runs overwriting their own
+ * S3 objects, and Sentry carrying no run identifier -- and duplicating them here would
+ * put two writers on one field.
+ */
+export type RunProvenance = {
+  /** `GITHUB_SHA`: the commit the measured build came from. */
+  commit?: string;
+  /** `GITHUB_JOB`: which matrix job produced this artifact. */
+  jobName?: string;
+  /** `BENCHMARK_ITERATIONS`, so a short run is distinguishable from a truncated one. */
+  iterations?: number;
+  /** `BENCHMARK_PERSONA`: the fixture state the flow ran against. */
+  persona?: string;
+  /**
+   * The selenium poll interval in force, from `BENCHMARK_POLL_TIMEOUT_MS`.
+   *
+   * `null` means unset, which is not the same as absent: unset leaves selenium's own
+   * default and is the condition every production run is measured under, so an arm
+   * that did not set it has to be distinguishable from one measured before the knob
+   * existed.
+   */
+  pollTimeoutMs?: number | null;
+  /**
+   * Which mock delays were in force, as a stable id rather than a bag of flags.
+   *
+   * `prod` is the shipping configuration. `zero-delay` is every mocked delay removed.
+   * The two are not comparable: 88% of `swapQuoteFetch`'s production-config base is
+   * fixture, so a window crossing this boundary crosses a regime.
+   */
+  mockRegime?: string;
+  /**
+   * Which injection arm, if any, was active -- the V14 tripwire or the app-side span
+   * delay. Empty means a control arm, and a control has to be recorded as one.
+   */
+  arm?: string;
 };
 
 /** Per-metric statistics (mean, percentiles, etc.) */

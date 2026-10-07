@@ -17,6 +17,7 @@ import type {
 import { BENCHMARK_PERSONA } from '../../../../shared/constants/benchmarks';
 import type { Driver } from '../../webdriver/driver';
 import { captureHostProvenance } from './host-provenance';
+import { captureRunProvenance } from './run-provenance';
 import {
   ALL_METRICS,
   DEFAULT_NUM_BROWSER_LOADS,
@@ -593,6 +594,7 @@ export async function runPageLoadBenchmark(
     outliers: { ...trimmedCounts },
     values,
     host: captureHostProvenance(),
+    provenance: captureRunProvenance(),
     ...(webVitals && { webVitals }),
   };
 }
