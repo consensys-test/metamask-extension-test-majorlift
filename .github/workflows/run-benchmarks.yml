@@ -65,7 +65,7 @@ jobs:
       # V14 arm: force a second quote fetch by refilling the amount, and require
       # 2 `Swap Quote Fetch` spans. Read by `swap.ts` in THIS job's Node process,
       # so it belongs here rather than on the build job.
-      BENCHMARK_V14_INJECT: ''
+      BENCHMARK_V14_INJECT: 'cls'
       # '0' for the production-configuration window: `mockDelayMs()` gates on
       # `=== '1'`, so every one of the 73 artificial delays applies, as on main.
       BENCHMARK_ZERO_MOCK_DELAYS: '0'
