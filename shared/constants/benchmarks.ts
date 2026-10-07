@@ -210,6 +210,8 @@ export type BenchmarkResults = {
   values?: MetricSamples;
   /** The machine this run executed on */
   host?: HostProvenance;
+  /** The harness configuration this run was measured under */
+  provenance?: RunProvenance;
   webVitals?: WebVitalsSummary;
   /**
    * Set when every iteration failed. The statistics maps are then empty

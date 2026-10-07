@@ -368,6 +368,7 @@ export function convertTimerStatisticsToBenchmarkResults(
   const hasOutliers = Object.keys(outliers).length > 0;
   const hasValues = Object.keys(values).length > 0;
   const host = captureHostProvenance();
+  const provenance = captureRunProvenance();
 
   return {
     testTitle,
@@ -385,6 +386,7 @@ export function convertTimerStatisticsToBenchmarkResults(
     ...(hasOutliers && { outliers }),
     ...(hasValues && { values }),
     host,
+    provenance,
     ...(webVitals && { webVitals }),
   };
 }
