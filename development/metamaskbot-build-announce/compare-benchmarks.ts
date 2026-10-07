@@ -387,7 +387,17 @@ export function printScope(
   for (const { name, data } of benchmarks) {
     for (const [entryName, results] of Object.entries(data)) {
       const n = Object.keys(results.p75 ?? {}).length;
-      examined.push(`${entryName} [${parseArtifactName(name)?.browser ?? '?'}] — ${n} metrics`);
+      // Iterations, from the retained per-metric samples. A scope block that says
+      // how many metrics without saying over how many iterations leaves the reader
+      // unable to weigh any of them.
+      const sampleCounts = Object.values(results.values ?? {}).map(
+        (samples) => (Array.isArray(samples) ? samples.length : 0),
+      );
+      const iterations = sampleCounts.length > 0 ? Math.max(...sampleCounts) : 0;
+      examined.push(
+        `${entryName} [${parseArtifactName(name)?.browser ?? '?'}] — ${n} metrics, ` +
+          `${iterations > 0 ? `${iterations} iterations` : 'iterations not retained'}`,
+      );
     }
   }
   console.log(`\nExamined: ${examined.length} benchmark entries across ${benchmarks.length} artifacts`);
@@ -403,10 +413,28 @@ export function printScope(
   console.log(`\nUnarmed gated metrics: ${missingGated.length} produced no value and were NOT compared.`);
   console.log('      Each is a gated metric whose threshold could not be evaluated on this run.');
   for (const key of missingGated) {
-    // The MDE needs a spread, and an absent metric has none. Saying so beats a
-    // number that would imply the metric is sensitive.
-    console.log(`      ${key} — minimum detectable effect: uncomputable (no samples)`);
+    console.log(`      ${key} — no samples`);
   }
+
+  // W7 also asks for each unarmed metric's MINIMUM DETECTABLE EFFECT, and this
+  // report cannot supply it. Stage 3's MDE is Z x sd_BETWEEN-run, a property of a
+  // window; one CI invocation sees one run, whose `stdDev` is the WITHIN-run spread
+  // over its iterations. Those are different quantities and the within-run one is
+  // the smaller, so printing it here would read as sensitivity the gate does not
+  // have -- a misleading number being worse than an absent one in a report whose
+  // whole failure mode is absence reading as a pass.
+  //
+  // The implementable form is a qualified MDE carried per metric in the gated-metric
+  // configuration, established on the exploratory window that precedes admission and
+  // printed from there. That is a config change this report can then read; it is not
+  // something the report can compute.
+  console.log(
+    '\n      Minimum detectable effect is a window property (Z x between-run sd) and is',
+  );
+  console.log(
+    '      not computable from one run. It belongs in the gated-metric configuration,',
+  );
+  console.log('      set on the exploratory window that qualifies each metric.');
 }
 
 export function printReport(result: {
