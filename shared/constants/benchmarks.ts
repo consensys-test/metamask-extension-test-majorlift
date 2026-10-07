@@ -115,11 +115,19 @@ export type HostProvenance = {
 export type RunProvenance = {
   /** `GITHUB_SHA`: the commit the measured build came from. */
   commit?: string;
-  /** `GITHUB_JOB`: which matrix job produced this artifact. */
-  jobName?: string;
-  /** `BENCHMARK_ITERATIONS`, so a short run is distinguishable from a truncated one. */
+  /**
+   * `BENCHMARK_ITERATIONS` and `BENCHMARK_PERSONA`, where an entry point sets them.
+   *
+   * `run-benchmarks.yml` does not: it passes the preset and loads as CLI arguments, so
+   * both are absent there and the keys drop out. That is the intended behaviour of an
+   * optional field rather than a gap — they populate at the entry points that do set
+   * them, and a reader can tell "not set here" from the key's absence.
+   *
+   * There is deliberately no job field. `GITHUB_JOB` reads `benchmarks` on every leg of
+   * the matrix, and the leg's real identity — browser, build type, preset — is already
+   * in the artifact's filename, which the harvester parses.
+   */
   iterations?: number;
-  /** `BENCHMARK_PERSONA`: the fixture state the flow ran against. */
   persona?: string;
   /**
    * The selenium poll interval in force, from `BENCHMARK_POLL_TIMEOUT_MS`.

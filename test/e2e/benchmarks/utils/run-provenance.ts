@@ -36,7 +36,6 @@ export function captureRunProvenance(): RunProvenance {
 
   return {
     commit: process.env.GITHUB_SHA || undefined,
-    jobName: process.env.GITHUB_JOB || undefined,
     iterations: num(process.env.BENCHMARK_ITERATIONS),
     persona: process.env.BENCHMARK_PERSONA || undefined,
     pollTimeoutMs: num(process.env.BENCHMARK_POLL_TIMEOUT_MS) ?? null,

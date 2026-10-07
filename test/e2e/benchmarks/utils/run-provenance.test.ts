@@ -3,7 +3,6 @@ import { captureRunProvenance } from './run-provenance';
 describe('captureRunProvenance', () => {
   const KEYS = [
     'GITHUB_SHA',
-    'GITHUB_JOB',
     'BENCHMARK_ITERATIONS',
     'BENCHMARK_PERSONA',
     'BENCHMARK_POLL_TIMEOUT_MS',
@@ -30,14 +29,12 @@ describe('captureRunProvenance', () => {
 
   it('reads every field from the environment', () => {
     process.env.GITHUB_SHA = 'abc123';
-    process.env.GITHUB_JOB = 'chrome-webpack-userJourneyTransactions';
     process.env.BENCHMARK_ITERATIONS = '5';
     process.env.BENCHMARK_PERSONA = 'powerUser';
     process.env.BENCHMARK_POLL_TIMEOUT_MS = '500';
 
     expect(captureRunProvenance()).toStrictEqual({
       commit: 'abc123',
-      jobName: 'chrome-webpack-userJourneyTransactions',
       iterations: 5,
       persona: 'powerUser',
       pollTimeoutMs: 500,
