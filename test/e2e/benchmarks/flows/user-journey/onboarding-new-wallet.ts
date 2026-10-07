@@ -246,6 +246,38 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
         // result assembler omitted the key, so `cls` -- a GATED metric -- produced
         // no value and could not fail its threshold on any run. `fcp`, `lcp` and
         // `inp` were lost with it; those are not gated, so nothing reported them.
+        // V14 for `cls`. A tripwire never shown able to move is indistinguishable
+        // from a blind one, and `cls` reads 0.26134 on EVERY iteration here, sd
+        // 0.00000 -- which makes criterion 1 vacuous and leaves V14 as the only
+        // thing its admission can turn on.
+        //
+        // A deterministic metric makes the demonstration unusually clean. CLS sums
+        // (impact fraction x distance fraction) per shift, so prepending a block of
+        // known height to the body shifts everything below it by that height: the
+        // distance fraction is height / viewport height, and the impact fraction is
+        // close to 1 when the shifted content fills the viewport. At a 100 px block
+        // the expected increment is roughly 0.12-0.17 on a 600-800 px viewport.
+        //
+        // The predicted SIZE is a bonus; V14 asks only that the value move. What
+        // makes it checkable is the baseline being a constant -- any departure from
+        // 0.26134 is the injection and nothing else.
+        //
+        // Inserted via `executeScript` because the shift has to happen in the PAGE
+        // realm for the layout-shift observer to record it. The one-second wait is
+        // not cosmetic: shifts within 500 ms of a user interaction are excluded from
+        // CLS by definition, so an injection landing inside that window would score
+        // zero and read as a tripwire that cannot move.
+        if (process.env.BENCHMARK_V14_INJECT === 'cls') {
+          await driver.executeScript(`
+            const shim = document.createElement('div');
+            shim.style.height = '100px';
+            shim.style.width = '100%';
+            shim.setAttribute('data-benchmark-cls-injection', 'true');
+            document.body.prepend(shim);
+          `);
+          await driver.delay(1000);
+        }
+
         try {
           webVitals = await collectWebVitals(driver);
         } catch (error) {
