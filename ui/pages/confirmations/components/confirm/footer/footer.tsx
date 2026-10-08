@@ -330,6 +330,27 @@ const Footer = () => {
   const t = useI18nContext();
   const { isGaslessLoading } = useIsGaslessLoading();
 
+  // Layout-geometry arm for V1-V2 on `confirmTx.cls`. Read at webpack build
+  // time, like the sibling knobs: the benchmark job downloads a prebuilt
+  // artifact and never sees a build-job variable. Grown after the first paint,
+  // so the growth is a SHIFT rather than part of the initial layout -- a shift
+  // present from the first frame contributes nothing to CLS, which is how this
+  // arm would silently measure nothing.
+  //
+  // The existing injection site is `prepare-bridge-page.tsx`, which the
+  // confirm-transaction flow never renders; that is why a 20 px and a 100 px
+  // spacer moved `swap.cls` 7.8x and 30.3x and left `confirmTx.cls` flat. This
+  // site is in the footer the flow clicks Confirm in, so it is on the path.
+  const clsInjectPx = Number(process.env.BENCHMARK_CLS_INJECT_PX ?? 0);
+  const [clsSpacerHeight, setClsSpacerHeight] = useState(0);
+  useEffect(() => {
+    if (clsInjectPx <= 0) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setClsSpacerHeight(clsInjectPx), 400);
+    return () => clearTimeout(timer);
+  }, [clsInjectPx]);
+
   // Hardware preflight and signing follow the paying account: Money Account
   // deposits are signed by the money account but funded on-device by the
   // selected payer.
@@ -533,6 +554,9 @@ const Footer = () => {
 
   return (
     <>
+      {clsSpacerHeight > 0 ? (
+        <div data-testid="cls-inject-spacer" style={{ height: clsSpacerHeight }} />
+      ) : null}
       <ShieldFooterCoverageIndicator />
       <PageFooter
         className="confirm-footer_page-footer"
