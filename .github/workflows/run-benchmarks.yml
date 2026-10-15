@@ -66,9 +66,10 @@ jobs:
       # 2 `Swap Quote Fetch` spans. Read by `swap.ts` in THIS job's Node process,
       # so it belongs here rather than on the build job.
       BENCHMARK_V14_INJECT: ''
-      # '0' for the production-configuration window: `mockDelayMs()` gates on
-      # `=== '1'`, so every one of the 76 artificial delays applies, as on main.
-      BENCHMARK_ZERO_MOCK_DELAYS: '0'
+      # Zero arm: every one of the 76 artificial delays is 0, so each in-page
+      # value's fixture share is measurable by subtraction against the delays-on
+      # CUF window (aa-cufaa-2026-10-15).
+      BENCHMARK_ZERO_MOCK_DELAYS: '1'
       SELENIUM_BROWSER: ${{ matrix.browser }}
       SELENIUM_HEADLESS: true
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
