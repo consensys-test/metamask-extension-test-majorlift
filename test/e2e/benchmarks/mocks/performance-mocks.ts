@@ -13,6 +13,12 @@ import {
   mockTokensV2SupportedNetworks,
   mockTokensV3Assets,
 } from '../../tests/btc/mocks/tokens-api';
+import {
+  KNOWN_ANSWER_QUOTE_DELAY,
+  KNOWN_ANSWER_SOLANA_BLOCKHASH_DELAY,
+  getKnownAnswerDelayMs,
+  withKnownAnswerDelay,
+} from './known-answer';
 import { POWER_USER_PRICES } from './price-data';
 import { buildSseResponseBody } from './swap-mocks';
 import bridgeNetworkTokens from './bridge-network-tokens.json';
@@ -130,17 +136,7 @@ const QUOTE_RESPONSE_DELAY_MS = Number(
  * @returns The extra delay in milliseconds.
  */
 function getKnownAnswerQuoteDelayMs(): number {
-  const raw = process.env.BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS;
-  if (raw === undefined || raw === '') {
-    return 0;
-  }
-  const delayMs = Number(raw);
-  if (!Number.isInteger(delayMs) || delayMs < 0) {
-    throw new Error(
-      `BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS must be a non-negative integer, got "${raw}"`,
-    );
-  }
-  return delayMs;
+  return getKnownAnswerDelayMs(KNOWN_ANSWER_QUOTE_DELAY);
 }
 
 function delayedCallback<TResponse>(
@@ -1169,7 +1165,12 @@ export async function mockBenchmarkEndpoints(
       .withJsonBodyIncluding({ method: 'getLatestBlockhash' })
       .asPriority(MOCK_PRIORITIES.HIGH_PRIORITY)
       .always()
-      .thenCallback(delayedResponse(100, SOLANA_GET_LATEST_BLOCKHASH)),
+      .thenCallback(
+        withKnownAnswerDelay(
+          KNOWN_ANSWER_SOLANA_BLOCKHASH_DELAY,
+          delayedResponse(100, SOLANA_GET_LATEST_BLOCKHASH),
+        ),
+      ),
   );
 
   endpoints.push(

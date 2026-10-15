@@ -4,17 +4,22 @@
  */
 
 import { Mockttp } from 'mockttp';
+import { Key } from 'selenium-webdriver';
 import FixtureBuilderV2 from '../../../fixtures/fixture-builder-v2';
 import { withFixtures } from '../../../helpers';
 import { login } from '../../../page-objects/flows/login.flow';
 import BridgeQuotePage from '../../../page-objects/pages/bridge/quote-page';
-import HomePage from '../../../page-objects/pages/home/homepage';
+import SwapPage from '../../../page-objects/pages/swap/swap-page';
 import {
   DEFAULT_BRIDGE_FEATURE_FLAGS,
   MOCK_TOKENS_ETHEREUM,
 } from '../../../tests/bridge/constants';
 import { Driver } from '../../../webdriver/driver';
 import { buildLongTaskTimerResults } from '../../utils/long-task-helper';
+import {
+  KNOWN_ANSWER_TOKEN_SEARCH_DELAY,
+  withKnownAnswerDelay,
+} from '../../mocks/known-answer';
 import {
   IN_PAGE_DESTINATIONS,
   finishInPageStep,
@@ -39,8 +44,8 @@ const FXS_ADDRESS = MOCK_TOKENS_ETHEREUM.find(
 )?.address;
 
 async function mockTokensEthereum(mockServer: Mockttp) {
-  return await mockServer.forPost(/getTokens\/search/u).thenCallback(() => {
-    return {
+  return await mockServer.forPost(/getTokens\/search/u).thenCallback(
+    withKnownAnswerDelay(KNOWN_ANSWER_TOKEN_SEARCH_DELAY, () => ({
       statusCode: 200,
       json: {
         data: MOCK_TOKENS_ETHEREUM.map((token) => ({
@@ -53,8 +58,8 @@ async function mockTokensEthereum(mockServer: Mockttp) {
           endCursor: null,
         },
       },
-    };
-  });
+    })),
+  );
 }
 
 export async function run(): Promise<BenchmarkRunResult> {
@@ -84,25 +89,28 @@ export async function run(): Promise<BenchmarkRunResult> {
       },
       async ({ driver }: { driver: Driver }) => {
         await login(driver);
-        const homePage = new HomePage(driver);
         const quotePage = new BridgeQuotePage(driver);
 
-        // Each step's in-page probe is installed before its long-task reset,
-        // so neither the step's timer nor its long-task window moves. The
-        // probes are read after the last step: the first two step timers end
-        // at the click, and the next step is what waits for the page, so
-        // waiting for it here would shorten the next step's timer.
-        const inPageProbes: string[] = [];
-        if (
-          await startInPageStep(driver, 'bridge_load_page', {
-            endSelector: IN_PAGE_DESTINATIONS.swapPage,
-          })
-        ) {
-          inPageProbes.push('bridge_load_page');
-        }
+        // Each step's timer holds only the triggering input and the page's
+        // response: the harness waits for the element the input goes to, and
+        // clears the search field, before the timer starts, so inside it the
+        // click or the typing finds its target at once; the timer stops when
+        // the step's destination is in the DOM. The in-page probe is
+        // installed before the long-task reset and read after the step, so
+        // neither moves the step's timer or its long-task window.
+
+        // Measure: home Swap button to the swap page.
+        const swapButton = { css: 'button', text: 'Swap' };
+        await driver.findClickableElement(swapButton);
+        const loadPageProbe = await startInPageStep(
+          driver,
+          'bridge_load_page',
+          { endSelector: IN_PAGE_DESTINATIONS.swapPage },
+        );
         await driver.resetLongTaskMetrics();
         const timestampBeforeLoadPage = new Date();
-        await homePage.startSwapFlow();
+        await driver.clickElement(swapButton);
+        await new SwapPage(driver).checkPageIsLoaded();
         const timestampAfterLoadPage = new Date();
         loadPage =
           timestampAfterLoadPage.getTime() - timestampBeforeLoadPage.getTime();
@@ -116,17 +124,23 @@ export async function run(): Promise<BenchmarkRunResult> {
           tbt: longTaskData?.tbt ?? 0,
           longTasksObserved: longTaskData?.observed ?? false,
         });
-
-        if (
-          await startInPageStep(driver, 'bridge_load_asset_picker', {
-            endSelector: IN_PAGE_DESTINATIONS.bridgeAssetPicker,
-          })
-        ) {
-          inPageProbes.push('bridge_load_asset_picker');
+        if (loadPageProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(driver, 'bridge_load_page')),
+          );
         }
+
+        // Measure: source asset button to the asset picker's search field.
+        await driver.findClickableElement(quotePage.sourceAssetPickerButton);
+        const assetPickerProbe = await startInPageStep(
+          driver,
+          'bridge_load_asset_picker',
+          { endSelector: IN_PAGE_DESTINATIONS.bridgeAssetPicker },
+        );
         await driver.resetLongTaskMetrics();
         const timestampBeforeClickAssetPicker = new Date();
         await driver.clickElement(quotePage.sourceAssetPickerButton);
+        await driver.waitForSelector(quotePage.assetPrickerSearchInput);
         const timestampAfterClickAssetPicker = new Date();
         loadAssetPicker =
           timestampAfterClickAssetPicker.getTime() -
@@ -141,25 +155,38 @@ export async function run(): Promise<BenchmarkRunResult> {
           tbt: longTaskData?.tbt ?? 0,
           longTasksObserved: longTaskData?.observed ?? false,
         });
+        if (assetPickerProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(driver, 'bridge_load_asset_picker')),
+          );
+        }
 
+        // Measure: typing the search to the matching row. The field is
+        // cleared, if it holds anything, before the timer starts, rather than
+        // by `driver.fill` inside it, which also waits 200 ms. The result row
+        // is matched by the address in its asset id, since a CSS selector
+        // cannot match the symbol text the step timer waits on.
         const tokenToSearch = 'FXS';
-        // The search starts on the first character typed: `driver.fill`
-        // clears the field with a modifier chord, then waits 200 ms, first.
-        // The result row is matched by the address in its asset id, since a
-        // CSS selector cannot match the symbol text the step timer waits on.
-        if (
+        const searchInput = await driver.findElement(
+          quotePage.assetPrickerSearchInput,
+        );
+        if ((await searchInput.getAttribute('value')) !== '') {
+          await searchInput.sendKeys(
+            Key.chord(driver.Key.MODIFIER, 'a', driver.Key.BACK_SPACE),
+          );
+        }
+        const searchProbe =
           FXS_ADDRESS !== undefined &&
           (await startInPageStep(driver, 'bridge_search_token', {
             endSelector: `[data-testid^="bridge-asset--"][data-testid$="${FXS_ADDRESS}" i]`,
             startWithin: quotePage.assetPrickerSearchInput,
             typedOnly: true,
-          }))
-        ) {
-          inPageProbes.push('bridge_search_token');
-        }
+          }));
         await driver.resetLongTaskMetrics();
         const timestampBeforeTokenSearch = new Date();
-        await driver.fill(quotePage.assetPrickerSearchInput, tokenToSearch);
+        await (
+          await driver.findElement(quotePage.assetPrickerSearchInput)
+        ).sendKeys(tokenToSearch);
         await driver.waitForSelector({
           text: tokenToSearch,
           css: quotePage.tokenButton,
@@ -178,9 +205,10 @@ export async function run(): Promise<BenchmarkRunResult> {
           tbt: longTaskData?.tbt ?? 0,
           longTasksObserved: longTaskData?.observed ?? false,
         });
-
-        for (const stepId of inPageProbes) {
-          inPageTimers.push(...(await finishInPageStep(driver, stepId)));
+        if (searchProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(driver, 'bridge_search_token')),
+          );
         }
 
         try {

@@ -543,6 +543,12 @@ export const IN_PAGE_DESTINATIONS = {
     '[data-testid="create-password-new-input"]',
     '[data-testid="create-password-confirm-input"]',
   ],
+  /** `SetupPasskeyPage.checkPageIsLoaded`. */
+  setupPasskey: [
+    '[data-testid="parent-selector-setup-passkey"]',
+    '[data-testid="passkey-maybe-later-button"]',
+    '[data-testid="passkey-set-up-button"]',
+  ],
   /** `SecureWalletPage.checkPageIsLoaded`. */
   onboardingSecureWallet: [
     '[data-testid="parent-selector-secure-wallet"]',

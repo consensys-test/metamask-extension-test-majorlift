@@ -21,6 +21,7 @@ import OnboardingCompletePage from '../../../page-objects/pages/onboarding/onboa
 import OnboardingMetricsPage from '../../../page-objects/pages/onboarding/onboarding-metrics-page';
 import OnboardingPasswordPage from '../../../page-objects/pages/onboarding/onboarding-password-page';
 import OnboardingSrpPage from '../../../page-objects/pages/onboarding/onboarding-srp-page';
+import SetupPasskeyPage from '../../../page-objects/pages/onboarding/setup-passkey-page';
 import StartOnboardingPage from '../../../page-objects/pages/onboarding/start-onboarding-page';
 import { Driver } from '../../../webdriver/driver';
 import { collectTimerResults } from '../../utils/timer-helper';
@@ -196,12 +197,22 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         // before the next step timer opens.
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
         let walletReadyProbe = false;
+        let passkeyProbe = false;
         if (isFirefox) {
           walletReadyProbe = await startInPageStep(
             driver,
             'metricsToWalletReadyScreen',
             {
               endSelector: IN_PAGE_DESTINATIONS.onboardingComplete,
+              startWithin: '[data-testid="create-password-submit"]',
+            },
+          );
+        } else {
+          passkeyProbe = await startInPageStep(
+            driver,
+            'pwFormToMetricsScreen',
+            {
+              endSelector: IN_PAGE_DESTINATIONS.setupPasskey,
               startWithin: '[data-testid="create-password-submit"]',
             },
           );
@@ -212,25 +223,29 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         );
         await driver.clickElement('[data-testid="create-password-submit"]');
 
-        // Measure: Password to Metrics (Chrome only). No in-page timer: the
-        // passkey screen sits between the two, and the harness dismisses it
-        // inside the step, so the region would include the harness's reaction.
-        // The passkey screen gets the 15 s the dropped wait allowed on top of
-        // its own 5 s, so a slow wallet creation fails no sooner than before.
-        if (isFirefox) {
-          await skipPasskeySetup(driver);
-        } else {
+        // Measure: Password to Metrics (Chrome only). Chrome shows the passkey
+        // screen first, and the harness dismisses it, so the step ends when
+        // the passkey screen has loaded: the dismissal, and the metrics screen
+        // that follows it, stay outside both timers. The passkey screen gets
+        // the 15 s the dropped wait allowed on top of its own 5 s, so a slow
+        // wallet creation fails no sooner than before.
+        if (!isFirefox) {
           steps.push(
             await measureStepWithLongTasks(
               driver,
               'pwFormToMetricsScreen',
               async () => {
-                await skipPasskeySetup(driver, { timeout: 20000 });
-                const onboardingMetricsPage = new OnboardingMetricsPage(driver);
-                await onboardingMetricsPage.checkPageIsLoaded();
+                await new SetupPasskeyPage(driver).checkPageIsLoaded(20000);
               },
             ),
           );
+          if (passkeyProbe) {
+            inPageTimers.push(
+              ...(await finishInPageStep(driver, 'pwFormToMetricsScreen')),
+            );
+          }
+          await skipPasskeySetup(driver);
+          await new OnboardingMetricsPage(driver).checkPageIsLoaded();
           // The Continue click alone triggers the next step: through
           // `clickOnContinueButton` the step timer would open only once the
           // button had left the page.

@@ -43,9 +43,9 @@
  *
  * `createPwToRecoveryScreen` - `TraceName.OnboardingPasswordSetupAttempt`
  * covers the mount and unmount of `create-password.tsx`. It opens at the
- * previous step's end, so it includes the harness typing the password, and it
- * closes on the route change to the passkey screen, before this step's
- * `skipPasskeySetup` runs.
+ * previous step's end, so it includes the harness typing the password, which
+ * this step does not. It closes on the route change to the passkey screen,
+ * which is where this step now ends on Chrome.
  *
  * `skipBackupToMetricsScreen` - `handleRemindLater` ends two spans on this
  * click and starts none, and nothing ends when the metrics screen loads.
@@ -96,6 +96,7 @@ import OnboardingCompletePage from '../../../page-objects/pages/onboarding/onboa
 import OnboardingMetricsPage from '../../../page-objects/pages/onboarding/onboarding-metrics-page';
 import OnboardingPasswordPage from '../../../page-objects/pages/onboarding/onboarding-password-page';
 import SecureWalletPage from '../../../page-objects/pages/onboarding/secure-wallet-page';
+import SetupPasskeyPage from '../../../page-objects/pages/onboarding/setup-passkey-page';
 import StartOnboardingPage from '../../../page-objects/pages/onboarding/start-onboarding-page';
 import { Driver } from '../../../webdriver/driver';
 import { collectTimerResults } from '../../utils/timer-helper';
@@ -206,22 +207,28 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
           })),
         );
 
-        // Measure: Password to Recovery. In-page on Firefox only: on Chrome
-        // the passkey screen sits between the two, and the harness dismisses
-        // it inside the step, so the region would include the harness's
-        // reaction. The harness types both fields and ticks the terms before
-        // it submits, so the in-page timer starts on the submit click. The
-        // submit is clicked here rather than through `createWalletPassword`,
-        // which would then wait up to 15 s for the button to leave the page
-        // before the step timer opens; the passkey screen gets those 15 s on
-        // top of its own 5 s, so a slow wallet creation fails no sooner.
+        // Measure: Password to Recovery. On Chrome the passkey screen comes
+        // first, and the harness dismisses it, so there the step ends when
+        // the passkey screen has loaded: the dismissal, and the recovery
+        // screen that follows it, stay outside both timers. On Firefox the
+        // step ends at the recovery screen. The harness types both fields and
+        // ticks the terms before it submits, so the in-page timer starts on
+        // the submit click. The submit is clicked here rather than through
+        // `createWalletPassword`, which would then wait up to 15 s for the
+        // button to leave the page before the step timer opens; the passkey
+        // screen gets those 15 s on top of its own 5 s, so a slow wallet
+        // creation fails no sooner.
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
-        const recoveryProbe =
-          isFirefox &&
-          (await startInPageStep(driver, 'createPwToRecoveryScreen', {
-            endSelector: IN_PAGE_DESTINATIONS.onboardingSecureWallet,
+        const recoveryProbe = await startInPageStep(
+          driver,
+          'createPwToRecoveryScreen',
+          {
+            endSelector: isFirefox
+              ? IN_PAGE_DESTINATIONS.onboardingSecureWallet
+              : IN_PAGE_DESTINATIONS.setupPasskey,
             startWithin: '[data-testid="create-password-submit"]',
-          }));
+          },
+        );
         await onboardingPasswordPage.fillWalletPassword(
           WALLET_PASSWORD,
           WALLET_PASSWORD,
@@ -232,9 +239,11 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             driver,
             'createPwToRecoveryScreen',
             async () => {
-              await skipPasskeySetup(driver, { timeout: 20000 });
-              const secureWalletPage = new SecureWalletPage(driver);
-              await secureWalletPage.checkPageIsLoaded();
+              if (isFirefox) {
+                await new SecureWalletPage(driver).checkPageIsLoaded();
+              } else {
+                await new SetupPasskeyPage(driver).checkPageIsLoaded(20000);
+              }
             },
           ),
         );
@@ -242,6 +251,10 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
           inPageTimers.push(
             ...(await finishInPageStep(driver, 'createPwToRecoveryScreen')),
           );
+        }
+        if (!isFirefox) {
+          await skipPasskeySetup(driver);
+          await new SecureWalletPage(driver).checkPageIsLoaded();
         }
 
         // Skip recovery backup. This triggers `skipBackupToMetricsScreen` on
