@@ -46,22 +46,14 @@ jobs:
       # unset: GitHub-hosted runners do not expose the Azure region in the
       # environment, and guessing it is worse than leaving the field undefined.
       BENCHMARK_RUNNER_LABEL: ubuntu-latest
-      # Zero arm of the composition check. The mocked quote delay is a
-      # `setTimeout` inside the mockttp server, which runs in THIS job's Node
-      # process -- not in the extension bundle -- so it belongs here and not on
-      # the build job. `SENTRY_SAMPLE_RATE_OVERRIDES` is the opposite case and
-      # sits in `run-build.yml`; putting that one here cost a void arm already.
-      # UNSET for the production-configuration window: `performance-mocks.ts` reads
-      # `Number(process.env.BENCHMARK_QUOTE_RESPONSE_DELAY_MS ?? 2000)` and
-      # `origin/main` hardcodes `delayedCallback(2000, ...)` at the same site, so
-      # leaving this absent reproduces what ships. Setting it to '' would NOT:
-      # `Number('')` is 0, which is the arm this window exists to stop measuring.
-      # Criterion 2, re-derived against the app-side delta_block. 2 x delta_block is
-      # 89.50 ms (chrome) and 97.18 (firefox) on the 15-run zero-delay window, so 98
-      # clears both -- 2.19x and 2.02x of delta_block, the ratios the 462 ms arm ran
-      # at against the mock-inflated base. The 462 arm is 5.2x/4.8x too large to say
-      # anything about the current threshold.
-      BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '0'
+      # Known-answer arm (unit 3): each of the three levers adds 300 ms to the one
+      # mocked response its in-page step waits on. Compared against the A/A window
+      # on tree 55575eea7d7, where all three are 0, so each targeted in-page value
+      # should move by 300 ms and every other series should not move. The levers
+      # are read in THIS job's Node process, where the mockttp server runs.
+      BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '300'
+      BENCHMARK_KNOWN_ANSWER_SOLANA_BLOCKHASH_DELAY_MS: '300'
+      BENCHMARK_KNOWN_ANSWER_TOKEN_SEARCH_DELAY_MS: '300'
       # V14 arm: force a second quote fetch by refilling the amount, and require
       # 2 `Swap Quote Fetch` spans. Read by `swap.ts` in THIS job's Node process,
       # so it belongs here rather than on the build job.
