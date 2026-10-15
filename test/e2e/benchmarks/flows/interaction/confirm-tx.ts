@@ -40,6 +40,10 @@ export async function run(): Promise<BenchmarkRunResult> {
           amount: '1',
         });
 
+        // No in-page timer for this step (see `in-page-step-timer.ts`): after
+        // the Confirm click the harness clicks the Activity tab before the
+        // confirmed transaction can render, so the region would include the
+        // harness's own reaction time.
         await driver.resetLongTaskMetrics();
         const timestampBeforeAction = new Date();
 

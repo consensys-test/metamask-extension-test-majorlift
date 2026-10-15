@@ -16,14 +16,27 @@ import {
 import { Driver } from '../../../webdriver/driver';
 import { buildLongTaskTimerResults } from '../../utils/long-task-helper';
 import {
+  IN_PAGE_DESTINATIONS,
+  finishInPageStep,
+  startInPageStep,
+} from '../../utils/in-page-step-timer';
+import {
   BENCHMARK_PERSONA,
   BENCHMARK_TYPE,
 } from '../../../../../shared/constants/benchmarks';
 import { runUserActionBenchmark, collectWebVitals } from '../../utils';
-import type { BenchmarkRunResult, LongTaskStepResult } from '../../utils/types';
+import type {
+  BenchmarkRunResult,
+  LongTaskStepResult,
+  TimerResult,
+} from '../../utils/types';
 
 export const testTitle = 'benchmark-user-actions-bridge-user-actions';
 export const persona = BENCHMARK_PERSONA.STANDARD;
+
+const FXS_ADDRESS = MOCK_TOKENS_ETHEREUM.find(
+  (token) => token.symbol === 'FXS',
+)?.address;
 
 async function mockTokensEthereum(mockServer: Mockttp) {
   return await mockServer.forPost(/getTokens\/search/u).thenCallback(() => {
@@ -50,6 +63,7 @@ export async function run(): Promise<BenchmarkRunResult> {
     let loadAssetPicker: number = 0;
     let searchToken: number = 0;
     const steps: LongTaskStepResult[] = [];
+    const inPageTimers: TimerResult[] = [];
     let webVitals;
 
     const fixtureBuilder = new FixtureBuilderV2().withEnabledNetworks({
@@ -73,6 +87,19 @@ export async function run(): Promise<BenchmarkRunResult> {
         const homePage = new HomePage(driver);
         const quotePage = new BridgeQuotePage(driver);
 
+        // Each step's in-page probe is installed before its long-task reset,
+        // so neither the step's timer nor its long-task window moves. The
+        // probes are read after the last step: the first two step timers end
+        // at the click, and the next step is what waits for the page, so
+        // waiting for it here would shorten the next step's timer.
+        const inPageProbes: string[] = [];
+        if (
+          await startInPageStep(driver, 'bridge_load_page', {
+            endSelector: IN_PAGE_DESTINATIONS.swapPage,
+          })
+        ) {
+          inPageProbes.push('bridge_load_page');
+        }
         await driver.resetLongTaskMetrics();
         const timestampBeforeLoadPage = new Date();
         await homePage.startSwapFlow();
@@ -90,6 +117,13 @@ export async function run(): Promise<BenchmarkRunResult> {
           longTasksObserved: longTaskData?.observed ?? false,
         });
 
+        if (
+          await startInPageStep(driver, 'bridge_load_asset_picker', {
+            endSelector: IN_PAGE_DESTINATIONS.bridgeAssetPicker,
+          })
+        ) {
+          inPageProbes.push('bridge_load_asset_picker');
+        }
         await driver.resetLongTaskMetrics();
         const timestampBeforeClickAssetPicker = new Date();
         await driver.clickElement(quotePage.sourceAssetPickerButton);
@@ -109,6 +143,20 @@ export async function run(): Promise<BenchmarkRunResult> {
         });
 
         const tokenToSearch = 'FXS';
+        // The search starts on the first character typed: `driver.fill`
+        // clears the field with a modifier chord, then waits 200 ms, first.
+        // The result row is matched by the address in its asset id, since a
+        // CSS selector cannot match the symbol text the step timer waits on.
+        if (
+          FXS_ADDRESS !== undefined &&
+          (await startInPageStep(driver, 'bridge_search_token', {
+            endSelector: `[data-testid^="bridge-asset--"][data-testid$="${FXS_ADDRESS}" i]`,
+            startWithin: quotePage.assetPrickerSearchInput,
+            typedOnly: true,
+          }))
+        ) {
+          inPageProbes.push('bridge_search_token');
+        }
         await driver.resetLongTaskMetrics();
         const timestampBeforeTokenSearch = new Date();
         await driver.fill(quotePage.assetPrickerSearchInput, tokenToSearch);
@@ -131,6 +179,10 @@ export async function run(): Promise<BenchmarkRunResult> {
           longTasksObserved: longTaskData?.observed ?? false,
         });
 
+        for (const stepId of inPageProbes) {
+          inPageTimers.push(...(await finishInPageStep(driver, stepId)));
+        }
+
         try {
           webVitals = await collectWebVitals(driver);
         } catch (error) {
@@ -143,6 +195,7 @@ export async function run(): Promise<BenchmarkRunResult> {
       timers: [
         ...steps.map((s) => ({ id: s.id, value: s.duration })),
         ...buildLongTaskTimerResults(steps),
+        ...inPageTimers,
       ],
       webVitals,
     };

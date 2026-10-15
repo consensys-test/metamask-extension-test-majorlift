@@ -103,6 +103,12 @@ import {
   buildLongTaskTimerResults,
 } from '../../utils/long-task-helper';
 import {
+  IN_PAGE_DESTINATIONS,
+  finishInPageStep,
+  measureStepInPage,
+  startInPageStep,
+} from '../../utils/in-page-step-timer';
+import {
   getTestSpecificMock,
   shouldUseMockedRequests,
 } from '../../utils/mock-config';
@@ -112,13 +118,18 @@ import {
   type WebVitalsMetrics,
 } from '../../../../../shared/constants/benchmarks';
 import { collectWebVitals } from '../../utils';
-import type { BenchmarkRunResult, LongTaskStepResult } from '../../utils/types';
+import type {
+  BenchmarkRunResult,
+  LongTaskStepResult,
+  TimerResult,
+} from '../../utils/types';
 
 export const testTitle = 'benchmark-onboarding-new-wallet';
 export const persona = BENCHMARK_PERSONA.STANDARD;
 
 export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
+  const inPageTimers: TimerResult[] = [];
   let webVitals: WebVitalsMetrics | undefined;
   try {
     await withFixtures(
@@ -148,35 +159,63 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
           });
         }
 
-        // Measure: Create wallet to Social screen
+        // Measure: Create wallet to Social screen. Each `<stepId>InPage`
+        // times its step from the triggering input itself, on the page's
+        // clock; the step timers are unchanged.
         const startOnboardingPage = new StartOnboardingPage(driver);
         await startOnboardingPage.checkLoginPageIsLoaded();
-        await startOnboardingPage.createWalletWithSrp(false);
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'createWalletToSocialScreen',
-            async () => {
-              await startOnboardingPage.checkSocialSignUpFormIsVisible();
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'createWalletToSocialScreen', {
+            endSelector: IN_PAGE_DESTINATIONS.onboardingCreateOptions,
+            trigger: () => startOnboardingPage.createWalletWithSrp(false),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'createWalletToSocialScreen',
+                  async () => {
+                    await startOnboardingPage.checkSocialSignUpFormIsVisible();
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
         // Measure: SRP button to Password form
-        await startOnboardingPage.clickCreateWithSrpButton();
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'srpButtonToPwForm',
-            async () => {
-              const onboardingPasswordPage = new OnboardingPasswordPage(driver);
-              await onboardingPasswordPage.checkPageIsLoaded();
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'srpButtonToPwForm', {
+            endSelector: IN_PAGE_DESTINATIONS.onboardingPassword,
+            trigger: () => startOnboardingPage.clickCreateWithSrpButton(),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'srpButtonToPwForm',
+                  async () => {
+                    const onboardingPasswordPage = new OnboardingPasswordPage(
+                      driver,
+                    );
+                    await onboardingPasswordPage.checkPageIsLoaded();
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
-        // Measure: Password to Recovery
+        // Measure: Password to Recovery. In-page on Firefox only: on Chrome
+        // the passkey screen sits between the two, and the harness dismisses
+        // it inside the step, so the region would include the harness's
+        // reaction. `createWalletPassword` types both fields and ticks the
+        // terms before it submits, so the timer starts on the submit click.
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
+        const recoveryProbe =
+          isFirefox &&
+          (await startInPageStep(driver, 'createPwToRecoveryScreen', {
+            endSelector: IN_PAGE_DESTINATIONS.onboardingSecureWallet,
+            startWithin: '[data-testid="create-password-submit"]',
+          }));
         await onboardingPasswordPage.createWalletPassword(WALLET_PASSWORD);
         steps.push(
           await measureStepWithLongTasks(
@@ -189,12 +228,27 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             },
           ),
         );
+        if (recoveryProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(driver, 'createPwToRecoveryScreen')),
+          );
+        }
 
-        // Skip recovery backup
+        // Skip recovery backup. This triggers `skipBackupToMetricsScreen` on
+        // Chrome, and `agreeButtonToOnboardingSuccess` on Firefox, where no
+        // metrics screen follows because metrics were decided up front.
         const secureWalletPage = new SecureWalletPage(driver);
+        const skipBackupProbe = isFirefox
+          ? await startInPageStep(driver, 'agreeButtonToOnboardingSuccess', {
+              endSelector: IN_PAGE_DESTINATIONS.onboardingComplete,
+            })
+          : await startInPageStep(driver, 'skipBackupToMetricsScreen', {
+              endSelector: IN_PAGE_DESTINATIONS.onboardingMetrics,
+            });
         await secureWalletPage.skipSRPBackup();
 
         // Measure: Skip to Metrics (Chrome only)
+        let agreeProbe = isFirefox && skipBackupProbe;
         if (!isFirefox) {
           steps.push(
             await measureStepWithLongTasks(
@@ -206,7 +260,17 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
               },
             ),
           );
+          if (skipBackupProbe) {
+            inPageTimers.push(
+              ...(await finishInPageStep(driver, 'skipBackupToMetricsScreen')),
+            );
+          }
           const onboardingMetricsPage = new OnboardingMetricsPage(driver);
+          agreeProbe = await startInPageStep(
+            driver,
+            'agreeButtonToOnboardingSuccess',
+            { endSelector: IN_PAGE_DESTINATIONS.onboardingComplete },
+          );
           await onboardingMetricsPage.clickOnContinueButton();
         }
 
@@ -221,9 +285,29 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             },
           ),
         );
+        if (agreeProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(
+              driver,
+              'agreeButtonToOnboardingSuccess',
+            )),
+          );
+        }
 
-        // Measure: Done to Asset list
+        // Measure: Done to Asset list. In-page on Firefox only: on Chrome,
+        // Done opens the side panel in another window and the harness then
+        // loads `home.html` afresh, so the destination is in a different
+        // document. On Firefox Done navigates within the page. The in-page
+        // timer ends when the token list renders; the step timer goes on to
+        // wait for the Ethereum and Solana rows by their text, which no CSS
+        // selector can match.
         const onboardingCompletePage = new OnboardingCompletePage(driver);
+        const assetListProbe =
+          isFirefox &&
+          (await startInPageStep(driver, 'doneButtonToAssetList', {
+            endSelector: IN_PAGE_DESTINATIONS.homeWithTokenList,
+            startWithin: '[data-testid="onboarding-complete-done"]',
+          }));
         await onboardingCompletePage.completeOnboarding();
         await handleSidepanelPostOnboarding(driver);
         steps.push(
@@ -240,6 +324,11 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             },
           ),
         );
+        if (assetListProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(driver, 'doneButtonToAssetList')),
+          );
+        }
         // BUG #42792 This test is failing with the ASSETS_UNIFIED_STATE_ENABLED='true'
         // commenting out temporarily to unblock the release
         /*
@@ -253,14 +342,22 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
     );
 
     return {
-      timers: [...collectTimerResults(), ...buildLongTaskTimerResults(steps)],
+      timers: [
+        ...collectTimerResults(),
+        ...buildLongTaskTimerResults(steps),
+        ...inPageTimers,
+      ],
       webVitals,
       success: true,
       benchmarkType: BENCHMARK_TYPE.PERFORMANCE,
     };
   } catch (error) {
     return {
-      timers: [...collectTimerResults(), ...buildLongTaskTimerResults(steps)],
+      timers: [
+        ...collectTimerResults(),
+        ...buildLongTaskTimerResults(steps),
+        ...inPageTimers,
+      ],
       webVitals,
       success: false,
       error: error instanceof Error ? error.message : String(error),

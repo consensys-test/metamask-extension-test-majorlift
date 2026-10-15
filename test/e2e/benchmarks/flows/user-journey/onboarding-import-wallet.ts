@@ -30,6 +30,12 @@ import {
   buildLongTaskTimerResults,
 } from '../../utils/long-task-helper';
 import {
+  IN_PAGE_DESTINATIONS,
+  finishInPageStep,
+  measureStepInPage,
+  startInPageStep,
+} from '../../utils/in-page-step-timer';
+import {
   sentryCountResult,
   sentryTimerResult,
   waitForSentryTransactions,
@@ -61,6 +67,7 @@ export const persona = BENCHMARK_PERSONA.POWER_USER;
 export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
   const traceTimers: TimerResult[] = [];
+  const inPageTimers: TimerResult[] = [];
   let webVitals: WebVitalsMetrics | undefined;
   try {
     await withFixtures(
@@ -111,53 +118,93 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
           });
         }
 
-        // Measure: Import wallet button to Social screen
+        // Measure: Import wallet button to Social screen. Each
+        // `<stepId>InPage` times its step from the triggering input itself, on
+        // the page's clock; the step timers are unchanged.
         const startOnboardingPage = new StartOnboardingPage(driver);
         await startOnboardingPage.checkLoginPageIsLoaded();
-        await startOnboardingPage.importWallet(false);
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'importWalletToSocialScreen',
-            async () => {
-              await startOnboardingPage.checkUserSrpButtonIsVisible();
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'importWalletToSocialScreen', {
+            endSelector: IN_PAGE_DESTINATIONS.onboardingImportOptions,
+            trigger: () => startOnboardingPage.importWallet(false),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'importWalletToSocialScreen',
+                  async () => {
+                    await startOnboardingPage.checkUserSrpButtonIsVisible();
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
         // Measure: SRP button to form
-        await startOnboardingPage.clickImportWithSrpButton();
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'srpButtonToSrpForm',
-            async () => {
-              const onboardingSrpPage = new OnboardingSrpPage(driver);
-              await onboardingSrpPage.checkPageIsLoaded();
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'srpButtonToSrpForm', {
+            endSelector: IN_PAGE_DESTINATIONS.onboardingSrp,
+            trigger: () => startOnboardingPage.clickImportWithSrpButton(),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'srpButtonToSrpForm',
+                  async () => {
+                    const onboardingSrpPage = new OnboardingSrpPage(driver);
+                    await onboardingSrpPage.checkPageIsLoaded();
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
         // Measure: Confirm to Password form
         const onboardingSrpPage = new OnboardingSrpPage(driver);
         await onboardingSrpPage.fillSrp(srp);
-        await onboardingSrpPage.clickConfirmButton();
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'confirmSrpToPwForm',
-            async () => {
-              const onboardingPasswordPage = new OnboardingPasswordPage(driver);
-              await onboardingPasswordPage.checkPageIsLoaded();
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'confirmSrpToPwForm', {
+            endSelector: IN_PAGE_DESTINATIONS.onboardingPassword,
+            trigger: () => onboardingSrpPage.clickConfirmButton(),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'confirmSrpToPwForm',
+                  async () => {
+                    const onboardingPasswordPage = new OnboardingPasswordPage(
+                      driver,
+                    );
+                    await onboardingPasswordPage.checkPageIsLoaded();
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
-        // Create password
+        // Create password. On Firefox no passkey or metrics screen follows,
+        // since metrics were decided before onboarding started, so the
+        // password submit is what triggers `metricsToWalletReadyScreen`.
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
+        let walletReadyProbe = false;
+        if (isFirefox) {
+          walletReadyProbe = await startInPageStep(
+            driver,
+            'metricsToWalletReadyScreen',
+            {
+              endSelector: IN_PAGE_DESTINATIONS.onboardingComplete,
+              startWithin: '[data-testid="create-password-submit"]',
+            },
+          );
+        }
         await onboardingPasswordPage.createWalletPassword(WALLET_PASSWORD);
 
-        // Measure: Password to Metrics (Chrome only)
+        // Measure: Password to Metrics (Chrome only). No in-page timer: the
+        // passkey screen sits between the two, and the harness dismisses it
+        // inside the step, so the region would include the harness's reaction.
         if (isFirefox) {
           await skipPasskeySetup(driver);
         } else {
@@ -173,6 +220,11 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
             ),
           );
           const onboardingMetricsPage = new OnboardingMetricsPage(driver);
+          walletReadyProbe = await startInPageStep(
+            driver,
+            'metricsToWalletReadyScreen',
+            { endSelector: IN_PAGE_DESTINATIONS.onboardingComplete },
+          );
           await onboardingMetricsPage.clickOnContinueButton();
         }
 
@@ -187,9 +239,26 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
             },
           ),
         );
+        if (walletReadyProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(driver, 'metricsToWalletReadyScreen')),
+          );
+        }
 
-        // Measure: Done to Home
+        // Measure: Done to Home. In-page on Firefox only: on Chrome, Done
+        // opens the side panel in another window and the harness then loads
+        // `home.html` afresh, so the destination is in a different document.
+        // On Firefox Done navigates within the page. The in-page timer ends
+        // when the token list renders; the step timer goes on to wait for the
+        // Ethereum and Solana rows by their text, which no CSS selector can
+        // match.
         const onboardingCompletePage = new OnboardingCompletePage(driver);
+        const homeProbe =
+          isFirefox &&
+          (await startInPageStep(driver, 'doneButtonToHomeScreen', {
+            endSelector: IN_PAGE_DESTINATIONS.homeWithTokenList,
+            startWithin: '[data-testid="onboarding-complete-done"]',
+          }));
         await onboardingCompletePage.completeOnboarding();
         await handleSidepanelPostOnboarding(driver);
         steps.push(
@@ -206,19 +275,36 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
             },
           ),
         );
+        if (homeProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(driver, 'doneButtonToHomeScreen')),
+          );
+        }
 
-        // Measure: Account list load
+        // Measure: Account list load. The in-page timer ends when the list
+        // renders; the step timer also waits out account syncing, held for 2 s.
         const headerNavbar = new HeaderNavbar(driver);
-        await headerNavbar.openAccountMenu();
-        steps.push(
-          await measureStepWithLongTasks(
+        inPageTimers.push(
+          ...(await measureStepInPage(
             driver,
             'openAccountMenuToAccountListLoaded',
-            async () => {
-              const accountListPage = new AccountListPage(driver);
-              await accountListPage.checkPageIsLoaded(120000);
+            {
+              endSelector: IN_PAGE_DESTINATIONS.accountList,
+              trigger: () => headerNavbar.openAccountMenu(),
+              settle: async () => {
+                steps.push(
+                  await measureStepWithLongTasks(
+                    driver,
+                    'openAccountMenuToAccountListLoaded',
+                    async () => {
+                      const accountListPage = new AccountListPage(driver);
+                      await accountListPage.checkPageIsLoaded(120000);
+                    },
+                  ),
+                );
+              },
             },
-          ),
+          )),
         );
 
         // The app's own spans over opening the account list, as the Sentry SDK
@@ -283,6 +369,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
         ...traceTimers,
+        ...inPageTimers,
       ],
       webVitals,
       success: true,
@@ -294,6 +381,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
         ...traceTimers,
+        ...inPageTimers,
       ],
       webVitals,
       success: false,

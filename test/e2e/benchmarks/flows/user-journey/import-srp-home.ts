@@ -24,6 +24,12 @@ import {
   buildLongTaskTimerResults,
 } from '../../utils/long-task-helper';
 import {
+  IN_PAGE_DESTINATIONS,
+  finishInPageStep,
+  measureStepInPage,
+  startInPageStep,
+} from '../../utils/in-page-step-timer';
+import {
   getTestSpecificMock,
   shouldUseMockedRequests,
 } from '../../utils/mock-config';
@@ -48,6 +54,7 @@ export const persona = BENCHMARK_PERSONA.POWER_USER;
 export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
   const traceTimers: TimerResult[] = [];
+  const inPageTimers: TimerResult[] = [];
   let webVitals: WebVitalsMetrics | undefined;
   try {
     // Validate required environment variable
@@ -84,10 +91,17 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         driver: Driver;
         mockedEndpoint: MockedEndpoint[];
       }) => {
-        // Measure: Login flow (includes triggering action)
+        // Measure: Login flow (includes triggering action). The trigger stays
+        // inside the step timer, so the probe is installed before it. The step
+        // timer also covers typing the password; the in-page timer starts on
+        // the Unlock click, which is what triggers the step.
         await driver.navigate();
         const loginPage = new LoginPage(driver);
         await loginPage.checkPageIsLoaded();
+        const loginProbe = await startInPageStep(driver, 'loginToHomeScreen', {
+          endSelector: IN_PAGE_DESTINATIONS.home,
+          startWithin: '[data-testid="unlock-submit"]',
+        });
         steps.push(
           await measureStepWithLongTasks(
             driver,
@@ -99,37 +113,63 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
             },
           ),
         );
+        if (loginProbe) {
+          inPageTimers.push(
+            ...(await finishInPageStep(driver, 'loginToHomeScreen')),
+          );
+        }
 
-        // Measure: Open account menu
+        // Measure: Open account menu. The in-page timer ends when the list
+        // renders; the step timer also waits out account syncing, held for 2 s.
         const headerNavbar = new HeaderNavbar(driver);
-        await headerNavbar.openAccountMenu();
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'openAccountMenuAfterLogin',
-            async () => {
-              const accountListPage = new AccountListPage(driver);
-              await accountListPage.checkPageIsLoaded();
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'openAccountMenuAfterLogin', {
+            endSelector: IN_PAGE_DESTINATIONS.accountList,
+            trigger: () => headerNavbar.openAccountMenu(),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'openAccountMenuAfterLogin',
+                  async () => {
+                    const accountListPage = new AccountListPage(driver);
+                    await accountListPage.checkPageIsLoaded();
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
-        // Measure: Import SRP and return to home
+        // Measure: Import SRP and return to home. `startImportSecretPhrase`
+        // clicks through two screens and pastes the phrase before it clicks
+        // Continue, so the in-page timer starts on that Continue click. It ends
+        // when the home token list renders; the step timer goes on to wait
+        // for the Ethereum and Solana rows by their text, which no CSS
+        // selector can match.
         const accountListPage = new AccountListPage(driver);
-        await accountListPage.startImportSecretPhrase(SECOND_SRP);
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'homeAfterImportWithNewWallet',
-            async () => {
-              const homePage = new HomePage(driver);
-              await homePage.checkPageIsLoaded();
-              const tokensTab = new TokensTab(driver);
-              await tokensTab.checkTokenListIsDisplayed();
-              await tokensTab.checkTokenExistsInList('Ethereum');
-              await tokensTab.waitForTokenToBeDisplayed('Solana', 60000);
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'homeAfterImportWithNewWallet', {
+            endSelector: IN_PAGE_DESTINATIONS.homeWithTokenList,
+            startWithin: '[data-testid="import-srp-confirm"]',
+            trigger: () => accountListPage.startImportSecretPhrase(SECOND_SRP),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'homeAfterImportWithNewWallet',
+                  async () => {
+                    const homePage = new HomePage(driver);
+                    await homePage.checkPageIsLoaded();
+                    const tokensTab = new TokensTab(driver);
+                    await tokensTab.checkTokenListIsDisplayed();
+                    await tokensTab.checkTokenExistsInList('Ethereum');
+                    await tokensTab.waitForTokenToBeDisplayed('Solana', 60000);
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
         // The app's own span over the account-menu step, as the Sentry SDK sent
@@ -169,6 +209,7 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
         ...traceTimers,
+        ...inPageTimers,
       ],
       webVitals,
       success: true,
@@ -180,6 +221,7 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
         ...traceTimers,
+        ...inPageTimers,
       ],
       webVitals,
       success: false,

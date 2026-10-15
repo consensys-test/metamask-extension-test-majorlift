@@ -24,6 +24,10 @@ import {
   buildLongTaskTimerResults,
 } from '../../utils/long-task-helper';
 import {
+  assetPriceChartDestination,
+  measureStepInPage,
+} from '../../utils/in-page-step-timer';
+import {
   getTestSpecificMock,
   shouldUseMockedRequests,
 } from '../../utils/mock-config';
@@ -47,6 +51,7 @@ export const persona = BENCHMARK_PERSONA.POWER_USER;
 export async function runAssetDetailsBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
   const traceTimers: TimerResult[] = [];
+  const inPageTimers: TimerResult[] = [];
   let webVitals: WebVitalsMetrics | undefined;
   try {
     await withFixtures(
@@ -104,18 +109,27 @@ export async function runAssetDetailsBenchmark(): Promise<BenchmarkRunResult> {
         // Wait for token list to refresh after network switch
         await tokensTab.checkTokenListIsDisplayed();
 
-        await tokensTab.clickOnAsset('Ethereum');
-
-        // Measure: Asset click to price chart loaded
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'assetClickToPriceChart',
-            async () => {
-              await tokensTab.checkPriceChartIsShown();
-              await tokensTab.checkPriceChartLoaded(ETH_TOKEN_ADDRESS);
+        // Measure: Asset click to price chart loaded. `clickOnAsset` may first
+        // expand the low-value section, so the in-page timer starts only on
+        // input inside a token row.
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'assetClickToPriceChart', {
+            endSelector: assetPriceChartDestination(ETH_TOKEN_ADDRESS),
+            startWithin: '[data-testid="multichain-token-list-button"]',
+            trigger: () => tokensTab.clickOnAsset('Ethereum'),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'assetClickToPriceChart',
+                  async () => {
+                    await tokensTab.checkPriceChartIsShown();
+                    await tokensTab.checkPriceChartLoaded(ETH_TOKEN_ADDRESS);
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
         // The app's own span over this journey, as the Sentry SDK sent it,
@@ -160,6 +174,7 @@ export async function runAssetDetailsBenchmark(): Promise<BenchmarkRunResult> {
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
         ...traceTimers,
+        ...inPageTimers,
       ],
       webVitals,
       success: true,
@@ -171,6 +186,7 @@ export async function runAssetDetailsBenchmark(): Promise<BenchmarkRunResult> {
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
         ...traceTimers,
+        ...inPageTimers,
       ],
       webVitals,
       success: false,

@@ -43,6 +43,12 @@ export async function run(): Promise<BenchmarkRunResult> {
         const accountListPage = new AccountListPage(driver);
         await accountListPage.checkPageIsLoaded();
 
+        // No in-page timer for this step (see `in-page-step-timer.ts`): the
+        // step timer ends at the Add account click and nothing in this flow
+        // waits for the new account, so ending an in-page timer there needs a
+        // wait the flow does not have. Before `collectWebVitals` it would
+        // widen the window the vitals cover; after it, the vitals' own probe
+        // click would land inside the region whenever the account is slow.
         await driver.resetLongTaskMetrics();
         const timestampBeforeAction = new Date();
         await accountListPage.addMultichainAccount();

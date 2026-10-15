@@ -26,6 +26,10 @@ import {
   buildLongTaskTimerResults,
 } from '../../utils/long-task-helper';
 import {
+  IN_PAGE_DESTINATIONS,
+  measureStepInPage,
+} from '../../utils/in-page-step-timer';
+import {
   getTestSpecificMock,
   shouldUseMockedRequests,
 } from '../../utils/mock-config';
@@ -51,6 +55,7 @@ const SOLANA_USDC_CONTRACT_ADDRESS =
 export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
   const traceTimers: TimerResult[] = [];
+  const inPageTimers: TimerResult[] = [];
   let webVitals: WebVitalsMetrics | undefined;
   try {
     const branchMock = getTestSpecificMock();
@@ -110,38 +115,56 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
           await tokensTab.waitForTokenToBeDisplayed('SOL');
         }
 
-        // Measure: Open swap page
-        await homePage.startSwapFlow();
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'openSwapPageFromHome',
-            async () => {
-              const swapPage = new SwapPage(driver);
-              await swapPage.checkPageIsLoaded();
+        // Measure: Open swap page. `<stepId>InPage` times the same step from
+        // the click itself, on the page's clock; the step timer is unchanged.
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'openSwapPageFromHome', {
+            endSelector: IN_PAGE_DESTINATIONS.swapPage,
+            trigger: () => homePage.startSwapFlow(),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'openSwapPageFromHome',
+                  async () => {
+                    const swapPage = new SwapPage(driver);
+                    await swapPage.checkPageIsLoaded();
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
-        // Measure: Fetch quotes
+        // Measure: Fetch quotes. `createSwap` picks both tokens before it
+        // types the amount, and typing the amount is what fetches quotes, so
+        // the in-page timer starts on the first character typed into it.
         const swapPage = new SwapPage(driver);
-
-        await swapPage.createSwap({
-          amount: 0.01,
-          swapTo: 'USDC',
-          swapToContractAddress: SOLANA_USDC_CONTRACT_ADDRESS,
-          swapFrom: 'SOL',
-          network: 'Solana',
-        });
-
-        steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'fetchAndDisplaySwapQuotes',
-            async () => {
-              await swapPage.checkQuoteIsDisplayed({ timeout: 60000 });
+        inPageTimers.push(
+          ...(await measureStepInPage(driver, 'fetchAndDisplaySwapQuotes', {
+            endSelector: IN_PAGE_DESTINATIONS.swapQuote,
+            startWithin: '[data-testid="from-amount"]',
+            typedOnly: true,
+            trigger: () =>
+              swapPage.createSwap({
+                amount: 0.01,
+                swapTo: 'USDC',
+                swapToContractAddress: SOLANA_USDC_CONTRACT_ADDRESS,
+                swapFrom: 'SOL',
+                network: 'Solana',
+              }),
+            settle: async () => {
+              steps.push(
+                await measureStepWithLongTasks(
+                  driver,
+                  'fetchAndDisplaySwapQuotes',
+                  async () => {
+                    await swapPage.checkQuoteIsDisplayed({ timeout: 60000 });
+                  },
+                ),
+              );
             },
-          ),
+          })),
         );
 
         // V14 injection for `swapQuoteFetchCount`. The count reads 1 in every
@@ -242,6 +265,7 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
         ...traceTimers,
+        ...inPageTimers,
       ],
       webVitals,
       success: true,
@@ -253,6 +277,7 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
         ...traceTimers,
+        ...inPageTimers,
       ],
       webVitals,
       success: false,
