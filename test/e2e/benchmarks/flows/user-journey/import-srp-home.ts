@@ -8,7 +8,6 @@ import { ALL_POPULAR_NETWORKS } from '../../../../../app/scripts/fixtures/with-n
 import { withFixtures } from '../../../helpers';
 import type { MockedEndpoint } from '../../../mock-e2e';
 import AccountListPage from '../../../page-objects/pages/accounts/list-page';
-import HeaderNavbar from '../../../page-objects/pages/home/header-navbar';
 import TokensTab from '../../../page-objects/pages/home/tokens-tab';
 import HomePage from '../../../page-objects/pages/home/homepage';
 import LoginPage from '../../../page-objects/pages/onboarding/login-page';
@@ -119,13 +118,16 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
           );
         }
 
-        // Measure: Open account menu. The in-page timer ends when the list
-        // renders; the step timer also waits out account syncing, held for 2 s.
-        const headerNavbar = new HeaderNavbar(driver);
+        // Measure: Open account menu. The trigger is the account menu click
+        // alone, so the step timer opens when it returns: `openAccountMenu`
+        // would first wait for the list's container. The in-page timer ends
+        // when the list renders; the step timer also waits out account
+        // syncing, held for 2 s.
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'openAccountMenuAfterLogin', {
             endSelector: IN_PAGE_DESTINATIONS.accountList,
-            trigger: () => headerNavbar.openAccountMenu(),
+            trigger: () =>
+              driver.clickElement('[data-testid="account-menu-icon"]'),
             settle: async () => {
               steps.push(
                 await measureStepWithLongTasks(

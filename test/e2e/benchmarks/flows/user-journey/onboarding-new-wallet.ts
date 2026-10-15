@@ -207,8 +207,12 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
         // Measure: Password to Recovery. In-page on Firefox only: on Chrome
         // the passkey screen sits between the two, and the harness dismisses
         // it inside the step, so the region would include the harness's
-        // reaction. `createWalletPassword` types both fields and ticks the
-        // terms before it submits, so the timer starts on the submit click.
+        // reaction. The harness types both fields and ticks the terms before
+        // it submits, so the in-page timer starts on the submit click. The
+        // submit is clicked here rather than through `createWalletPassword`,
+        // which would then wait up to 15 s for the button to leave the page
+        // before the step timer opens; the passkey screen gets those 15 s on
+        // top of its own 5 s, so a slow wallet creation fails no sooner.
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
         const recoveryProbe =
           isFirefox &&
@@ -216,13 +220,17 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             endSelector: IN_PAGE_DESTINATIONS.onboardingSecureWallet,
             startWithin: '[data-testid="create-password-submit"]',
           }));
-        await onboardingPasswordPage.createWalletPassword(WALLET_PASSWORD);
+        await onboardingPasswordPage.fillWalletPassword(
+          WALLET_PASSWORD,
+          WALLET_PASSWORD,
+        );
+        await driver.clickElement('[data-testid="create-password-submit"]');
         steps.push(
           await measureStepWithLongTasks(
             driver,
             'createPwToRecoveryScreen',
             async () => {
-              await skipPasskeySetup(driver);
+              await skipPasskeySetup(driver, { timeout: 20000 });
               const secureWalletPage = new SecureWalletPage(driver);
               await secureWalletPage.checkPageIsLoaded();
             },
@@ -265,13 +273,15 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
               ...(await finishInPageStep(driver, 'skipBackupToMetricsScreen')),
             );
           }
-          const onboardingMetricsPage = new OnboardingMetricsPage(driver);
+          // The Continue click alone triggers the next step: through
+          // `clickOnContinueButton` the step timer would open only once the
+          // button had left the page.
           agreeProbe = await startInPageStep(
             driver,
             'agreeButtonToOnboardingSuccess',
             { endSelector: IN_PAGE_DESTINATIONS.onboardingComplete },
           );
-          await onboardingMetricsPage.clickOnContinueButton();
+          await driver.clickElement('[data-testid="metametrics-i-agree"]');
         }
 
         // Measure: Agree to Complete

@@ -15,7 +15,6 @@ import {
   skipPasskeySetup,
 } from '../../../page-objects/flows/onboarding.flow';
 import AccountListPage from '../../../page-objects/pages/accounts/list-page';
-import HeaderNavbar from '../../../page-objects/pages/home/header-navbar';
 import TokensTab from '../../../page-objects/pages/home/tokens-tab';
 import HomePage from '../../../page-objects/pages/home/homepage';
 import OnboardingCompletePage from '../../../page-objects/pages/onboarding/onboarding-complete-page';
@@ -161,13 +160,16 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
           })),
         );
 
-        // Measure: Confirm to Password form
+        // Measure: Confirm to Password form. The trigger is the Confirm click
+        // alone, so the step timer opens when it returns: `clickConfirmButton`
+        // would first wait for the button to leave the page.
         const onboardingSrpPage = new OnboardingSrpPage(driver);
         await onboardingSrpPage.fillSrp(srp);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'confirmSrpToPwForm', {
             endSelector: IN_PAGE_DESTINATIONS.onboardingPassword,
-            trigger: () => onboardingSrpPage.clickConfirmButton(),
+            trigger: () =>
+              driver.clickElement('[data-testid="import-srp-confirm"]'),
             settle: async () => {
               steps.push(
                 await measureStepWithLongTasks(
@@ -187,7 +189,10 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
 
         // Create password. On Firefox no passkey or metrics screen follows,
         // since metrics were decided before onboarding started, so the
-        // password submit is what triggers `metricsToWalletReadyScreen`.
+        // password submit is what triggers `metricsToWalletReadyScreen`. The
+        // submit is clicked here rather than through `createWalletPassword`,
+        // which would then wait up to 15 s for the button to leave the page
+        // before the next step timer opens.
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
         let walletReadyProbe = false;
         if (isFirefox) {
@@ -200,11 +205,17 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
             },
           );
         }
-        await onboardingPasswordPage.createWalletPassword(WALLET_PASSWORD);
+        await onboardingPasswordPage.fillWalletPassword(
+          WALLET_PASSWORD,
+          WALLET_PASSWORD,
+        );
+        await driver.clickElement('[data-testid="create-password-submit"]');
 
         // Measure: Password to Metrics (Chrome only). No in-page timer: the
         // passkey screen sits between the two, and the harness dismisses it
         // inside the step, so the region would include the harness's reaction.
+        // The passkey screen gets the 15 s the dropped wait allowed on top of
+        // its own 5 s, so a slow wallet creation fails no sooner than before.
         if (isFirefox) {
           await skipPasskeySetup(driver);
         } else {
@@ -213,19 +224,21 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
               driver,
               'pwFormToMetricsScreen',
               async () => {
-                await skipPasskeySetup(driver);
+                await skipPasskeySetup(driver, { timeout: 20000 });
                 const onboardingMetricsPage = new OnboardingMetricsPage(driver);
                 await onboardingMetricsPage.checkPageIsLoaded();
               },
             ),
           );
-          const onboardingMetricsPage = new OnboardingMetricsPage(driver);
+          // The Continue click alone triggers the next step: through
+          // `clickOnContinueButton` the step timer would open only once the
+          // button had left the page.
           walletReadyProbe = await startInPageStep(
             driver,
             'metricsToWalletReadyScreen',
             { endSelector: IN_PAGE_DESTINATIONS.onboardingComplete },
           );
-          await onboardingMetricsPage.clickOnContinueButton();
+          await driver.clickElement('[data-testid="metametrics-i-agree"]');
         }
 
         // Measure: Metrics to Complete
@@ -281,16 +294,19 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
           );
         }
 
-        // Measure: Account list load. The in-page timer ends when the list
-        // renders; the step timer also waits out account syncing, held for 2 s.
-        const headerNavbar = new HeaderNavbar(driver);
+        // Measure: Account list load. The trigger is the account menu click
+        // alone, so the step timer opens when it returns: `openAccountMenu`
+        // would first wait for the list's container. The in-page timer ends
+        // when the list renders; the step timer also waits out account
+        // syncing, held for 2 s.
         inPageTimers.push(
           ...(await measureStepInPage(
             driver,
             'openAccountMenuToAccountListLoaded',
             {
               endSelector: IN_PAGE_DESTINATIONS.accountList,
-              trigger: () => headerNavbar.openAccountMenu(),
+              trigger: () =>
+                driver.clickElement('[data-testid="account-menu-icon"]'),
               settle: async () => {
                 steps.push(
                   await measureStepWithLongTasks(
@@ -313,12 +329,12 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         // harness, not the browser)).
         //
         // Two spans cover this one interaction and only `Show Account List` is
-        // reported. Both start on the element `openAccountMenu` clicks:
-        // `Account List` in the account picker's own `onClick`, and `Show
-        // Account List` in the handler that `onClick` then calls. Both end on a
-        // mount effect in `MultichainAccountList`. So the span covers the click
-        // and the first wait that `openAccountMenu` consumes before the step
-        // above starts measuring, which the step timer cannot see.
+        // reported. Both start on the account menu button the step above
+        // clicks: `Account List` in the account picker's own `onClick`, and
+        // `Show Account List` in the handler that `onClick` then calls. Both
+        // end on a mount effect in `MultichainAccountList`. So the span covers
+        // the click, which the step timer, opening once the click returns,
+        // cannot see.
         //
         // An earlier revision reported both, on the reasoning that the gap
         // between them localizes where the cost sits. Measured over 15 builds

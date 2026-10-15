@@ -23,6 +23,7 @@ import {
   IN_PAGE_DESTINATIONS,
   measureStepInPage,
 } from '../../utils/in-page-step-timer';
+import { waitDismissingOptionalDialog } from '../../utils/optional-dialog';
 import {
   getTestSpecificMock,
   shouldUseMockedRequests,
@@ -41,6 +42,13 @@ import type {
 } from '../../utils/types';
 
 const RECIPIENT_ADDRESS = 'GxSJqxAyTjCjyDmPxdBBfVE9QwuMhEoHrPLRTmMyqxnU';
+
+/** `SendPage`'s Continue button. */
+const SEND_CONTINUE_BUTTON = '[data-testid="send-continue-button"]';
+
+/** The acknowledge button of `SendPage`'s first-time-recipient alert. */
+const SEND_ALERT_ACKNOWLEDGE_BUTTON =
+  '[data-testid="send-alert-modal-acknowledge-button"]';
 
 export const testTitle = 'benchmark-send-transactions-power-user';
 export const persona = BENCHMARK_PERSONA.POWER_USER;
@@ -128,20 +136,29 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
           })),
         );
 
-        // Measure: Review transaction. The trigger is the Continue click; if
-        // the first-time-recipient alert appears, the harness acknowledges it
-        // before the confirmation loads, and the in-page timer reports nothing
-        // for that iteration rather than time that includes the harness.
+        // Measure: Review transaction. The trigger is the Continue click, and
+        // the step timer opens when it returns: `pressContinueButton` would
+        // first spend up to 2 s checking for the first-time-recipient alert.
+        // The timed wait watches for that alert while it waits for the
+        // confirmation. Without it, the step ends at the confirmation. With
+        // it, the harness acknowledges it inside the step, so the step timer
+        // includes the harness's reaction, and the in-page timer reports
+        // nothing for that iteration because the acknowledgement is a second
+        // input.
         await sendPage.fillRecipient({ recipientAddress: RECIPIENT_ADDRESS });
         await sendPage.fillAmount('0.00001');
+        let acknowledged = false;
         inPageTimers.push(
           ...(await measureStepInPage(
             driver,
             'reviewTransactionToConfirmationPage',
             {
               endSelector: IN_PAGE_DESTINATIONS.snapConfirmation,
-              startWithin: '[data-testid="send-continue-button"]',
-              trigger: () => sendPage.pressContinueButton(),
+              startWithin: SEND_CONTINUE_BUTTON,
+              trigger: async () => {
+                await sendPage.waitForContinueButtonStablyEnabled();
+                await driver.clickElement(SEND_CONTINUE_BUTTON);
+              },
               settle: async () => {
                 steps.push(
                   await measureStepWithLongTasks(
@@ -151,9 +168,22 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
                       const confirmation = new SnapTransactionConfirmation(
                         driver,
                       );
-                      await confirmation.checkPageIsLoaded();
+                      acknowledged = await waitDismissingOptionalDialog(
+                        driver,
+                        {
+                          destination: () => confirmation.checkPageIsLoaded(),
+                          dialogSelector: SEND_ALERT_ACKNOWLEDGE_BUTTON,
+                          dismiss: () =>
+                            driver.clickElement(SEND_ALERT_ACKNOWLEDGE_BUTTON),
+                        },
+                      );
                     },
                   ),
+                );
+                console.log(
+                  acknowledged
+                    ? 'Acknowledged the send alert modal inside the step'
+                    : 'No send alert modal before the confirmation',
                 );
               },
             },
