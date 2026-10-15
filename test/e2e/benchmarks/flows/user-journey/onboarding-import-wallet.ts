@@ -10,11 +10,11 @@ import FixtureBuilderV2 from '../../../fixtures/fixture-builder-v2';
 import { E2E_SRP, WALLET_PASSWORD } from '../../../constants';
 import { withFixtures } from '../../../helpers';
 import {
-  handleSidepanelPostOnboarding,
   onboardingMetricsFlow,
   skipPasskeySetup,
 } from '../../../page-objects/flows/onboarding.flow';
 import AccountListPage from '../../../page-objects/pages/accounts/list-page';
+import HeaderNavbar from '../../../page-objects/pages/home/header-navbar';
 import TokensTab from '../../../page-objects/pages/home/tokens-tab';
 import HomePage from '../../../page-objects/pages/home/homepage';
 import OnboardingCompletePage from '../../../page-objects/pages/onboarding/onboarding-complete-page';
@@ -34,6 +34,7 @@ import {
   measureStepInPage,
   startInPageStep,
 } from '../../utils/in-page-step-timer';
+import { loadHomeAfterSidepanelOnboarding } from '../../utils/sidepanel-onboarding';
 import {
   sentryCountResult,
   sentryTimerResult,
@@ -261,10 +262,13 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         // Measure: Done to Home. In-page on Firefox only: on Chrome, Done
         // opens the side panel in another window and the harness then loads
         // `home.html` afresh, so the destination is in a different document.
-        // On Firefox Done navigates within the page. The in-page timer ends
-        // when the token list renders; the step timer goes on to wait for the
-        // Ethereum and Solana rows by their text, which no CSS selector can
-        // match.
+        // There the step timer opens when that load returns, so it covers the
+        // header and the rest of the home page; the wait for onboarding to
+        // complete and the navigation stay outside it. On Firefox Done
+        // navigates within the page and the step timer opens when the click
+        // returns. The in-page timer ends when the token list renders; the
+        // step timer goes on to wait for the Ethereum and Solana rows by
+        // their text, which no CSS selector can match.
         const onboardingCompletePage = new OnboardingCompletePage(driver);
         const homeProbe =
           isFirefox &&
@@ -273,12 +277,15 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
             startWithin: '[data-testid="onboarding-complete-done"]',
           }));
         await onboardingCompletePage.completeOnboarding();
-        await handleSidepanelPostOnboarding(driver);
+        const homeLoaded = await loadHomeAfterSidepanelOnboarding(driver);
         steps.push(
           await measureStepWithLongTasks(
             driver,
             'doneButtonToHomeScreen',
             async () => {
+              if (homeLoaded) {
+                await new HeaderNavbar(driver).checkPageIsLoaded();
+              }
               const homePage = new HomePage(driver);
               await homePage.checkPageIsLoaded();
               const tokensTab = new TokensTab(driver);

@@ -7,23 +7,26 @@ import type { TimerResult } from './types';
  * The step timer in `measureStepWithLongTasks` reads the harness clock and,
  * in most journey steps, starts after the click that triggers the step has
  * already returned. This module times the same step a second time, inside the
- * page: from the trusted input event that triggers the step to the first poll
- * that finds the destination's key element in the DOM, both read with
+ * page: from the trusted input event that triggers the step to the moment the
+ * destination's key elements are in the DOM, both read with
  * `performance.now()`. The result is reported as `<stepId>InPage` beside the
  * existing timer, which is left exactly as it was, so one run carries both.
  *
- * The end is "the destination is in the DOM", at poll resolution: the poll is
- * a `setTimeout(poll, 0)` chain, which browsers clamp to about 4 ms once
- * nested, and which cannot run while a long task holds the main thread. It is
- * not a paint. The test build's LavaMoat scuttling leaves `MutationObserver`
- * and `requestAnimationFrame` inaccessible to page scripts, while
- * `setTimeout`, `clearTimeout` and `performance` are on its exception list in
- * `development/webpack/utils/plugins/LavamoatPlugin/index.ts`; so a poll, not
- * an observer or a frame callback.
+ * The end is `performance.now()` in the first `MutationObserver` callback in
+ * which every end selector matches. Callbacks run at the first microtask
+ * checkpoint after a change, no later than the end of the task that made it,
+ * so the end is when that change's script finished; it is not a paint.
  *
- * Polling starts at the triggering input, not at install, and stops at the
- * first match, at the read, or `pollBoundMs` after the trigger, whichever
- * comes first, so no loop outlives its step.
+ * The test build's LavaMoat scuttling hides most globals from scripts that
+ * run in the page outside LavaMoat, as this probe does through
+ * `executeScript`. `MutationObserver` is on the test-only part of the
+ * exception list in `development/webpack/utils/plugins/LavamoatPlugin/index.ts`
+ * for this probe; `setTimeout`, `clearTimeout` and `performance` are on the
+ * part every build lists.
+ *
+ * Observing starts at the triggering input, not at install, and stops at the
+ * first match, at the read, or `boundMs` after the trigger, whichever comes
+ * first, so no observer outlives its step.
  *
  * An iteration reports nothing for the step, never zero, and logs why, when:
  * - no trusted input reached the trigger after the probe was installed;
@@ -31,12 +34,12 @@ import type { TimerResult } from './types';
  * selector does not distinguish this step's destination;
  * - a further trusted input arrived between the trigger and the destination,
  * so the region contains the harness's own reaction time;
- * - the destination never matched within the poll bound, or the probe was
- * lost with its document.
+ * - the destination did not appear within the bound, appeared without a DOM
+ * change the observer saw, or the probe was lost with its document.
  */
 
-/** How long after its trigger a probe keeps polling for the destination. */
-export const IN_PAGE_POLL_BOUND_MS = 60_000;
+/** How long after its trigger a probe keeps observing for the destination. */
+export const IN_PAGE_BOUND_MS = 60_000;
 
 /**
  * The page-side probe's configuration. It crosses `executeScript`, so it must
@@ -50,8 +53,8 @@ export type InPageProbeConfig = {
   startWithin: string | null;
   /** When true, only a keydown that types a character starts the region. */
   typedOnly: boolean;
-  /** Stop polling this long after the trigger. */
-  pollBoundMs: number;
+  /** Stop observing this long after the trigger. */
+  boundMs: number;
 };
 
 /**
@@ -60,7 +63,7 @@ export type InPageProbeConfig = {
 export type InPageProbeReading = {
   /** `performance.now()` at the triggering input, or null if none arrived. */
   start: number | null;
-  /** `performance.now()` at the first poll that found the destination. */
+  /** `performance.now()` in the first observer callback that matched. */
   end: number | null;
   /** The event type that started the region. */
   startEvent: string | null;
@@ -68,12 +71,10 @@ export type InPageProbeReading = {
   preexisting: boolean;
   /** Trusted inputs after the trigger and before the destination matched. */
   extraInputs: number;
-  /** Polling stopped at the bound without finding the destination. */
+  /** Observing stopped at the bound without the destination matching. */
   timedOut: boolean;
-  /** The destination is in the DOM and the poll that records it has not run. */
-  pending: boolean;
-  /** The probe was removed from the page by this read. */
-  released: boolean;
+  /** The destination is in the DOM, but no observer callback recorded it. */
+  unobserved: boolean;
 };
 
 type InPageProbe = {
@@ -84,7 +85,6 @@ type InPageProbe = {
   extraInputs: number;
   timedOut: boolean;
   matches: () => boolean;
-  polling: () => boolean;
   stop: () => void;
 };
 
@@ -105,8 +105,9 @@ type ProbeHost = {
  *
  * Capture-phase listeners on `document` record the first trusted pointerdown,
  * mousedown, click or keydown that qualifies as the trigger. From then a
- * `setTimeout` poll checks the end selectors and records the time of the
- * first poll at which they all match.
+ * `MutationObserver` on the whole document checks the end selectors after
+ * each batch of changes, and records the time of the first callback in which
+ * they all match.
  *
  * @param args - One-element tuple holding the probe configuration.
  * @param args."0" - The probe configuration.
@@ -133,7 +134,7 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
   }
 
   const inputTypes = ['pointerdown', 'mousedown', 'click', 'keydown'];
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let bound: ReturnType<typeof setTimeout> | undefined;
 
   const matches = (): boolean =>
     config.endSelectors.every(
@@ -174,31 +175,23 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
     extraInputs: 0,
     timedOut: false,
     matches,
-    polling: () => timer !== undefined,
     stop: () => undefined,
   };
 
-  const finish = (): void => {
-    probe.end = performance.now();
-    probe.stop();
-  };
-
-  const poll = (): void => {
-    timer = undefined;
-    if (probe.start === null || probe.end !== null) {
-      return;
-    }
-    if (matches()) {
-      finish();
-      return;
-    }
-    if (performance.now() - probe.start >= config.pollBoundMs) {
-      probe.timedOut = true;
+  let observer: MutationObserver;
+  try {
+    observer = new MutationObserver(() => {
+      if (probe.start === null || probe.end !== null || !matches()) {
+        return;
+      }
+      probe.end = performance.now();
       probe.stop();
-      return;
-    }
-    timer = setTimeout(poll, 0);
-  };
+    });
+  } catch (error) {
+    // The build in the browser does not list `MutationObserver` among its
+    // scuttling exceptions.
+    return `MutationObserver unavailable: ${String(error)}`;
+  }
 
   const onInput = (event: Event): void => {
     if (!event.isTrusted) {
@@ -215,31 +208,34 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
         probe.stop();
         return;
       }
-      timer = setTimeout(poll, 0);
+      observer.observe(document, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+      });
+      bound = setTimeout(() => {
+        probe.timedOut = true;
+        probe.stop();
+      }, config.boundMs);
       return;
     }
     // One gesture is one pointerdown or one keydown; the mousedown and click
     // that follow a pointerdown belong to it. Typing continues the trigger
-    // when the trigger is typed.
+    // when the trigger is typed. Input after the destination matched belongs
+    // to the next step.
     const anotherGesture =
       event.type === 'pointerdown' ||
       (event.type === 'keydown' && !config.typedOnly);
-    if (!anotherGesture || probe.end !== null) {
-      return;
+    if (anotherGesture && probe.end === null) {
+      probe.extraInputs += 1;
     }
-    // A destination already in the DOM arrived before this input, between two
-    // polls; it ends the region here rather than voiding it.
-    if (matches()) {
-      finish();
-      return;
-    }
-    probe.extraInputs += 1;
   };
 
   probe.stop = () => {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-      timer = undefined;
+    observer.disconnect();
+    if (bound !== undefined) {
+      clearTimeout(bound);
+      bound = undefined;
     }
     for (const type of inputTypes) {
       document.removeEventListener(type, onInput, true);
@@ -254,32 +250,27 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
 }
 
 /**
- * Read a step's probe. Runs in the page.
+ * Read a step's probe and remove it, stopping its observer. Runs in the page.
  *
- * The probe is removed, and its poll stopped, unless the destination is in
- * the DOM and the poll that records it has not run yet; `release` removes it
- * regardless.
+ * An observer callback runs no later than the end of the task that changed the
+ * DOM, so by the time this read runs, in a task of its own, every change made
+ * before it has been seen. A destination that matches now with no recorded end appeared
+ * without a change the observer reports, and is flagged as `unobserved`.
  *
- * @param args - Tuple of the step id and whether to remove the probe anyway.
+ * @param args - One-element tuple holding the step id.
  * @param args."0" - The step id the probe was installed under.
- * @param args."1" - Remove the probe even if its poll is still pending.
  * @returns The reading, or null when no probe exists in this document.
  */
-export function readInPageStepProbe([stepId, release]: [
+export function readInPageStepProbe([stepId]: [
   string,
-  boolean,
 ]): InPageProbeReading | null {
   const host = window as unknown as ProbeHost;
   const probe = host.__benchSteps?.[stepId];
   if (!probe) {
     return null;
   }
-  const pending = probe.end === null && probe.polling() && probe.matches();
-  const released = release || !pending;
-  if (released) {
-    probe.stop();
-    delete host.__benchSteps?.[stepId];
-  }
+  probe.stop();
+  delete host.__benchSteps?.[stepId];
   return {
     start: probe.start,
     end: probe.end,
@@ -287,8 +278,11 @@ export function readInPageStepProbe([stepId, release]: [
     preexisting: probe.preexisting,
     extraInputs: probe.extraInputs,
     timedOut: probe.timedOut,
-    pending,
-    released,
+    unobserved:
+      probe.start !== null &&
+      probe.end === null &&
+      !probe.preexisting &&
+      probe.matches(),
   };
 }
 
@@ -296,9 +290,9 @@ export function readInPageStepProbe([stepId, release]: [
  * Turn a reading into the `<stepId>InPage` timer, or into nothing with the
  * reason logged. Absent, never zero.
  *
- * The value runs from the triggering input to the first poll that found the
- * destination in the DOM, so it carries the poll's resolution (about 4 ms, or
- * the length of a long task that delays the poll) and no paint.
+ * The value runs from the triggering input to the first observer callback
+ * that sees all of the destination's key elements in the DOM, which runs once
+ * the script that added the last of them has finished. It includes no paint.
  *
  * Tagged with a unit, as the trace timers in `sentry-transactions.ts` are, so
  * `runner.ts` leaves it out of the per-run `total`, which sums only untagged
@@ -340,10 +334,13 @@ export function inPageTimerResult(
     );
   }
   if (reading.end === null) {
+    if (reading.timedOut) {
+      return absent('the destination did not appear within the bound');
+    }
     return absent(
-      reading.timedOut
-        ? 'the destination did not match before the poll bound'
-        : 'the destination did not match after the trigger',
+      reading.unobserved
+        ? 'the destination is in the DOM, but no observed DOM change put it there'
+        : 'the destination did not appear after the trigger',
     );
   }
 
@@ -392,7 +389,7 @@ export async function startInPageStep(
     endSelectors: ([] as string[]).concat(options.endSelector),
     startWithin: options.startWithin ?? null,
     typedOnly: options.typedOnly ?? false,
-    pollBoundMs: IN_PAGE_POLL_BOUND_MS,
+    boundMs: IN_PAGE_BOUND_MS,
   };
   try {
     const failure = (await driver.executeScript(
@@ -413,37 +410,24 @@ export async function startInPageStep(
 }
 
 /**
- * Read a step's probe and turn it into its timer. Call it once the step's
- * existing wait has returned. If the destination is in the DOM and only the
- * page's poll that records it is outstanding, this re-reads for up to
- * `timeoutMs`; otherwise it reads once, and never waits for a destination that
- * has not appeared. A failure is logged and never thrown.
+ * Read a step's probe once and turn it into its timer. Call it once the
+ * step's existing wait has returned. It never waits for a destination that has
+ * not appeared. A failure is logged and never thrown.
  *
  * @param driver - The WebDriver instance.
  * @param stepId - The step id the probe was installed under.
- * @param options - Polling options.
- * @param options.timeoutMs - How long to wait for a pending poll.
  * @returns The `<stepId>InPage` timer, or an empty array.
  */
 export async function finishInPageStep(
   driver: Driver,
   stepId: string,
-  { timeoutMs = 2000 }: { timeoutMs?: number } = {},
 ): Promise<TimerResult[]> {
-  const deadline = Date.now() + timeoutMs;
   try {
-    for (;;) {
-      const release = Date.now() >= deadline;
-      const reading = (await driver.executeScript(
-        readInPageStepProbe,
-        stepId,
-        release,
-      )) as InPageProbeReading | null;
-      if (reading === null || reading.released) {
-        return inPageTimerResult(stepId, reading);
-      }
-      await driver.delay(25);
-    }
+    const reading = (await driver.executeScript(
+      readInPageStepProbe,
+      stepId,
+    )) as InPageProbeReading | null;
+    return inPageTimerResult(stepId, reading);
   } catch (error) {
     console.log(
       `[benchmark] ${stepId}InPage absent: the probe could not be read: ${

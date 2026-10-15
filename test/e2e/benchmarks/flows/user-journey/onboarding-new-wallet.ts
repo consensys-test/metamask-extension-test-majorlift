@@ -53,15 +53,16 @@
  * `agreeButtonToOnboardingSuccess` - `metametrics.tsx` and the completion
  * screen carry no trace at all.
  *
- * `doneButtonToAssetList` - `handleSidepanelPostOnboarding` navigates to
- * `home.html` and waits for the header before this timer starts, so the whole
- * startup tree has already finished by then: `TraceName.UIStartup` in
- * `app/scripts/ui.ts`, and `TraceName.SetupStore`, `TraceName.InitialActions`
- * and `TraceName.FirstRender`, which `ui/index.js` starts under `UIStartup` as
- * its children and which are therefore not readable as transactions anyway. The
- * only other candidate is `TraceName.AccountOverviewAssetListTab`, which
- * `token-list.tsx` ends here but which `account-overview-tabs.tsx` only ever
- * starts on a tab click, so it is ended without having been started.
+ * `doneButtonToAssetList` - on Chrome this timer starts once the harness's
+ * navigation to `home.html` has loaded the document, so the startup tree has
+ * already started by then: `TraceName.UIStartup` in `app/scripts/ui.ts`, which
+ * starts at the navigation's time origin, and `TraceName.SetupStore`,
+ * `TraceName.InitialActions` and `TraceName.FirstRender`, which `ui/index.js`
+ * starts under `UIStartup` as its children and which are therefore not
+ * readable as transactions anyway. The only other candidate is
+ * `TraceName.AccountOverviewAssetListTab`, which `token-list.tsx` ends here
+ * but which `account-overview-tabs.tsx` only ever starts on a tab click, so it
+ * is ended without having been started.
  *
  * Two facts gate any future conversion, both from the buffering in
  * `app/scripts/services/sentry/sentry-tracing-service.ts`. Onboarding spans are
@@ -85,10 +86,10 @@ import FixtureBuilderV2 from '../../../fixtures/fixture-builder-v2';
 import { WALLET_PASSWORD } from '../../../constants';
 import { withFixtures } from '../../../helpers';
 import {
-  handleSidepanelPostOnboarding,
   onboardingMetricsFlow,
   skipPasskeySetup,
 } from '../../../page-objects/flows/onboarding.flow';
+import HeaderNavbar from '../../../page-objects/pages/home/header-navbar';
 import TokensTab from '../../../page-objects/pages/home/tokens-tab';
 import HomePage from '../../../page-objects/pages/home/homepage';
 import OnboardingCompletePage from '../../../page-objects/pages/onboarding/onboarding-complete-page';
@@ -108,6 +109,7 @@ import {
   measureStepInPage,
   startInPageStep,
 } from '../../utils/in-page-step-timer';
+import { loadHomeAfterSidepanelOnboarding } from '../../utils/sidepanel-onboarding';
 import {
   getTestSpecificMock,
   shouldUseMockedRequests,
@@ -307,10 +309,13 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
         // Measure: Done to Asset list. In-page on Firefox only: on Chrome,
         // Done opens the side panel in another window and the harness then
         // loads `home.html` afresh, so the destination is in a different
-        // document. On Firefox Done navigates within the page. The in-page
-        // timer ends when the token list renders; the step timer goes on to
-        // wait for the Ethereum and Solana rows by their text, which no CSS
-        // selector can match.
+        // document. There the step timer opens when that load returns, so it
+        // covers the header and the rest of the home page; the wait for
+        // onboarding to complete and the navigation stay outside it. On
+        // Firefox Done navigates within the page and the step timer opens
+        // when the click returns. The in-page timer ends when the token list
+        // renders; the step timer goes on to wait for the Ethereum and Solana
+        // rows by their text, which no CSS selector can match.
         const onboardingCompletePage = new OnboardingCompletePage(driver);
         const assetListProbe =
           isFirefox &&
@@ -319,12 +324,15 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             startWithin: '[data-testid="onboarding-complete-done"]',
           }));
         await onboardingCompletePage.completeOnboarding();
-        await handleSidepanelPostOnboarding(driver);
+        const homeLoaded = await loadHomeAfterSidepanelOnboarding(driver);
         steps.push(
           await measureStepWithLongTasks(
             driver,
             'doneButtonToAssetList',
             async () => {
+              if (homeLoaded) {
+                await new HeaderNavbar(driver).checkPageIsLoaded();
+              }
               const homePage = new HomePage(driver);
               await homePage.checkPageIsLoaded();
               const tokensTab = new TokensTab(driver);

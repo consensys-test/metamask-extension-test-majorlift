@@ -57,7 +57,7 @@ function install(config: Partial<InPageProbeConfig> = {}): string | null {
       endSelectors: ['#destination'],
       startWithin: null,
       typedOnly: false,
-      pollBoundMs: 60_000,
+      boundMs: 60_000,
       ...config,
     },
   ]);
@@ -69,9 +69,12 @@ function addElement(id: string): void {
   document.body.appendChild(added);
 }
 
-/** Run the probe's poll once, as the next `setTimeout(poll, 0)` would. */
-function poll(): void {
-  jest.runOnlyPendingTimers();
+/**
+ * Let pending `MutationObserver` callbacks run, as the browser does at the
+ * next microtask checkpoint.
+ */
+async function deliverMutations(): Promise<void> {
+  await new Promise<void>((resolve) => queueMicrotask(resolve));
 }
 
 const element = (selector: string): Element => {
@@ -88,7 +91,7 @@ describe('in-page-step-timer', () => {
       doNotFake: ['performance', 'nextTick', 'queueMicrotask'],
     });
     document.body.innerHTML =
-      '<button id="go"><span id="label">Go</span></button><input id="field" />';
+      '<button id="go"><span id="label">Go</span></button><input id="field" /><input id="box" type="checkbox" />';
     now = 1000;
     inputHandler = undefined;
     jest.spyOn(performance, 'now').mockImplementation(() => now);
@@ -97,7 +100,7 @@ describe('in-page-step-timer', () => {
   afterEach(() => {
     const host = window as unknown as ProbeHost;
     for (const stepId of Object.keys(host.__benchSteps ?? {})) {
-      readInPageStepProbe([stepId, true]);
+      readInPageStepProbe([stepId]);
     }
     delete host.__benchSteps;
     document.body.innerHTML = '';
@@ -105,7 +108,7 @@ describe('in-page-step-timer', () => {
   });
 
   describe('installInPageStepProbe and readInPageStepProbe', () => {
-    it('times from the triggering input to the first poll that finds the destination', () => {
+    it('times from the triggering input to the first observer callback that finds the destination', async () => {
       expect(install()).toBeNull();
       expect(jest.getTimerCount()).toBe(0);
 
@@ -114,59 +117,70 @@ describe('in-page-step-timer', () => {
       // The rest of the same click is not a second gesture.
       trustedInput('mousedown', element('#go'));
       trustedInput('click', element('#go'));
-      now = 1004;
-      poll();
+      // Only the bound is scheduled; nothing polls.
       expect(jest.getTimerCount()).toBe(1);
 
+      now = 1050;
+      addElement('unrelated');
+      await deliverMutations();
       now = 1100;
       addElement('destination');
-      expect(readInPageStepProbe(['step', false])).toStrictEqual({
-        start: 1000,
-        end: null,
-        startEvent: 'pointerdown',
-        preexisting: false,
-        extraInputs: 0,
-        timedOut: false,
-        pending: true,
-        released: false,
-      });
-
-      now = 1104;
-      poll();
+      // The callback, not the change, reads the clock.
+      now = 1103;
+      await deliverMutations();
       expect(jest.getTimerCount()).toBe(0);
-      const reading = readInPageStepProbe(['step', false]);
+      const reading = readInPageStepProbe(['step']);
 
       expect(reading).toStrictEqual({
         start: 1000,
-        end: 1104,
+        end: 1103,
         startEvent: 'pointerdown',
         preexisting: false,
         extraInputs: 0,
         timedOut: false,
-        pending: false,
-        released: true,
+        unobserved: false,
       });
       expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 104, unit: 'ms' },
+        { id: 'stepInPage', value: 103, unit: 'ms' },
       ]);
-      expect(readInPageStepProbe(['step', false])).toBeNull();
+      expect(readInPageStepProbe(['step'])).toBeNull();
     });
 
-    it('ignores input the browser did not mark as trusted', () => {
+    it('does not observe before the triggering input', async () => {
+      install();
+
+      now = 900;
+      addElement('destination');
+      await deliverMutations();
+      element('#destination').remove();
+      await deliverMutations();
+      now = 1000;
+      trustedInput('pointerdown', element('#go'));
+      now = 1200;
+      addElement('destination');
+      await deliverMutations();
+
+      expect(readInPageStepProbe(['step'])).toMatchObject({
+        start: 1000,
+        end: 1200,
+      });
+    });
+
+    it('ignores input the browser did not mark as trusted', async () => {
       install();
 
       element('#go').dispatchEvent(new Event('pointerdown', { bubbles: true }));
       element('#go').dispatchEvent(new Event('click', { bubbles: true }));
       addElement('destination');
-      poll();
-      const reading = readInPageStepProbe(['step', false]);
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
 
       expect(jest.getTimerCount()).toBe(0);
       expect(reading).toMatchObject({ start: null, end: null });
       expect(inPageTimerResult('step', reading)).toStrictEqual([]);
     });
 
-    it('starts only on input inside `startWithin` when it is set', () => {
+    it('starts only on input inside `startWithin` when it is set', async () => {
       install({ startWithin: '#go' });
 
       now = 900;
@@ -176,8 +190,8 @@ describe('in-page-step-timer', () => {
       trustedInput('pointerdown', element('#label'));
       now = 1200;
       addElement('destination');
-      poll();
-      const reading = readInPageStepProbe(['step', false]);
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
 
       expect(reading).toMatchObject({ start: 1000, end: 1200, extraInputs: 0 });
       expect(inPageTimerResult('step', reading)).toStrictEqual([
@@ -185,7 +199,7 @@ describe('in-page-step-timer', () => {
       ]);
     });
 
-    it('with `typedOnly`, skips the clear chord and starts on the first typed character', () => {
+    it('with `typedOnly`, skips the clear chord and starts on the first typed character', async () => {
       install({ startWithin: '#field', typedOnly: true });
       const field = element('#field');
 
@@ -204,8 +218,8 @@ describe('in-page-step-timer', () => {
       trustedInput('keydown', field, { key: 'S', shiftKey: true });
       now = 1300;
       addElement('destination');
-      poll();
-      const reading = readInPageStepProbe(['step', false]);
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
 
       expect(reading).toMatchObject({
         start: 1000,
@@ -218,162 +232,207 @@ describe('in-page-step-timer', () => {
       ]);
     });
 
-    it('reports nothing when the destination is already present at the trigger', () => {
+    it('reports nothing when the destination is already present at the trigger', async () => {
       install();
       addElement('destination');
 
       trustedInput('pointerdown', element('#go'));
-      const reading = readInPageStepProbe(['step', false]);
+      addElement('later');
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
 
       expect(jest.getTimerCount()).toBe(0);
-      expect(reading).toMatchObject({ preexisting: true, end: null });
+      expect(reading).toMatchObject({
+        preexisting: true,
+        end: null,
+        unobserved: false,
+      });
       expect(inPageTimerResult('step', reading)).toStrictEqual([]);
     });
 
-    it('reports nothing when another gesture arrives before the destination', () => {
+    it('reports nothing when another gesture arrives before the destination', async () => {
       install();
 
       trustedInput('pointerdown', element('#go'));
-      poll();
       trustedInput('pointerdown', element('#field'));
       trustedInput('keydown', element('#field'), { key: 'Enter' });
       addElement('destination');
-      poll();
-      const reading = readInPageStepProbe(['step', false]);
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
 
       expect(reading).toMatchObject({ extraInputs: 2 });
       expect(reading?.end).not.toBeNull();
       expect(inPageTimerResult('step', reading)).toStrictEqual([]);
     });
 
-    it('ends the region at an input that finds the destination already there', () => {
-      install();
-
-      now = 1000;
-      trustedInput('pointerdown', element('#go'));
-      now = 1050;
-      addElement('destination');
-      // The next step's click lands before the next poll has run.
-      now = 1052;
-      trustedInput('pointerdown', element('#field'));
-      now = 1060;
-      poll();
-      const reading = readInPageStepProbe(['step', false]);
-
-      expect(jest.getTimerCount()).toBe(0);
-      expect(reading).toMatchObject({ extraInputs: 0, end: 1052 });
-      expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 52, unit: 'ms' },
-      ]);
-    });
-
-    it('does not count input after the destination was recorded', () => {
+    it('does not count input after the destination was recorded', async () => {
       install();
 
       now = 1000;
       trustedInput('pointerdown', element('#go'));
       now = 1040;
       addElement('destination');
-      poll();
+      await deliverMutations();
       now = 1100;
       trustedInput('pointerdown', element('#field'));
-      const reading = readInPageStepProbe(['step', false]);
+      const reading = readInPageStepProbe(['step']);
 
       expect(reading).toMatchObject({ extraInputs: 0, end: 1040 });
     });
 
-    it('waits for every end selector', () => {
+    it('keeps the first end once the destination is recorded', async () => {
+      install();
+
+      now = 1000;
+      trustedInput('pointerdown', element('#go'));
+      now = 1040;
+      addElement('destination');
+      await deliverMutations();
+      element('#destination').remove();
+      now = 1300;
+      addElement('destination');
+      await deliverMutations();
+
+      expect(readInPageStepProbe(['step'])).toMatchObject({ end: 1040 });
+    });
+
+    it('waits for every end selector', async () => {
       install({ endSelectors: ['#destination', '#second'] });
 
       now = 1000;
       trustedInput('pointerdown', element('#go'));
       now = 1100;
       addElement('destination');
-      poll();
-      expect(readInPageStepProbe(['step', false])).toMatchObject({
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).toMatchObject({
         start: 1000,
         end: null,
-        pending: false,
-        released: true,
+        unobserved: false,
       });
+      expect(inPageTimerResult('step', reading)).toStrictEqual([]);
       expect(jest.getTimerCount()).toBe(0);
     });
 
-    it('ends at the first poll after the last end selector matches', () => {
+    it('ends at the first callback after the last end selector matches', async () => {
       install({ endSelectors: ['#destination', '#second'] });
 
       now = 1000;
       trustedInput('pointerdown', element('#go'));
       addElement('destination');
       now = 1200;
-      poll();
+      await deliverMutations();
       now = 1400;
       addElement('second');
-      now = 1404;
-      poll();
+      now = 1401;
+      await deliverMutations();
 
       expect(
-        inPageTimerResult('step', readInPageStepProbe(['step', false])),
-      ).toStrictEqual([{ id: 'stepInPage', value: 404, unit: 'ms' }]);
+        inPageTimerResult('step', readInPageStepProbe(['step'])),
+      ).toStrictEqual([{ id: 'stepInPage', value: 401, unit: 'ms' }]);
     });
 
-    it('stops polling at the bound and reports nothing', () => {
-      install({ pollBoundMs: 500 });
+    it('sees an attribute change that makes the destination match', async () => {
+      install({ endSelectors: ['#go:disabled'] });
+
+      now = 1000;
+      trustedInput('pointerdown', element('#field'));
+      now = 1150;
+      element('#go').setAttribute('disabled', '');
+      await deliverMutations();
+
+      expect(
+        inPageTimerResult('step', readInPageStepProbe(['step'])),
+      ).toStrictEqual([{ id: 'stepInPage', value: 150, unit: 'ms' }]);
+    });
+
+    it('reports a destination that matched without a DOM change the observer saw', async () => {
+      install({ endSelectors: ['#box:checked'] });
+
+      trustedInput('pointerdown', element('#go'));
+      // A property, not an attribute: no mutation record.
+      (element('#box') as HTMLInputElement).checked = true;
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).toMatchObject({ end: null, unobserved: true });
+      expect(inPageTimerResult('step', reading)).toStrictEqual([]);
+    });
+
+    it('stops observing at the bound and reports nothing', async () => {
+      install({ boundMs: 500 });
 
       now = 1000;
       trustedInput('pointerdown', element('#go'));
-      now = 1499;
-      poll();
+      jest.advanceTimersByTime(499);
       expect(jest.getTimerCount()).toBe(1);
-      now = 1500;
-      poll();
+      jest.advanceTimersByTime(1);
       expect(jest.getTimerCount()).toBe(0);
 
       now = 1600;
       addElement('destination');
-      poll();
-      const reading = readInPageStepProbe(['step', false]);
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
 
       expect(reading).toMatchObject({ timedOut: true, end: null });
       expect(inPageTimerResult('step', reading)).toStrictEqual([]);
     });
 
-    it('keeps a probe whose recording poll is pending unless told to release it', () => {
+    it('stops observing when read before the destination appears', async () => {
       install();
 
       trustedInput('pointerdown', element('#go'));
-      addElement('destination');
-
-      expect(readInPageStepProbe(['step', false])).toMatchObject({
-        pending: true,
-        released: false,
-      });
-      expect(jest.getTimerCount()).toBe(1);
-      expect(readInPageStepProbe(['step', true])).toMatchObject({
-        pending: true,
-        released: true,
-        end: null,
-      });
+      expect(readInPageStepProbe(['step'])).toMatchObject({ end: null });
       expect(jest.getTimerCount()).toBe(0);
-      expect(readInPageStepProbe(['step', false])).toBeNull();
+      addElement('destination');
+      await deliverMutations();
+
+      expect(readInPageStepProbe(['step'])).toBeNull();
     });
 
     it('rejects an invalid selector and installs nothing', () => {
       const failure = install({ endSelectors: ['[[['] });
 
       expect(failure).toMatch(/^invalid selector: /u);
-      expect(readInPageStepProbe(['step', false])).toBeNull();
+      expect(readInPageStepProbe(['step'])).toBeNull();
     });
 
-    it('replaces a probe installed under the same step id, stopping its poll', () => {
+    it('installs nothing when `MutationObserver` is scuttled', () => {
+      const descriptor = Object.getOwnPropertyDescriptor(
+        window,
+        'MutationObserver',
+      );
+      Object.defineProperty(window, 'MutationObserver', {
+        configurable: true,
+        get: () => {
+          throw new Error('scuttled');
+        },
+      });
+      try {
+        expect(install()).toBe('MutationObserver unavailable: Error: scuttled');
+      } finally {
+        Object.defineProperty(
+          window,
+          'MutationObserver',
+          descriptor as PropertyDescriptor,
+        );
+      }
+      expect(readInPageStepProbe(['step'])).toBeNull();
+    });
+
+    it('replaces a probe installed under the same step id, stopping its observer', async () => {
       install();
       trustedInput('pointerdown', element('#go'));
       expect(jest.getTimerCount()).toBe(1);
       install();
+      addElement('destination');
+      await deliverMutations();
 
       expect(jest.getTimerCount()).toBe(0);
-      expect(readInPageStepProbe(['step', false])).toMatchObject({
+      expect(readInPageStepProbe(['step'])).toMatchObject({
         start: null,
+        end: null,
       });
     });
   });
@@ -409,11 +468,6 @@ describe('in-page-step-timer', () => {
             return script(args);
           },
         ),
-        delay: jest.fn(async () => {
-          order.push('delay');
-          now += 4;
-          poll();
-        }),
       };
       return { driver: driver as unknown as Driver, order };
     }
@@ -433,6 +487,7 @@ describe('in-page-step-timer', () => {
           order.push('settle');
           now = 1250;
           addElement('destination');
+          await deliverMutations();
         },
       });
 
@@ -441,11 +496,9 @@ describe('in-page-step-timer', () => {
         'trigger',
         'settle',
         'executeScript:readInPageStepProbe',
-        'delay',
-        'executeScript:readInPageStepProbe',
       ]);
       expect(result).toStrictEqual([
-        { id: 'stepInPage', value: 254, unit: 'ms' },
+        { id: 'stepInPage', value: 250, unit: 'ms' },
       ]);
       expect(jest.getTimerCount()).toBe(0);
     });
@@ -483,32 +536,12 @@ describe('in-page-step-timer', () => {
   });
 
   describe('finishInPageStep', () => {
-    it('releases a probe whose recording poll never runs once the timeout has passed', async () => {
+    it('reads once, removes the probe, and does not wait for a destination that has not appeared', async () => {
       const driver = {
         executeScript: jest.fn(
           async (script: (args: unknown[]) => unknown, ...args: unknown[]) =>
             script(args),
         ),
-        delay: jest.fn(async () => undefined),
-      } as unknown as Driver;
-      install();
-      trustedInput('pointerdown', element('#go'));
-      addElement('destination');
-
-      const result = await finishInPageStep(driver, 'step', { timeoutMs: 0 });
-
-      expect(result).toStrictEqual([]);
-      expect(jest.getTimerCount()).toBe(0);
-      expect(readInPageStepProbe(['step', false])).toBeNull();
-    });
-
-    it('does not wait for a destination that has not appeared', async () => {
-      const driver = {
-        executeScript: jest.fn(
-          async (script: (args: unknown[]) => unknown, ...args: unknown[]) =>
-            script(args),
-        ),
-        delay: jest.fn(async () => undefined),
       } as unknown as Driver;
       install();
       trustedInput('pointerdown', element('#go'));
@@ -516,8 +549,19 @@ describe('in-page-step-timer', () => {
       const result = await finishInPageStep(driver, 'step');
 
       expect(result).toStrictEqual([]);
-      expect(driver.delay).not.toHaveBeenCalled();
+      expect(driver.executeScript).toHaveBeenCalledTimes(1);
       expect(jest.getTimerCount()).toBe(0);
+      expect(readInPageStepProbe(['step'])).toBeNull();
+    });
+
+    it('reports nothing when the probe cannot be read', async () => {
+      const driver = {
+        executeScript: jest.fn(async () => {
+          throw new Error('no such window');
+        }),
+      } as unknown as Driver;
+
+      expect(await finishInPageStep(driver, 'step')).toStrictEqual([]);
     });
   });
 
