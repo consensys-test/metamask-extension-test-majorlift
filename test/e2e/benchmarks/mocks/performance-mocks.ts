@@ -96,15 +96,16 @@ export type MockPriorityLevel = keyof typeof MOCK_PRIORITIES;
  * that established `swapQuoteFetch` was four fifths mocked sleep, applied to
  * the whole suite in one arm instead of one arm per flow.
  *
- * There are 73 such sites totalling 25,150 ms, median 350, range 50-800, so
- * a span enclosing several mocked requests can be mostly fixture. `delta_block`
- * is 10% of the measured mean, so whatever share that is, it sets the gate's
- * threshold for that span.
+ * There are 76 such sites totalling 25,950 ms, median 325, range 50-800, plus
+ * the quote responses' `BENCHMARK_QUOTE_RESPONSE_DELAY_MS`, so a span enclosing
+ * several mocked requests can be mostly fixture. `delta_block` is 10% of the
+ * measured mean, so whatever share that is, it sets the gate's threshold for
+ * that span.
  *
  * @param ms - The delay the fixture specifies.
  * @returns That delay, or 0 when the arm is zeroing them.
  */
-function mockDelayMs(ms: number): number {
+export function mockDelayMs(ms: number): number {
   return process.env.BENCHMARK_ZERO_MOCK_DELAYS === '1' ? 0 : ms;
 }
 
@@ -155,7 +156,7 @@ type AuthMockResponse = {
   response: unknown;
 };
 
-async function mockAuthAPICall(
+export async function mockAuthAPICall(
   server: Mockttp,
   mockResponse: AuthMockResponse,
   delayMs = 0,
@@ -182,8 +183,9 @@ async function mockAuthAPICall(
     .asPriority(150)
     .always()
     .thenCallback(async (request) => {
-      if (delayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      const waitMs = mockDelayMs(delayMs);
+      if (waitMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
 
       const { path, body } = request;
