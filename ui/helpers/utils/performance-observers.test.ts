@@ -445,6 +445,7 @@ describe('performance-observers', () => {
         tasks: [{ name: 'test', duration: 200, startTime: 0 }],
         tbt: 150,
         tbtRating: 'good' as const,
+        observed: true,
       };
 
       reportLongTaskMetricsToSentry(customMetrics);
@@ -477,6 +478,7 @@ describe('performance-observers', () => {
         tasks: [],
         tbt: 0,
         tbtRating: 'good',
+        observed: true,
       });
 
       expect(mockSentry.setTag).toHaveBeenCalledWith(
