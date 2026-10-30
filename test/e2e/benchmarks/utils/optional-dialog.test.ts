@@ -96,9 +96,10 @@ describe('optional-dialog', () => {
       expect(getOptionalDialogPollMs()).toBe(1000);
     });
 
+    // @ts-expect-error '.each' is missing from type definitions
     it.each(['0', '-5', '2.5', 'fast'])(
       'rejects %p, which is not a positive integer',
-      (raw) => {
+      (raw: string) => {
         process.env[OPTIONAL_DIALOG_POLL_MS_ENV] = raw;
         expect(() => getOptionalDialogPollMs()).toThrow(
           `${OPTIONAL_DIALOG_POLL_MS_ENV} must be a positive integer, got "${raw}"`,

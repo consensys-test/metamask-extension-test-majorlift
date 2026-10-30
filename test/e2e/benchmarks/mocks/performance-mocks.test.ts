@@ -430,13 +430,14 @@ describe('mockBenchmarkEndpoints', () => {
       expect(delays.filter((delayMs) => delayMs > 0)).toStrictEqual([]);
     });
 
+    // @ts-expect-error '.each' is missing from type definitions
     it.each([
       ['auth-api', 3, 800],
       ['user-storage', 2, 1000],
       ['solana-rpc', 9, 1900],
     ])(
       'with the %s set zeroed, only that set changes: %i delays, %i ms',
-      async (set, changedCount, changedMs) => {
+      async (set: string, changedCount: number, changedMs: number) => {
         const written = await everyDelay(await registeredRules());
         process.env[SET_SWITCH] = set;
 
@@ -488,21 +489,26 @@ describe('mockBenchmarkEndpoints', () => {
   });
 
   describe('quote responses', () => {
+    // @ts-expect-error '.each' is missing from type definitions
     it.each([
       ['getQuoteStream', QUOTE_STREAM_URL],
       ['getQuote', QUOTE_URL],
-    ])('%s waits the fixed 2000 ms by default', async (_name, url) => {
-      const rules = await registeredRules();
+    ])(
+      '%s waits the fixed 2000 ms by default',
+      async (_name: string, url: string) => {
+        const rules = await registeredRules();
 
-      expect((await respond(rules, 'GET', url)).elapsedMs).toBe(2000);
-    });
+        expect((await respond(rules, 'GET', url)).elapsedMs).toBe(2000);
+      },
+    );
 
+    // @ts-expect-error '.each' is missing from type definitions
     it.each([
       ['getQuoteStream', QUOTE_STREAM_URL],
       ['getQuote', QUOTE_URL],
     ])(
       '%s adds the known-answer delay to the fixed delay',
-      async (_name, url) => {
+      async (_name: string, url: string) => {
         process.env[KNOWN_ANSWER_QUOTE_DELAY] = '300';
         const rules = await registeredRules();
 
@@ -510,12 +516,13 @@ describe('mockBenchmarkEndpoints', () => {
       },
     );
 
+    // @ts-expect-error '.each' is missing from type definitions
     it.each([
       ['getQuoteStream', QUOTE_STREAM_URL],
       ['getQuote', QUOTE_URL],
     ])(
       '%s keeps the known-answer delay with BENCHMARK_ZERO_MOCK_DELAYS=1',
-      async (_name, url) => {
+      async (_name: string, url: string) => {
         process.env[SWITCH] = '1';
         process.env[KNOWN_ANSWER_QUOTE_DELAY] = '300';
         const rules = await registeredRules();
@@ -529,12 +536,13 @@ describe('mockBenchmarkEndpoints', () => {
   });
 
   describe('historical prices', () => {
+    // @ts-expect-error '.each' is missing from type definitions
     it.each([
       ['an EVM asset', HISTORICAL_PRICES_EVM_URL],
       ['a Solana asset', HISTORICAL_PRICES_SOLANA_URL],
     ])(
       'answers the v3 URL the price chart requests for %s with prices, after 600 ms',
-      async (_asset, url) => {
+      async (_asset: string, url: string) => {
         const rules = await registeredRules();
 
         const { elapsedMs, response } = await respond(rules, 'GET', url);

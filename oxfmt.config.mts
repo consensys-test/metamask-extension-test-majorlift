@@ -12,6 +12,7 @@ export default defineConfig({
     '/CHANGELOG*.md',
     '/development/chromereload.js',
     '/development/circular-deps.jsonc',
+    '/test/e2e/benchmarks/flows/dapp-page-load/test-dapp-styles/',
     '/test/e2e/send-eth-with-private-key-test/',
   ],
   printWidth: 80,
