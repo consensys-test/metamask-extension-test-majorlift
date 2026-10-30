@@ -12,6 +12,8 @@ import TokensTab from '../../../page-objects/pages/home/tokens-tab';
 import { Driver } from '../../../webdriver/driver';
 import { collectTimerResults } from '../../utils/timer-helper';
 import {
+  describeSpanBreakdown,
+  readSentryTransactions,
   sentryCountResult,
   sentryTimerResult,
   waitForSentryTransactions,
@@ -21,10 +23,7 @@ import {
   measureStepWithLongTasks,
   buildLongTaskTimerResults,
 } from '../../utils/long-task-helper';
-import {
-  assetPriceChartDestination,
-  measureStepInPage,
-} from '../../utils/in-page-step-timer';
+import { measureStepInPage } from '../../utils/in-page-step-timer';
 import {
   getTestSpecificMock,
   shouldUseMockedRequests,
@@ -43,6 +42,19 @@ import type {
 } from '../../utils/types';
 
 const SOL_TOKEN_ADDRESS = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp/slip44:501';
+
+/**
+ * The price chart's own data: the percent change in the chart header. The
+ * chart passes the header a comparison price only once non-placeholder
+ * historical prices have loaded (`asset-chart.tsx`, `comparePrice`), and the
+ * header renders this element only when that yields a percentage
+ * (`token-price-header.tsx`). Scoped to the asset page, so it is absent until
+ * the click. It needs the historical-prices mock to match the URL the chart
+ * requests; without a matching response the chart never gets data and this
+ * element never appears.
+ */
+const PRICE_CHART_DATA =
+  '[data-testid="parent-selector-asset-details"] [data-testid="asset-price-percent-change"]';
 
 export const testTitle = 'benchmark-solana-asset-details-power-user';
 export const persona = BENCHMARK_PERSONA.POWER_USER;
@@ -85,12 +97,14 @@ export async function runSolanaAssetDetailsBenchmark(): Promise<BenchmarkRunResu
         const tokensTab = new TokensTab(driver);
         await tokensTab.checkTokenListIsDisplayed();
 
-        // Measure: Asset click to price chart loaded. `clickOnAsset` may first
-        // expand the low-value section, so the in-page timer starts only on
-        // input inside a token row.
+        // Measure: Asset click to the price chart's data. Both timers end at
+        // `PRICE_CHART_DATA`, not at the asset page's first render, which is
+        // where the chart container and the balance row's percentage already
+        // are. `clickOnAsset` may first expand the low-value section, so the
+        // in-page timer starts only on input inside a token row.
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'assetClickToPriceChart', {
-            endSelector: assetPriceChartDestination(SOL_TOKEN_ADDRESS),
+            endSelector: PRICE_CHART_DATA,
             startWithin: '[data-testid="multichain-token-list-button"]',
             trigger: () => tokensTab.clickOnAsset('Solana'),
             settle: async () => {
@@ -100,7 +114,7 @@ export async function runSolanaAssetDetailsBenchmark(): Promise<BenchmarkRunResu
                   'assetClickToPriceChart',
                   async () => {
                     await tokensTab.checkPriceChartIsShown();
-                    await tokensTab.checkPriceChartLoaded(SOL_TOKEN_ADDRESS);
+                    await driver.waitForSelector(PRICE_CHART_DATA);
                   },
                 ),
               );
@@ -113,12 +127,11 @@ export async function runSolanaAssetDetailsBenchmark(): Promise<BenchmarkRunResu
         // timers measure the test harness, not the browser)).
         //
         // `Asset Details` is NOT coextensive with `assetClickToPriceChart`:
-        // it starts in `onTokenClick` (so it includes the click the step
-        // timer starts after) and ends when `asset-page` mounts, BEFORE the
-        // price chart's historical-price data has rendered. It therefore
-        // measures navigation only, and is reported under its own id rather
-        // than as a replacement for the step timer. Report-only: no threshold
-        // is registered for it.
+        // it runs from `onTokenClick` to the asset page's mount, BEFORE the
+        // price chart's historical-price data has rendered, where the step
+        // timers end. It therefore measures navigation only, and is reported
+        // under its own id rather than as a replacement for the step timer.
+        // Report-only: no threshold is registered for it.
         const transactions = await waitForSentryTransactions(
           driver,
           mockedEndpoint,
@@ -141,6 +154,23 @@ export async function runSolanaAssetDetailsBenchmark(): Promise<BenchmarkRunResu
           webVitals = await collectWebVitals(driver);
         } catch (error) {
           console.error('Error collecting web vitals:', error);
+        }
+
+        // Diagnostic, not a series: the child spans inside this iteration's
+        // `Asset Details` span, from every transaction the mocked Sentry
+        // endpoint has captured by now, so a slow iteration's job log shows
+        // where inside the span the time went. Read last, after every
+        // measurement, so a navigation span that ends later is more likely
+        // to have been sent.
+        try {
+          console.log(
+            `[benchmark] ${describeSpanBreakdown(
+              await readSentryTransactions(mockedEndpoint),
+              TraceName.AssetDetails,
+            )}`,
+          );
+        } catch (error) {
+          console.error('Error reading the Asset Details child spans:', error);
         }
       },
     );

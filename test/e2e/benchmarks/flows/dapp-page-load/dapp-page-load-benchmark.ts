@@ -1,7 +1,12 @@
 import { promises as fs } from 'fs';
 import { execSync, spawn, ChildProcess } from 'child_process';
 import path from 'path';
-import { chromium, type BrowserContext, Browser } from '@playwright/test';
+import {
+  chromium,
+  type BrowserContext,
+  Browser,
+  type Route,
+} from '@playwright/test';
 import {
   DEFAULT_BENCHMARK_BROWSER_LOADS,
   DEFAULT_BENCHMARK_PAGE_LOADS,
@@ -12,7 +17,14 @@ import type {
   DappPageLoadStats,
 } from '../../utils/types';
 import { DAPP_URL } from '../../../constants';
-import { aggregateDappPageLoadStatistics } from './dapp-page-load-stats';
+import {
+  getKnownAnswerDelayMs,
+  withKnownAnswerDelay,
+} from '../../mocks/known-answer';
+import {
+  aggregateDappPageLoadStatistics,
+  getFirstMeasuredRun,
+} from './dapp-page-load-stats';
 
 /**
  * How long to wait for the static dapp server to report that it is accepting
@@ -20,6 +32,141 @@ import { aggregateDappPageLoadStatistics } from './dapp-page-load-stats';
  * that navigates before the server binds measures nothing.
  */
 const DAPP_SERVER_READY_TIMEOUT_MS = 30_000;
+
+/**
+ * The test dapp's off-host stylesheets, keyed by the exact URL its
+ * `index.html` links, each mapped to a local copy in
+ * {@link LOCAL_STYLESHEET_DIRECTORY}. They are render-blocking, so served
+ * from their CDNs they put CDN latency inside the paint series, which no
+ * extension change can move. The copies are byte-identical to what each URL
+ * served on 2026-10-30 (sha256 `96b5b882…dc82`, `2ff5b959…ebfd6`,
+ * `fa2a2049…beb4`, in this order); the Google Fonts one was requested with
+ * the user agent this benchmark sets, since that service varies its CSS by
+ * user agent. The fonts that CSS names stay on `fonts.gstatic.com`.
+ */
+export const TEST_DAPP_OFF_HOST_STYLESHEETS: Readonly<Record<string, string>> =
+  {
+    'https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap':
+      'roboto.css',
+    'https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.4.1/css/bootstrap.min.css':
+      'bootstrap.min.css',
+    'https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.14.1/css/mdb.min.css':
+      'mdb.min.css',
+  };
+
+/**
+ * Where the local stylesheet copies live, beside this file, and the path the
+ * rewritten `index.html` links them under.
+ */
+export const LOCAL_STYLESHEET_DIRECTORY = 'test-dapp-styles';
+
+/**
+ * Point the test dapp's off-host stylesheet links at the local copies.
+ *
+ * Throws when a link this benchmark knows is absent or repeated, or when
+ * another off-host stylesheet remains, so a test dapp upgrade that changes
+ * its links fails here instead of quietly going back to a CDN.
+ *
+ * @param html - The test dapp's `index.html`.
+ * @returns The same document, linking the local copies.
+ */
+export function localizeOffHostStylesheets(html: string): string {
+  let localized = html;
+  for (const [url, fileName] of Object.entries(
+    TEST_DAPP_OFF_HOST_STYLESHEETS,
+  )) {
+    const link = `href="${url}"`;
+    const count = localized.split(link).length - 1;
+    if (count !== 1) {
+      throw new Error(
+        `The test dapp's index.html links ${url} ${count} times; expected once. Update TEST_DAPP_OFF_HOST_STYLESHEETS to match it.`,
+      );
+    }
+    localized = localized.replace(
+      link,
+      `href="${LOCAL_STYLESHEET_DIRECTORY}/${fileName}"`,
+    );
+  }
+  const remaining = [
+    ...localized.matchAll(/<link\b[^>]*\bhref="(https?:\/\/[^"]+)"/gu),
+  ].map((match) => match[1]);
+  if (remaining.length > 0) {
+    throw new Error(
+      `The test dapp's index.html links off-host resources with no local copy: ${remaining.join(', ')}`,
+    );
+  }
+  return localized;
+}
+
+/**
+ * How long to wait for buffered largest-contentful-paint entries before
+ * reading the series as 0. The audit's probe read them through a buffered
+ * observer within this window in 4 of 4 loads, in Chromium 149.
+ */
+export const LCP_READ_TIMEOUT_MS = 500;
+
+/**
+ * Read the page's largest contentful paint. Runs in the page.
+ *
+ * Chromium does not expose largest-contentful-paint entries through
+ * `performance.getEntriesByType`, so that read returns nothing; a buffered
+ * `PerformanceObserver` receives the entries recorded so far in its first
+ * callback. The value is the last candidate's `startTime`. The function is
+ * serialized into the page, so it must not reference anything outside its
+ * own body.
+ *
+ * @param timeoutMs - How long to wait for the buffered entries.
+ * @returns The largest contentful paint in ms, or 0 when none was recorded.
+ */
+export function readLargestContentfulPaint(timeoutMs: number): Promise<number> {
+  return new Promise((resolve) => {
+    // Whichever settles the promise first wins; the other's `resolve` and
+    // `disconnect` are then no-ops.
+    const observer = new PerformanceObserver((list) => {
+      const entries = list.getEntries();
+      if (entries.length > 0) {
+        observer.disconnect();
+        resolve(entries[entries.length - 1].startTime);
+      }
+    });
+    observer.observe({ type: 'largest-contentful-paint', buffered: true });
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(0);
+    }, timeoutMs);
+  });
+}
+
+/**
+ * Known-answer lever: delays every response of the test dapp's own
+ * `main.js`, a deferred script that `domContentLoaded` and `pageLoadTime`
+ * wait on, by this many ms. Unset or empty, it is 0 and nothing is routed.
+ */
+export const KNOWN_ANSWER_DAPP_SCRIPT_DELAY =
+  'BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_DELAY_MS';
+
+/**
+ * Set to `1` to route `main.js` exactly as the lever does, with no delay: the
+ * comparison arm for a lever run. Routing any URL in a context makes
+ * Playwright intercept every request of every page in it and turns the HTTP
+ * cache off (`Network.setCacheDisabled` in `crNetworkManager.js`, Playwright
+ * 1.59.1), so a lever arm compared with an unrouted arm measures that change
+ * as well as the delay. Unset, nothing is routed.
+ */
+export const DAPP_SCRIPT_ROUTE_CONTROL = 'BENCHMARK_DAPP_SCRIPT_ROUTE_CONTROL';
+
+/**
+ * Whether this run routes the dapp's `main.js` through Playwright: when the
+ * lever is above 0, or the control arm is on.
+ *
+ * @returns True when the route is installed.
+ */
+export function shouldRouteDappScript(): boolean {
+  return (
+    getKnownAnswerDelayMs(KNOWN_ANSWER_DAPP_SCRIPT_DELAY) > 0 ||
+    process.env[DAPP_SCRIPT_ROUTE_CONTROL] === '1'
+  );
+}
 
 declare global {
   /**
@@ -60,6 +207,12 @@ export class PageLoadBenchmark {
 
   private readonly userDataDirectory = 'temp-benchmark-user-data';
 
+  /** The test dapp as served: a copy whose stylesheets are local. */
+  private readonly dappRootDirectory = 'temp-benchmark-dapp';
+
+  /** Runs below this are warm-up, set by {@link runBenchmark}. */
+  private firstMeasuredRun = 0;
+
   /**
    * Creates a new PageLoadBenchmark instance.
    *
@@ -78,7 +231,7 @@ export class PageLoadBenchmark {
    */
   async setup() {
     await this.buildExtension();
-    await this.createStaticDappServer();
+    await this.createStaticDappServer(await this.prepareDappRoot());
 
     const userDataDir = path.join(process.cwd(), this.userDataDirectory);
     await fs.mkdir(userDataDir, { recursive: true });
@@ -105,7 +258,71 @@ export class PageLoadBenchmark {
     }
     this.browser = browser;
 
+    await this.installDappScriptRoute();
     await this.waitForExtensionLoad();
+  }
+
+  /**
+   * Route the dapp's `main.js` through the known-answer lever when this run
+   * asks for it ({@link shouldRouteDappScript}). Otherwise nothing is routed,
+   * and the HTTP cache and the request path are as they were.
+   */
+  private async installDappScriptRoute() {
+    if (!shouldRouteDappScript()) {
+      return;
+    }
+    const script = new URL('main.js', `${DAPP_URL}/`).href;
+    await this.context?.route(
+      (url) => url.href === script,
+      withKnownAnswerDelay(KNOWN_ANSWER_DAPP_SCRIPT_DELAY, (route: Route) =>
+        route.continue(),
+      ),
+    );
+  }
+
+  /**
+   * Copy the test dapp into a working directory and point its off-host
+   * stylesheets at the local copies ({@link localizeOffHostStylesheets}).
+   *
+   * File times are kept from the installed package, and the rewritten
+   * `index.html` and the stylesheet copies are given the original
+   * `index.html`'s, because the static server sends no cache headers but
+   * `Last-Modified`, from which the browser derives how long to reuse a cached
+   * response. Fresh times would make it revalidate files it reuses today.
+   *
+   * @returns The directory to serve.
+   */
+  private async prepareDappRoot(): Promise<string> {
+    const source = path.join(
+      process.cwd(),
+      'node_modules',
+      '@metamask',
+      'test-dapp',
+      'dist',
+    );
+    const root = path.join(process.cwd(), this.dappRootDirectory);
+    await fs.rm(root, { recursive: true, force: true });
+    await fs.cp(source, root, { recursive: true, preserveTimestamps: true });
+
+    const indexPath = path.join(root, 'index.html');
+    const { atime, mtime } = await fs.stat(indexPath);
+    await fs.writeFile(
+      indexPath,
+      localizeOffHostStylesheets(await fs.readFile(indexPath, 'utf8')),
+    );
+
+    const stylesheetRoot = path.join(root, LOCAL_STYLESHEET_DIRECTORY);
+    await fs.mkdir(stylesheetRoot, { recursive: true });
+    for (const fileName of Object.values(TEST_DAPP_OFF_HOST_STYLESHEETS)) {
+      const target = path.join(stylesheetRoot, fileName);
+      await fs.copyFile(
+        path.join(__dirname, LOCAL_STYLESHEET_DIRECTORY, fileName),
+        target,
+      );
+      await fs.utimes(target, atime, mtime);
+    }
+    await fs.utimes(indexPath, atime, mtime);
+    return root;
   }
 
   /**
@@ -129,18 +346,29 @@ export class PageLoadBenchmark {
   }
 
   /**
-   * Starts the static dapp server in the background.
-   * The server runs on port 8080 and serves the test dapp for benchmarking.
+   * Starts the static dapp server in the background: the server `yarn dapp`
+   * runs, on the port of {@link DAPP_URL}, serving the given directory.
+   *
+   * @param rootDirectory - The test dapp to serve, from {@link prepareDappRoot}.
    */
-  async createStaticDappServer() {
+  async createStaticDappServer(rootDirectory: string) {
     try {
       console.log('Creating static dapp server...');
 
-      this.dappServerProcess = spawn('yarn', ['dapp'], {
-        stdio: 'pipe', // Capture output but don't block
-        detached: false, // Keep attached to parent process for cleanup
-        cwd: process.cwd(),
-      });
+      this.dappServerProcess = spawn(
+        process.execPath,
+        [
+          path.join('development', 'static-server.js'),
+          rootDirectory,
+          '--port',
+          new URL(DAPP_URL).port,
+        ],
+        {
+          stdio: 'pipe', // Capture output but don't block
+          detached: false, // Keep attached to parent process for cleanup
+          cwd: process.cwd(),
+        },
+      );
 
       this.dappServerProcess.stderr?.on('data', (data) => {
         console.error('Dapp server error:', data.toString());
@@ -234,13 +462,6 @@ export class PageLoadBenchmark {
       throw new Error('Browser Context not initialized.');
     }
 
-    // Enable performance monitoring
-    await page.addInitScript(() => {
-      const originalNow = performance.now;
-      const startTime = Date.now();
-      performance.now = () => originalNow() + (Date.now() - startTime);
-    });
-
     await page.goto(url, { waitUntil: 'networkidle' });
 
     // Wait for page to be fully loaded
@@ -248,33 +469,38 @@ export class PageLoadBenchmark {
     await page.waitForLoadState('networkidle');
 
     // Collect performance metrics
-    const metrics: DappPageLoadMetric = await page.evaluate(() => {
-      const navigation = performance.getEntriesByType(
-        'navigation',
-      )[0] as PerformanceNavigationTiming;
-      const paint = performance.getEntriesByType('paint');
-      const lcp = performance.getEntriesByType(
-        'largest-contentful-paint',
-      )[0] as PerformanceEntry;
+    const timeline: Omit<DappPageLoadMetric, 'largestContentfulPaint'> =
+      await page.evaluate(() => {
+        const navigation = performance.getEntriesByType(
+          'navigation',
+        )[0] as PerformanceNavigationTiming;
+        const paint = performance.getEntriesByType('paint');
 
-      return {
-        pageLoadTime: navigation.loadEventEnd - navigation.startTime,
-        domContentLoaded:
-          navigation.domContentLoadedEventEnd - navigation.startTime,
-        firstPaint: paint.find((p) => p.name === 'first-paint')?.startTime || 0,
-        firstContentfulPaint:
-          paint.find((p) => p.name === 'first-contentful-paint')?.startTime ||
-          0,
-        largestContentfulPaint: lcp?.startTime || 0,
-        memoryUsage: performance.memory
-          ? {
-              usedJSHeapSize: performance.memory.usedJSHeapSize,
-              totalJSHeapSize: performance.memory.totalJSHeapSize,
-              jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
-            }
-          : undefined,
-      };
-    });
+        return {
+          pageLoadTime: navigation.loadEventEnd - navigation.startTime,
+          domContentLoaded:
+            navigation.domContentLoadedEventEnd - navigation.startTime,
+          firstPaint:
+            paint.find((p) => p.name === 'first-paint')?.startTime || 0,
+          firstContentfulPaint:
+            paint.find((p) => p.name === 'first-contentful-paint')?.startTime ||
+            0,
+          memoryUsage: performance.memory
+            ? {
+                usedJSHeapSize: performance.memory.usedJSHeapSize,
+                totalJSHeapSize: performance.memory.totalJSHeapSize,
+                jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+              }
+            : undefined,
+        };
+      });
+    const metrics: DappPageLoadMetric = {
+      ...timeline,
+      largestContentfulPaint: await page.evaluate(
+        readLargestContentfulPaint,
+        LCP_READ_TIMEOUT_MS,
+      ),
+    };
 
     const result: DappPageLoadSample = {
       page: url === DAPP_URL ? 'Localhost MetaMask Test Dapp' : url,
@@ -294,6 +520,9 @@ export class PageLoadBenchmark {
    * Uses the persistent browser context to simulate real-world conditions,
    * and measures each URL multiple times to gather statistical data.
    *
+   * The first browser load of the job is measured and then discarded as
+   * warm-up ({@link getFirstMeasuredRun}).
+   *
    * @param urls - Array of URLs to test
    * @param browserLoads - Number of browser load iterations (default: {@link DEFAULT_BENCHMARK_BROWSER_LOADS})
    * @param pageLoads - Number of page loads per browser load (default: {@link DEFAULT_BENCHMARK_PAGE_LOADS})
@@ -303,6 +532,7 @@ export class PageLoadBenchmark {
     browserLoads: number = DEFAULT_BENCHMARK_BROWSER_LOADS,
     pageLoads: number = DEFAULT_BENCHMARK_PAGE_LOADS,
   ) {
+    this.firstMeasuredRun = getFirstMeasuredRun(browserLoads, pageLoads);
     console.log(
       `Starting benchmark: ${browserLoads} browser loads, ${pageLoads} page loads per browser`,
     );
@@ -338,7 +568,9 @@ export class PageLoadBenchmark {
    * @returns Array of statistical summaries, one for each tested page
    */
   calculateStatistics(): DappPageLoadStats[] {
-    return aggregateDappPageLoadStatistics(this.results);
+    return aggregateDappPageLoadStatistics(this.results, {
+      firstMeasuredRun: this.firstMeasuredRun,
+    });
   }
 
   /**
@@ -375,6 +607,13 @@ export class PageLoadBenchmark {
       await fs.rm(userDataDir, { recursive: true, force: true });
     } catch (error) {
       console.warn('Failed to clean up temporary user data directory:', error);
+    }
+
+    const dappRoot = path.join(process.cwd(), this.dappRootDirectory);
+    try {
+      await fs.rm(dappRoot, { recursive: true, force: true });
+    } catch (error) {
+      console.warn('Failed to clean up the served test dapp copy:', error);
     }
   }
 }

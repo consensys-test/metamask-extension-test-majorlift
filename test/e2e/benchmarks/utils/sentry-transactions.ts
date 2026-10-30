@@ -6,6 +6,23 @@ import type { TimerResult } from './types';
 const SENTRY_ENVELOPE_URL = /sentry\.io\/api\/\d+\/envelope/u;
 
 /**
+ * One child span of a transaction, as the Sentry SDK sent it in the
+ * transaction's `spans` array.
+ */
+export type SentrySpan = {
+  spanId?: string;
+  /** The span this one is a child of: the transaction or another child. */
+  parentSpanId?: string;
+  op?: string;
+  description?: string;
+  /** Seconds, on the same clock as the transaction's own timestamps. */
+  startTimestamp: number;
+  /** Seconds, on the same clock as the transaction's own timestamps. */
+  endTimestamp: number;
+  durationMs: number;
+};
+
+/**
  * One transaction as the Sentry SDK sent it.
  */
 export type SentryTransaction = {
@@ -29,20 +46,81 @@ export type SentryTransaction = {
    * reads `result` from.
    */
   isRefresh?: boolean;
+  /** The transaction's own span id, from `contexts.trace.span_id`. */
+  spanId?: string;
+  /**
+   * The child spans the SDK sent with the transaction, where it sent any:
+   * the work it recorded inside the transaction's interval.
+   */
+  spans?: SentrySpan[];
+};
+
+/* eslint-disable @typescript-eslint/naming-convention */
+type SpanPayload = {
+  span_id?: unknown;
+  parent_span_id?: unknown;
+  op?: unknown;
+  description?: unknown;
+  start_timestamp?: unknown;
+  timestamp?: unknown;
 };
 
 type TransactionPayload = {
   transaction?: string;
-  // eslint-disable-next-line @typescript-eslint/naming-convention
   start_timestamp?: number;
   timestamp?: number;
+  spans?: unknown;
   contexts?: {
     trace?: {
       status?: string;
+      span_id?: unknown;
       data?: { success?: unknown; result?: unknown; isRefresh?: unknown };
     };
   };
 };
+/* eslint-enable @typescript-eslint/naming-convention */
+
+/**
+ * Parse a transaction's `spans` array. A span without numeric start and end
+ * timestamps carries no timing and is skipped.
+ *
+ * @param raw - The payload's `spans` value, whatever its shape.
+ * @returns The child spans, in the order the SDK sent them.
+ */
+function parseChildSpans(raw: unknown): SentrySpan[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const spans: SentrySpan[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) {
+      continue;
+    }
+    const span = item as SpanPayload;
+    const startTimestamp = span.start_timestamp;
+    const endTimestamp = span.timestamp;
+    if (
+      typeof startTimestamp !== 'number' ||
+      typeof endTimestamp !== 'number'
+    ) {
+      continue;
+    }
+    spans.push({
+      ...(typeof span.span_id === 'string' && { spanId: span.span_id }),
+      ...(typeof span.parent_span_id === 'string' && {
+        parentSpanId: span.parent_span_id,
+      }),
+      ...(typeof span.op === 'string' && { op: span.op }),
+      ...(typeof span.description === 'string' && {
+        description: span.description,
+      }),
+      startTimestamp,
+      endTimestamp,
+      durationMs: (endTimestamp - startTimestamp) * 1000,
+    });
+  }
+  return spans;
+}
 
 /**
  * Parse the transaction items out of one Sentry envelope body.
@@ -77,6 +155,7 @@ export function parseEnvelopeTransactions(body: string): SentryTransaction[] {
           typeof startTimestamp === 'number'
         ) {
           const trace = payload.contexts?.trace;
+          const spans = parseChildSpans(payload.spans);
           transactions.push({
             name: transaction,
             // Envelope timestamps are in seconds.
@@ -91,6 +170,10 @@ export function parseEnvelopeTransactions(body: string): SentryTransaction[] {
             ...(typeof trace?.data?.isRefresh === 'boolean' && {
               isRefresh: trace.data.isRefresh,
             }),
+            ...(typeof trace?.span_id === 'string' && {
+              spanId: trace.span_id,
+            }),
+            ...(spans.length > 0 && { spans }),
           });
         }
       } catch {
@@ -134,7 +217,10 @@ export async function readSentryTransactions(
  * @param driver - The WebDriver instance, used to wait between reads.
  * @param endpoints - The mocked endpoints for this benchmark run.
  * @param names - The traces that must have been sent.
- * @param timeoutMs - How long to wait before returning what has arrived.
+ * @param options - How long to wait, and how many of each trace to wait for.
+ * @param options.timeoutMs - How long to wait before returning what has arrived.
+ * @param options.expected - How many transactions of a trace to wait for; 1
+ * for a trace not listed.
  * @returns The transactions read on the last attempt.
  */
 export async function waitForSentryTransactions(
@@ -150,18 +236,19 @@ export async function waitForSentryTransactions(
   } = {},
 ): Promise<SentryTransaction[]> {
   const pollMs = 250;
+  // Count instances, not names. Breaking on name-presence returns as soon as
+  // one transaction of each name has arrived, so a caller expecting a second
+  // occurrence of the same trace reads whatever happened to have flushed --
+  // which makes a count-based known-answer check a race rather than a check.
+  const enough = (read: SentryTransaction[]) =>
+    names.every(
+      (name) =>
+        read.filter((transaction) => transaction.name === name).length >=
+        (expected[name] ?? 1),
+    );
   let transactions = await readSentryTransactions(endpoints);
   for (let waited = 0; waited < timeoutMs; waited += pollMs) {
-    // Count instances, not names. Breaking on name-presence returns as soon as
-    // one transaction of each name has arrived, so a caller expecting a second
-    // occurrence of the same trace reads whatever happened to have flushed --
-    // which makes a count-based known-answer check a race rather than a check.
-    const enough = names.every(
-      (name) =>
-        transactions.filter((transaction) => transaction.name === name)
-          .length >= (expected[name] ?? 1),
-    );
-    if (enough) {
+    if (enough(transactions)) {
       break;
     }
     await driver.delay(pollMs);
@@ -287,4 +374,97 @@ export function sentryCountResult(
       .length,
     unit: 'count',
   };
+}
+
+/**
+ * One child span that overlaps a target transaction, placed on that
+ * transaction's timeline.
+ */
+export type SpanBreakdownRow = {
+  /** The name of the transaction that sent the span. */
+  transaction: string;
+  op?: string;
+  description?: string;
+  /**
+   * Milliseconds from the target's start to the span's start. Negative when
+   * the span began before the target did.
+   */
+  startOffsetMs: number;
+  durationMs: number;
+};
+
+/**
+ * Every child span, from any transaction read, whose interval overlaps the
+ * target transaction's, in start order.
+ *
+ * The harness reports a transaction's name and duration only, so when one
+ * iteration is slow nothing it records says where the time went. The child
+ * spans the SDK already sent are that record. They are taken from every
+ * transaction read, each row labeled with its sender, and not from the target
+ * alone: `startTrace` in `shared/lib/trace.ts` starts its span with
+ * `startSpanManual` and returns from the callback at once, so the SDK's
+ * automatic spans during that interval may attach to another active span,
+ * such as a navigation span, and arrive in that transaction instead.
+ *
+ * @param transactions - Transactions read by {@link readSentryTransactions}.
+ * @param target - The transaction whose interval to break down.
+ * @returns The overlapping child spans, earliest first.
+ */
+export function spansDuring(
+  transactions: SentryTransaction[],
+  target: SentryTransaction,
+): SpanBreakdownRow[] {
+  const end = target.endTimestamp;
+  const start = end - target.durationMs / 1000;
+  const rows: SpanBreakdownRow[] = [];
+  for (const transaction of transactions) {
+    for (const span of transaction.spans ?? []) {
+      if (span.endTimestamp <= start || span.startTimestamp >= end) {
+        continue;
+      }
+      rows.push({
+        transaction: transaction.name,
+        ...(span.op !== undefined && { op: span.op }),
+        ...(span.description !== undefined && {
+          description: span.description,
+        }),
+        startOffsetMs: (span.startTimestamp - start) * 1000,
+        durationMs: span.durationMs,
+      });
+    }
+  }
+  return rows.sort((a, b) => a.startOffsetMs - b.startOffsetMs);
+}
+
+/**
+ * Describe the last transaction of a trace and the child spans inside it, on
+ * one line, for the job log.
+ *
+ * @param transactions - Transactions read by {@link readSentryTransactions}.
+ * @param name - The trace to describe.
+ * @returns The description, or a statement that the trace was not sent.
+ */
+export function describeSpanBreakdown(
+  transactions: SentryTransaction[],
+  name: TraceName,
+): string {
+  const matching = transactions.filter(
+    (transaction) => transaction.name === name,
+  );
+  const target = matching[matching.length - 1];
+  if (!target) {
+    return `${name}: not sent (${transactions.length} transactions read)`;
+  }
+  const rows = spansDuring(transactions, target);
+  const head = `${name} ${target.durationMs.toFixed(1)} ms: ${rows.length} child spans inside it, from ${transactions.length} transactions read`;
+  if (rows.length === 0) {
+    return head;
+  }
+  const described = rows.map(
+    (row) =>
+      `${row.startOffsetMs < 0 ? '' : '+'}${row.startOffsetMs.toFixed(1)} ms ${row.durationMs.toFixed(1)} ms ${
+        row.op ?? '(no op)'
+      } "${row.description ?? ''}" [${row.transaction}]`,
+  );
+  return `${head}: ${described.join('; ')}`;
 }
