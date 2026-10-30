@@ -41,11 +41,12 @@
  * `TraceName.OnboardingPasswordSetupAttempt`'s start - so it is measurable from
  * inside the browser, but not by any single existing span.
  *
- * `createPwToRecoveryScreen` - `TraceName.OnboardingPasswordSetupAttempt`
- * covers the mount and unmount of `create-password.tsx`. It opens at the
- * previous step's end, so it includes the harness typing the password, which
- * this step does not. It closes on the route change to the passkey screen,
- * which is where this step now ends on Chrome.
+ * `createPwToRecoveryScreen`, named `createPwToPasskeyScreen` on Chrome -
+ * `TraceName.OnboardingPasswordSetupAttempt` covers the mount and unmount of
+ * `create-password.tsx`. It opens at the previous step's end, so it includes
+ * the harness typing the password, which this step does not. It closes on the
+ * route change to the passkey screen, which is where this step ends on
+ * Chrome.
  *
  * `skipBackupToMetricsScreen` - `handleRemindLater` ends two spans on this
  * click and starts none, and nothing ends when the metrics screen loads.
@@ -53,16 +54,19 @@
  * `agreeButtonToOnboardingSuccess` - `metametrics.tsx` and the completion
  * screen carry no trace at all.
  *
- * `doneButtonToAssetList` - on Chrome this timer starts once the harness's
- * navigation to `home.html` has loaded the document, so the startup tree has
- * already started by then: `TraceName.UIStartup` in `app/scripts/ui.ts`, which
- * starts at the navigation's time origin, and `TraceName.SetupStore`,
+ * `doneButtonToAssetList` - on
+ * Chrome this timer starts once the harness's navigation to `home.html` has
+ * loaded the document, so the startup tree has already started by then:
+ * `TraceName.UIStartup` in `app/scripts/ui.ts`, which starts at the
+ * navigation's time origin, and `TraceName.SetupStore`,
  * `TraceName.InitialActions` and `TraceName.FirstRender`, which `ui/index.js`
  * starts under `UIStartup` as its children and which are therefore not
- * readable as transactions anyway. The only other candidate is
- * `TraceName.AccountOverviewAssetListTab`, which `token-list.tsx` ends here
- * but which `account-overview-tabs.tsx` only ever starts on a tab click, so it
- * is ended without having been started.
+ * readable as transactions anyway. `UIStartup` times the harness's
+ * navigation, not this step, and with `BENCHMARK_NEW_WALLET_TRACES=1` it is
+ * read as `harnessHomeNavigationToUiStartup` at the end of the flow. The only
+ * other candidate is `TraceName.AccountOverviewAssetListTab`, which
+ * `token-list.tsx` ends here but which `account-overview-tabs.tsx` only ever
+ * starts on a tab click, so it is ended without having been started.
  *
  * Two facts gate any future conversion, both from the buffering in
  * `app/scripts/services/sentry/sentry-tracing-service.ts`. Onboarding spans are
@@ -81,6 +85,7 @@
  */
 
 import { Browser } from 'selenium-webdriver';
+import type { MockedEndpoint } from 'mockttp';
 import { ALL_POPULAR_NETWORKS } from '../../../../../app/scripts/fixtures/with-networks';
 import FixtureBuilderV2 from '../../../fixtures/fixture-builder-v2';
 import { WALLET_PASSWORD } from '../../../constants';
@@ -110,7 +115,12 @@ import {
   measureStepInPage,
   startInPageStep,
 } from '../../utils/in-page-step-timer';
-import { loadHomeAfterSidepanelOnboarding } from '../../utils/sidepanel-onboarding';
+import {
+  NEW_WALLET_TRACES,
+  loadHomeAfterSidepanelOnboarding,
+  readCurrentDocumentUiStartup,
+  waitForPageIdleBeforeStep,
+} from '../../utils/sidepanel-onboarding';
 import {
   getTestSpecificMock,
   shouldUseMockedRequests,
@@ -132,8 +142,15 @@ export const persona = BENCHMARK_PERSONA.STANDARD;
 
 export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
+  const traceTimers: TimerResult[] = [];
   const inPageTimers: TimerResult[] = [];
   let webVitals: WebVitalsMetrics | undefined;
+  // Off unless set to `1`: the flow then samples every trace and reads the
+  // app's `UI Startup` span for the home page the harness loads on Chrome.
+  // With every trace sampled, the onboarding spans the app replays at the
+  // metrics decision, inside the agree step on Chrome, are all sent rather
+  // than a sample of them, so it is a switch rather than a default.
+  const readTraces = process.env[NEW_WALLET_TRACES] === '1';
   try {
     await withFixtures(
       {
@@ -142,6 +159,7 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
           testing: {
             infuraProjectId: process.env.INFURA_PROJECT_ID,
           },
+          ...(readTraces && { sentry: { tracesSampleRate: 1 } }),
         },
         useMockingPassThrough: !shouldUseMockedRequests(),
         disableServerMochaToBackground: true,
@@ -151,7 +169,13 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
           .build(),
         testSpecificMock: getTestSpecificMock(),
       },
-      async ({ driver }: { driver: Driver }) => {
+      async ({
+        driver,
+        mockedEndpoint,
+      }: {
+        driver: Driver;
+        mockedEndpoint: MockedEndpoint[];
+      }) => {
         await driver.navigate();
         const isFirefox = process.env.SELENIUM_BROWSER === Browser.FIREFOX;
         if (isFirefox) {
@@ -164,9 +188,12 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
 
         // Measure: Create wallet to Social screen. Each `<stepId>InPage`
         // times its step from the triggering input itself, on the page's
-        // clock; the step timers are unchanged.
+        // clock; the step timers are unchanged. With
+        // `BENCHMARK_PAGE_IDLE_BEFORE_STEP=1` this step and the next start
+        // once the page has gone idle, outside both timers.
         const startOnboardingPage = new StartOnboardingPage(driver);
         await startOnboardingPage.checkLoginPageIsLoaded();
+        await waitForPageIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'createWalletToSocialScreen', {
             endSelector: IN_PAGE_DESTINATIONS.onboardingCreateOptions,
@@ -186,6 +213,7 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
         );
 
         // Measure: SRP button to Password form
+        await waitForPageIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'srpButtonToPwForm', {
             endSelector: IN_PAGE_DESTINATIONS.onboardingPassword,
@@ -209,9 +237,10 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
 
         // Measure: Password to Recovery. On Chrome the passkey screen comes
         // first, and the harness dismisses it, so there the step ends when
-        // the passkey screen has loaded: the dismissal, and the recovery
-        // screen that follows it, stay outside both timers. On Firefox the
-        // step ends at the recovery screen. The harness types both fields and
+        // the passkey screen has loaded and is named `createPwToPasskeyScreen`:
+        // the dismissal, and the recovery screen that follows it, stay outside
+        // both timers. On Firefox the step ends at the recovery screen and is
+        // named `createPwToRecoveryScreen`. The harness types both fields and
         // ticks the terms before it submits, so the in-page timer starts on
         // the submit click. The submit is clicked here rather than through
         // `createWalletPassword`, which would then wait up to 15 s for the
@@ -219,37 +248,32 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
         // screen gets those 15 s on top of its own 5 s, so a slow wallet
         // creation fails no sooner.
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
-        const recoveryProbe = await startInPageStep(
-          driver,
-          'createPwToRecoveryScreen',
-          {
-            endSelector: isFirefox
-              ? IN_PAGE_DESTINATIONS.onboardingSecureWallet
-              : IN_PAGE_DESTINATIONS.setupPasskey,
-            startWithin: '[data-testid="create-password-submit"]',
-          },
-        );
+        const passwordStepId = isFirefox
+          ? 'createPwToRecoveryScreen'
+          : 'createPwToPasskeyScreen';
+        const passwordProbe = await startInPageStep(driver, passwordStepId, {
+          endSelector: isFirefox
+            ? IN_PAGE_DESTINATIONS.onboardingSecureWallet
+            : IN_PAGE_DESTINATIONS.setupPasskey,
+          startWithin: '[data-testid="create-password-submit"]',
+        });
         await onboardingPasswordPage.fillWalletPassword(
           WALLET_PASSWORD,
           WALLET_PASSWORD,
         );
         await driver.clickElement('[data-testid="create-password-submit"]');
         steps.push(
-          await measureStepWithLongTasks(
-            driver,
-            'createPwToRecoveryScreen',
-            async () => {
-              if (isFirefox) {
-                await new SecureWalletPage(driver).checkPageIsLoaded();
-              } else {
-                await new SetupPasskeyPage(driver).checkPageIsLoaded(20000);
-              }
-            },
-          ),
+          await measureStepWithLongTasks(driver, passwordStepId, async () => {
+            if (isFirefox) {
+              await new SecureWalletPage(driver).checkPageIsLoaded();
+            } else {
+              await new SetupPasskeyPage(driver).checkPageIsLoaded(20000);
+            }
+          }),
         );
-        if (recoveryProbe) {
+        if (passwordProbe) {
           inPageTimers.push(
-            ...(await finishInPageStep(driver, 'createPwToRecoveryScreen')),
+            ...(await finishInPageStep(driver, passwordStepId)),
           );
         }
         if (!isFirefox) {
@@ -324,11 +348,12 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
         // loads `home.html` afresh, so the destination is in a different
         // document. There the step timer opens when that load returns, so it
         // covers the header and the rest of the home page; the wait for
-        // onboarding to complete and the navigation stay outside it. On
-        // Firefox Done navigates within the page and the step timer opens
-        // when the click returns. The in-page timer ends when the token list
-        // renders; the step timer goes on to wait for the Ethereum and Solana
-        // rows by their text, which no CSS selector can match.
+        // onboarding to complete and the navigation stay outside it, so on
+        // Chrome the step timer starts at that load, not at the Done click. On Firefox Done navigates within the page and the
+        // step timer, `doneButtonToAssetList`, opens when the click returns.
+        // The in-page timer ends when the token list renders; the step timer
+        // goes on to wait for the Ethereum and Solana rows by their text,
+        // which no CSS selector can match.
         const onboardingCompletePage = new OnboardingCompletePage(driver);
         const assetListProbe =
           isFirefox &&
@@ -369,6 +394,23 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
           console.error('Error collecting web vitals:', error);
         }
         */
+
+        // Chrome, with `BENCHMARK_NEW_WALLET_TRACES=1`: the app's `UI Startup`
+        // span for the home page the harness loaded after Done, which starts
+        // at that navigation and ends once the UI has launched. It is not a
+        // step: the harness, not the user, starts it, and the name says so.
+        // It is read last, after every timer and after web vitals, so the
+        // wait for it changes nothing measured before it. Absent, not zero,
+        // when no such span arrives.
+        if (homeLoaded && readTraces) {
+          traceTimers.push(
+            ...(await readCurrentDocumentUiStartup(
+              driver,
+              mockedEndpoint,
+              'harnessHomeNavigationToUiStartup',
+            )),
+          );
+        }
       },
     );
 
@@ -376,6 +418,7 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
       timers: [
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
+        ...traceTimers,
         ...inPageTimers,
       ],
       webVitals,
@@ -387,6 +430,7 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
       timers: [
         ...collectTimerResults(),
         ...buildLongTaskTimerResults(steps),
+        ...traceTimers,
         ...inPageTimers,
       ],
       webVitals,

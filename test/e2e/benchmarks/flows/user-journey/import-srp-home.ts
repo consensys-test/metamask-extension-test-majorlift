@@ -14,6 +14,7 @@ import LoginPage from '../../../page-objects/pages/onboarding/login-page';
 import { Driver } from '../../../webdriver/driver';
 import { collectTimerResults } from '../../utils/timer-helper';
 import {
+  sentryCountResult,
   sentryTimerResult,
   waitForSentryTransactions,
 } from '../../utils/sentry-transactions';
@@ -32,6 +33,10 @@ import {
   getTestSpecificMock,
   shouldUseMockedRequests,
 } from '../../utils/mock-config';
+import {
+  waitForAccountSyncIdleBeforeStep,
+  waitForPageIdleBeforeStep,
+} from '../../utils/sidepanel-onboarding';
 import {
   BENCHMARK_PERSONA,
   BENCHMARK_TYPE,
@@ -93,10 +98,13 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         // Measure: Login flow (includes triggering action). The trigger stays
         // inside the step timer, so the probe is installed before it. The step
         // timer also covers typing the password; the in-page timer starts on
-        // the Unlock click, which is what triggers the step.
+        // the Unlock click, which is what triggers the step. With
+        // `BENCHMARK_PAGE_IDLE_BEFORE_STEP=1` the step starts once the login
+        // page has gone idle, rather than straight after its check.
         await driver.navigate();
         const loginPage = new LoginPage(driver);
         await loginPage.checkPageIsLoaded();
+        await waitForPageIdleBeforeStep(driver);
         const loginProbe = await startInPageStep(driver, 'loginToHomeScreen', {
           endSelector: IN_PAGE_DESTINATIONS.home,
           startWithin: '[data-testid="unlock-submit"]',
@@ -122,7 +130,11 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         // alone, so the step timer opens when it returns: `openAccountMenu`
         // would first wait for the list's container. The in-page timer ends
         // when the list renders; the step timer also waits out account
-        // syncing, held for 2 s.
+        // syncing, held for 2 s. With
+        // `BENCHMARK_ACCOUNT_SYNC_IDLE_BEFORE_STEP=1` the click waits until
+        // the app reports account syncing idle, so the step starts with no
+        // sync reported in progress.
+        await waitForAccountSyncIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'openAccountMenuAfterLogin', {
             endSelector: IN_PAGE_DESTINATIONS.accountList,
@@ -179,7 +191,9 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         // List` starts on the header account-picker click and ends once the
         // account list has rendered, so it brackets the same operation the
         // `openAccountMenuAfterLogin` step waits on. Report-only: no threshold
-        // is registered for it.
+        // is registered for it. Its count is reported beside it, as the
+        // onboarding import flow does: the duration is the last span sent, so
+        // a second `Show Account List` would otherwise replace it unseen.
         //
         // The other two steps keep harness-clock timers only. No `TraceName`
         // covers unlocking an already-onboarded wallet through to the home
@@ -195,6 +209,11 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
             transactions,
             TraceName.ShowAccountList,
             'showAccountList',
+          ),
+          sentryCountResult(
+            transactions,
+            TraceName.ShowAccountList,
+            'showAccountListCount',
           ),
         );
 
