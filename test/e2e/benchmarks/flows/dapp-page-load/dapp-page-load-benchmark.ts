@@ -467,6 +467,15 @@ export class PageLoadBenchmark {
     // Wait for page to be fully loaded
     await page.waitForLoadState('domcontentloaded');
     await page.waitForLoadState('networkidle');
+    // Network-idle can come before the load event has finished, for example
+    // with a route installed (the known-answer lever and its control), and
+    // `loadEventEnd` then reads 0. Read the timings only once it is set.
+    await page.waitForFunction(() => {
+      const [navigation] = performance.getEntriesByType(
+        'navigation',
+      ) as PerformanceNavigationTiming[];
+      return (navigation?.loadEventEnd ?? 0) > 0;
+    });
 
     // Collect performance metrics
     const timeline: Omit<DappPageLoadMetric, 'largestContentfulPaint'> =
