@@ -816,12 +816,15 @@ export function readStartupSettleQuietMs(): number {
 }
 
 /**
- * The page script that busy-waits `delayMs` milliseconds.
+ * The page script that busy-waits `delayMs` milliseconds, in the top-level
+ * document only. The automation protocol runs it at the start of every new
+ * document, child frames included, and each frame's wait would add another
+ * `delayMs` to the measured page.
  *
  * @param delayMs - How long to block the page's main thread.
  */
 export function documentStartDelaySource(delayMs: number): string {
-  return `(() => { const end = performance.now() + ${delayMs}; while (performance.now() < end) { /* known-answer startup delay */ } })();`;
+  return `(() => { if (window !== window.top) { return; } const end = performance.now() + ${delayMs}; while (performance.now() < end) { /* known-answer startup delay */ } })();`;
 }
 
 type DocumentStartInnerDriver = CdpInnerDriver & {

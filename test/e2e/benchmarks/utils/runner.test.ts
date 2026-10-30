@@ -602,10 +602,26 @@ describe('installDocumentStartDelay', () => {
     );
   });
 
-  it('builds a script that blocks for the delay', () => {
+  it('builds a script that blocks for the delay in the top-level document', () => {
+    const topWindow: Record<string, unknown> = {};
+    topWindow.top = topWindow;
     const start = performance.now();
-    runInNewContext(documentStartDelaySource(30), { performance });
+    runInNewContext(documentStartDelaySource(30), {
+      performance,
+      window: topWindow,
+    });
     expect(performance.now() - start).toBeGreaterThanOrEqual(30);
+  });
+
+  it('does not block in a child frame', () => {
+    const topWindow = {};
+    const frameWindow = { top: topWindow };
+    const start = performance.now();
+    runInNewContext(documentStartDelaySource(200), {
+      performance,
+      window: frameWindow,
+    });
+    expect(performance.now() - start).toBeLessThan(100);
   });
 });
 
