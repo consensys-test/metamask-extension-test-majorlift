@@ -279,6 +279,10 @@ async function withFixtures(options, testSuite) {
   let driver;
   let extensionId;
   let failed = false;
+  // Whether the Selenium console-error and exception listeners were attached
+  // (CDP, chrome only). A benchmark records this beside the errors, so an empty
+  // list on a browser that never listened does not read as a clean session.
+  let browserErrorsCaptured = false;
   // Hoisted so the `finally` block can run Playwright-specific cleanup
   // (user-data-dir removal) regardless of whether the try body returned
   // early.
@@ -589,6 +593,7 @@ async function withFixtures(options, testSuite) {
       if (process.env.SELENIUM_BROWSER === 'chrome') {
         await driver.checkBrowserForExceptions(ignoredConsoleErrors);
         await driver.checkBrowserForConsoleErrors(ignoredConsoleErrors);
+        browserErrorsCaptured = true;
       }
     }
 
@@ -633,6 +638,13 @@ async function withFixtures(options, testSuite) {
       extensionId,
       getNetworkReport,
       clearNetworkReport,
+      // The console errors and uncaught exceptions captured so far, for a
+      // benchmark to record in its result (see the check after the test).
+      getBrowserErrors: () => ({
+        captured: browserErrorsCaptured,
+        consoleErrors: driver.errors.map(String),
+        exceptions: driver.exceptions.map(String),
+      }),
       ...(virtualAuthenticator && {
         resetVirtualAuthenticator: async () => {
           await removeVirtualAuthenticator(effectiveDriver);
@@ -673,7 +685,17 @@ async function withFixtures(options, testSuite) {
 
     const errorsAndExceptions = driver.summarizeErrorsAndExceptions();
     if (errorsAndExceptions) {
-      throw new Error(errorsAndExceptions);
+      if (!isBenchmark) {
+        throw new Error(errorsAndExceptions);
+      }
+      // A benchmark records these in its result (`getBrowserErrors`) instead.
+      // Throwing here discarded the whole browser load, and only on chrome,
+      // since firefox never attaches the listeners: so the two browsers kept
+      // different sessions. Whether a page load with an error is left out of
+      // the statistics is sample preparation's call, made on the record.
+      console.warn(
+        `Browser errors recorded, not thrown, for benchmark '${title}':\n${errorsAndExceptions}`,
+      );
     }
 
     // Evaluate whether any new hosts received network requests during E2E test
@@ -735,7 +757,16 @@ async function withFixtures(options, testSuite) {
          * forcing background exceptions to be captured
          * proving more helpful context
          */
-        await driver.navigate(PAGES.BACKGROUND);
+        try {
+          await driver.navigate(PAGES.BACKGROUND);
+        } catch (navigationError) {
+          // This navigation waits for `.controller-loaded`, which can time
+          // out. Its error must not replace the one that failed the test.
+          console.error(
+            'Navigating to the background page after a failure also failed; rethrowing the original error.',
+            navigationError,
+          );
+        }
       }
     }
 
