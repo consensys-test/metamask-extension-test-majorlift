@@ -35,7 +35,12 @@ import {
   measureStepInPage,
   startInPageStep,
 } from '../../utils/in-page-step-timer';
-import { loadHomeAfterSidepanelOnboarding } from '../../utils/sidepanel-onboarding';
+import {
+  loadHomeAfterSidepanelOnboarding,
+  readCurrentDocumentUiStartup,
+  waitForAccountSyncIdleBeforeStep,
+  waitForPageIdleBeforeStep,
+} from '../../utils/sidepanel-onboarding';
 import {
   sentryCountResult,
   sentryTimerResult,
@@ -121,9 +126,12 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
 
         // Measure: Import wallet button to Social screen. Each
         // `<stepId>InPage` times its step from the triggering input itself, on
-        // the page's clock; the step timers are unchanged.
+        // the page's clock; the step timers are unchanged. With
+        // `BENCHMARK_PAGE_IDLE_BEFORE_STEP=1` this step and the next start
+        // once the page has gone idle, outside both timers.
         const startOnboardingPage = new StartOnboardingPage(driver);
         await startOnboardingPage.checkLoginPageIsLoaded();
+        await waitForPageIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'importWalletToSocialScreen', {
             endSelector: IN_PAGE_DESTINATIONS.onboardingImportOptions,
@@ -143,6 +151,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         );
 
         // Measure: SRP button to form
+        await waitForPageIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'srpButtonToSrpForm', {
             endSelector: IN_PAGE_DESTINATIONS.onboardingSrp,
@@ -191,10 +200,11 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
 
         // Create password. On Firefox no passkey or metrics screen follows,
         // since metrics were decided before onboarding started, so the
-        // password submit is what triggers `metricsToWalletReadyScreen`. The
-        // submit is clicked here rather than through `createWalletPassword`,
-        // which would then wait up to 15 s for the button to leave the page
-        // before the next step timer opens.
+        // password submit is what triggers `metricsToWalletReadyScreen`. On
+        // Chrome it triggers `pwFormToPasskeyScreen`, named for the passkey
+        // screen where it ends. The submit is clicked here rather than through
+        // `createWalletPassword`, which would then wait up to 15 s for the
+        // button to leave the page before the next step timer opens.
         const onboardingPasswordPage = new OnboardingPasswordPage(driver);
         let walletReadyProbe = false;
         let passkeyProbe = false;
@@ -210,7 +220,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         } else {
           passkeyProbe = await startInPageStep(
             driver,
-            'pwFormToMetricsScreen',
+            'pwFormToPasskeyScreen',
             {
               endSelector: IN_PAGE_DESTINATIONS.setupPasskey,
               startWithin: '[data-testid="create-password-submit"]',
@@ -223,7 +233,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         );
         await driver.clickElement('[data-testid="create-password-submit"]');
 
-        // Measure: Password to Metrics (Chrome only). Chrome shows the passkey
+        // Measure: Password to Passkey (Chrome only). Chrome shows the passkey
         // screen first, and the harness dismisses it, so the step ends when
         // the passkey screen has loaded: the dismissal, and the metrics screen
         // that follows it, stay outside both timers. The passkey screen gets
@@ -233,7 +243,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
           steps.push(
             await measureStepWithLongTasks(
               driver,
-              'pwFormToMetricsScreen',
+              'pwFormToPasskeyScreen',
               async () => {
                 await new SetupPasskeyPage(driver).checkPageIsLoaded(20000);
               },
@@ -241,7 +251,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
           );
           if (passkeyProbe) {
             inPageTimers.push(
-              ...(await finishInPageStep(driver, 'pwFormToMetricsScreen')),
+              ...(await finishInPageStep(driver, 'pwFormToPasskeyScreen')),
             );
           }
           await skipPasskeySetup(driver);
@@ -279,11 +289,13 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         // `home.html` afresh, so the destination is in a different document.
         // There the step timer opens when that load returns, so it covers the
         // header and the rest of the home page; the wait for onboarding to
-        // complete and the navigation stay outside it. On Firefox Done
-        // navigates within the page and the step timer opens when the click
-        // returns. The in-page timer ends when the token list renders; the
-        // step timer goes on to wait for the Ethereum and Solana rows by
-        // their text, which no CSS selector can match.
+        // complete and the navigation stay outside it, so on Chrome the step
+        // timer starts at that load, not at the Done click.
+        // On Firefox Done navigates within the page and the step timer,
+        // `doneButtonToHomeScreen`, opens when the click returns. The in-page
+        // timer ends when the token list renders; the step timer goes on to
+        // wait for the Ethereum and Solana rows by their text, which no CSS
+        // selector can match.
         const onboardingCompletePage = new OnboardingCompletePage(driver);
         const homeProbe =
           isFirefox &&
@@ -320,7 +332,11 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         // alone, so the step timer opens when it returns: `openAccountMenu`
         // would first wait for the list's container. The in-page timer ends
         // when the list renders; the step timer also waits out account
-        // syncing, held for 2 s.
+        // syncing, held for 2 s. With
+        // `BENCHMARK_ACCOUNT_SYNC_IDLE_BEFORE_STEP=1` the click waits until
+        // the app reports account syncing idle, so the step starts with no
+        // sync reported in progress rather than straight after the Solana row.
+        await waitForAccountSyncIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(
             driver,
@@ -367,11 +383,11 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         // List` is the one kept because its start sits with the navigation it
         // measures rather than one component inward.
         //
-        // This is the only span this flow converts. The six earlier steps
-        // have no span whose interval matches them; the commit message records
-        // the per-step finding. Report-only: no threshold is registered, and
-        // it carries a `unit` so `runner.ts` keeps it out of the per-run
-        // `total`.
+        // This is the only span that converts a step of this flow. The six
+        // earlier steps have no span whose interval matches them; the commit
+        // message records the per-step finding. Report-only: no threshold is
+        // registered, and it carries a `unit` so `runner.ts` keeps it out of
+        // the per-run `total`.
         const transactions = await waitForSentryTransactions(
           driver,
           mockedEndpoint,
@@ -399,6 +415,22 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
           console.error('Error collecting web vitals:', error);
         }
         */
+
+        // Chrome: the app's `UI Startup` span for the home page the harness
+        // loaded after Done, which starts at that navigation and ends once the
+        // UI has launched. It is not a step: the harness, not the user, starts
+        // it, and the name says so. It is read last, after every timer and
+        // after web vitals, so the wait for it changes nothing measured
+        // before it. Absent, not zero, when no such span arrives.
+        if (homeLoaded) {
+          traceTimers.push(
+            ...(await readCurrentDocumentUiStartup(
+              driver,
+              mockedEndpoint,
+              'harnessHomeNavigationToUiStartup',
+            )),
+          );
+        }
       },
     );
 
