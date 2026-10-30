@@ -24,6 +24,7 @@ import {
   aggregateWebVitals,
   MAX_METRIC_DURATION_MS,
 } from './statistics';
+import { SAMPLE_EXCLUSION } from './constants';
 
 function createMockStats(
   overrides: Partial<TimerStatistics> = {},
@@ -305,6 +306,65 @@ describe('Statistics Utils', () => {
         iterations: [0, 1],
       });
       expect(stats.values).toBeUndefined();
+    });
+
+    it('leaves an excluded duration out of every statistic', () => {
+      // The warm-up value is far above the rest. Kept, it would raise the mean
+      // and the max; excluded, the statistics are those of the other four.
+      const stats = calculateTimerStatistics(
+        'warmedUp',
+        [400, 100, 102, 104, 106],
+        {
+          iterations: [0, 1, 2, 3, 4],
+          exclusions: [
+            SAMPLE_EXCLUSION.WarmUp,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+          ],
+        },
+      );
+
+      expect(stats.samples).toBe(4);
+      expect(stats.mean).toBe(103);
+      expect(stats.max).toBe(106);
+      // The exclusion is sample preparation, not an outlier the filters found.
+      expect(stats.outliers).toBe(0);
+    });
+
+    it('keeps an excluded duration in values, flagged with its reason', () => {
+      const stats = calculateTimerStatistics('warmedUp', [400, 100, 102], {
+        iterations: [0, 1, 2],
+        exclusions: [SAMPLE_EXCLUSION.WarmUp, undefined, undefined],
+      });
+
+      expect(stats.values).toStrictEqual([
+        { iteration: 0, value: 400, excluded: 'warm-up' },
+        { iteration: 1, value: 100 },
+        { iteration: 2, value: 102 },
+      ]);
+    });
+
+    it('reports no samples when every duration is excluded', () => {
+      const stats = calculateTimerStatistics('onlyWarmUp', [400], {
+        iterations: [0],
+        exclusions: [SAMPLE_EXCLUSION.WarmUp],
+      });
+
+      expect(stats.samples).toBe(0);
+      expect(stats.mean).toBe(0);
+      expect(stats.values).toStrictEqual([
+        { iteration: 0, value: 400, excluded: 'warm-up' },
+      ]);
+    });
+
+    it('rejects exclusions that do not cover every duration', () => {
+      expect(() =>
+        calculateTimerStatistics('mismatched', [100, 105], {
+          exclusions: [SAMPLE_EXCLUSION.WarmUp],
+        }),
+      ).toThrow('mismatched: 1 exclusions for 2 durations');
     });
   });
 

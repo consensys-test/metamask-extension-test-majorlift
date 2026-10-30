@@ -24,21 +24,32 @@ import {
   runPageLoadBenchmark,
   collectWebVitals,
   collectGarbageBetweenIterations,
+  applyStartupPageSignals,
+  installDocumentStartDelay,
+  readStartupDelayMs,
+  readStartupPageSignals,
+  readStartupSettleQuietMs,
+  waitForNetworkQuiet,
 } from '../../utils';
 import type {
-  Metrics,
-  PageLoadBenchmarkOptions,
-  MeasurePageResult,
-} from '../../utils/types';
+  BrowserErrorRecord,
+  SettleRecord,
+  StartupMeasurePageResult,
+} from '../../utils/runner';
+import type { Metrics, PageLoadBenchmarkOptions } from '../../utils/types';
 
 async function measurePagePowerUser(
   pageName: string,
   pageLoads: number,
-): Promise<MeasurePageResult> {
+): Promise<StartupMeasurePageResult> {
   const metrics: Metrics[] = [];
   const webVitalsRuns: WebVitalsMetrics[] = [];
   const title = 'measurePagePowerUser';
   const persona = BENCHMARK_PERSONA.POWER_USER;
+  const settleQuietMs = readStartupSettleQuietMs();
+  const startupDelayMs = readStartupDelayMs();
+  let settle: SettleRecord | undefined;
+  let browserErrors: BrowserErrorRecord | undefined;
   await withFixtures(
     {
       title,
@@ -51,7 +62,12 @@ async function measurePagePowerUser(
           infuraProjectId: process.env.INFURA_PROJECT_ID,
         },
       },
-      useMockingPassThrough: true,
+      // The default mocked setup (`setupMocking`), as every other power-user
+      // benchmark uses, rather than passing unmocked requests through to live
+      // servers: live responses made the state each run started from differ,
+      // and a live `getSubscriptions` failure was one trigger of the lost
+      // chrome sessions (extension#45945).
+      useMockingPassThrough: false,
       disableServerMochaToBackground: true,
       extendedTimeoutMultiplier: 3,
       testSpecificMock: async (server: Mockttp) => {
@@ -59,14 +75,30 @@ async function measurePagePowerUser(
         await userStorageHostMock(server);
       },
     },
-    async ({ driver, getNetworkReport, clearNetworkReport }) => {
+    async ({
+      driver,
+      getNetworkReport,
+      clearNetworkReport,
+      getBrowserErrors,
+    }) => {
       await login(driver, { validateBalance: false });
+
+      if (settleQuietMs > 0) {
+        settle = await waitForNetworkQuiet(getNetworkReport, settleQuietMs);
+        console.log('Startup settle step:', settle);
+      }
+      await installDocumentStartDelay(driver, startupDelayMs);
 
       for (let i = 0; i < pageLoads; i++) {
         clearNetworkReport();
         await driver.navigate(pageName);
+        // The count's window ends when the navigation returns, which waits
+        // for `.controller-loaded`, set right after `uiStartup` ends; not after
+        // the account-list check and the fixed sleep below.
+        const { numNetworkReqs } = getNetworkReport();
 
-        // Confirm the number of accounts in the account list
+        // Confirm the number of accounts in the account list. A correctness
+        // check: no series ends after it.
         await new HeaderNavbar(driver).openAccountMenu();
         const accountListPage = new AccountListPage(driver);
 
@@ -81,8 +113,11 @@ async function measurePagePowerUser(
 
         await driver.delay(1000);
 
-        const metricsThisLoad = await driver.collectMetrics();
-        metricsThisLoad.numNetworkReqs = getNetworkReport().numNetworkReqs;
+        const metricsThisLoad = applyStartupPageSignals(
+          await driver.collectMetrics(),
+          await readStartupPageSignals(driver),
+        );
+        metricsThisLoad.numNetworkReqs = numNetworkReqs;
         metrics.push(metricsThisLoad);
 
         try {
@@ -95,9 +130,20 @@ async function measurePagePowerUser(
           await collectGarbageBetweenIterations(driver);
         }
       }
+
+      browserErrors = getBrowserErrors();
     },
   );
-  return { metrics, title, persona, webVitalsRuns };
+  return {
+    metrics,
+    title,
+    persona,
+    webVitalsRuns,
+    browserLoad: {
+      ...(browserErrors && { browserErrors }),
+      ...(settle && { settle }),
+    },
+  };
 }
 
 export async function run(

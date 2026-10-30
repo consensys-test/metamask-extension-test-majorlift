@@ -15,21 +15,32 @@ import {
   runPageLoadBenchmark,
   collectWebVitals,
   collectGarbageBetweenIterations,
+  applyStartupPageSignals,
+  installDocumentStartDelay,
+  readStartupDelayMs,
+  readStartupPageSignals,
+  readStartupSettleQuietMs,
+  waitForNetworkQuiet,
 } from '../../utils';
 import type {
-  Metrics,
-  PageLoadBenchmarkOptions,
-  MeasurePageResult,
-} from '../../utils/types';
+  BrowserErrorRecord,
+  SettleRecord,
+  StartupMeasurePageResult,
+} from '../../utils/runner';
+import type { Metrics, PageLoadBenchmarkOptions } from '../../utils/types';
 
 async function measurePageStandard(
   pageName: string,
   pageLoads: number,
-): Promise<MeasurePageResult> {
+): Promise<StartupMeasurePageResult> {
   const metrics: Metrics[] = [];
   const webVitalsRuns: WebVitalsMetrics[] = [];
   const title = 'measurePageStandard';
   const persona = BENCHMARK_PERSONA.STANDARD;
+  const settleQuietMs = readStartupSettleQuietMs();
+  const startupDelayMs = readStartupDelayMs();
+  let settle: SettleRecord | undefined;
+  let browserErrors: BrowserErrorRecord | undefined;
   await withFixtures(
     {
       fixtures: new FixtureBuilderV2().build(),
@@ -37,16 +48,34 @@ async function measurePageStandard(
       title,
       isBenchmark: true,
     },
-    async ({ driver, getNetworkReport, clearNetworkReport }) => {
+    async ({
+      driver,
+      getNetworkReport,
+      clearNetworkReport,
+      getBrowserErrors,
+    }) => {
       await login(driver, { validateBalance: false });
+
+      if (settleQuietMs > 0) {
+        settle = await waitForNetworkQuiet(getNetworkReport, settleQuietMs);
+        console.log('Startup settle step:', settle);
+      }
+      await installDocumentStartDelay(driver, startupDelayMs);
 
       for (let i = 0; i < pageLoads; i++) {
         clearNetworkReport();
         await driver.navigate(pageName);
+        // The count's window ends when the navigation returns, which waits
+        // for `.controller-loaded`, set right after `uiStartup` ends; not after
+        // the fixed sleep below.
+        const { numNetworkReqs } = getNetworkReport();
         await driver.delay(1000);
 
-        const metricsThisLoad = await driver.collectMetrics();
-        metricsThisLoad.numNetworkReqs = getNetworkReport().numNetworkReqs;
+        const metricsThisLoad = applyStartupPageSignals(
+          await driver.collectMetrics(),
+          await readStartupPageSignals(driver),
+        );
+        metricsThisLoad.numNetworkReqs = numNetworkReqs;
         metrics.push(metricsThisLoad);
 
         try {
@@ -59,9 +88,20 @@ async function measurePageStandard(
           await collectGarbageBetweenIterations(driver);
         }
       }
+
+      browserErrors = getBrowserErrors();
     },
   );
-  return { metrics, title, persona, webVitalsRuns };
+  return {
+    metrics,
+    title,
+    persona,
+    webVitalsRuns,
+    browserLoad: {
+      ...(browserErrors && { browserErrors }),
+      ...(settle && { settle }),
+    },
+  };
 }
 
 export async function run(

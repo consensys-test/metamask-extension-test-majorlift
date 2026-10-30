@@ -18,6 +18,14 @@ const result = {
   fcpRating: null,
   lcpRating: null,
   clsRating: null,
+  // Which mechanism supplied each value: 'paint-entry' (the harness's read of
+  // the paint entries), 'harness-observer' (the harness's PerformanceObserver),
+  // 'state-hooks' (the app's web-vitals library) or 'hero-mark' (the app's
+  // `mm-hero-painted` mark). null where the vital has no value.
+  inpSource: null,
+  fcpSource: null,
+  lcpSource: null,
+  clsSource: null,
 };
 
 function rate(v, good, poor) {
@@ -31,6 +39,7 @@ function rate(v, good, poor) {
 if (cwv.fcp !== null) {
   result.fcp = cwv.fcp;
   result.fcpRating = rate(cwv.fcp, 1800, 3000);
+  result.fcpSource = 'paint-entry';
 }
 
 // Check stateHooks for INP/FCP/LCP/CLS from web-vitals library.
@@ -44,18 +53,22 @@ if (sh && sh.getWebVitalsMetrics) {
     stateHooksInp = m.inp;
     result.inp = m.inp;
     result.inpRating = m.inpRating;
+    result.inpSource = 'state-hooks';
   }
   if (m.fcp !== null) {
     result.fcp = m.fcp;
     result.fcpRating = m.fcpRating;
+    result.fcpSource = 'state-hooks';
   }
   if (m.lcp !== null) {
     result.lcp = m.lcp;
     result.lcpRating = m.lcpRating;
+    result.lcpSource = 'state-hooks';
   }
   if (m.cls !== null) {
     result.cls = m.cls;
     result.clsRating = m.clsRating;
+    result.clsSource = 'state-hooks';
   }
   if (sh.resetWebVitalsMetrics) {
     sh.resetWebVitalsMetrics();
@@ -75,6 +88,7 @@ if (result.inp === null && cwv.event.length > 0) {
   if (maxDur > 0) {
     result.inp = maxDur;
     result.inpRating = rate(maxDur, 200, 500);
+    result.inpSource = 'harness-observer';
   }
 }
 
@@ -84,6 +98,7 @@ if (result.lcp === null && cwv.lcp.length > 0) {
   if (last.startTime > 0) {
     result.lcp = last.startTime;
     result.lcpRating = rate(last.startTime, 2500, 4000);
+    result.lcpSource = 'harness-observer';
   }
 }
 
@@ -95,6 +110,7 @@ if (result.lcp === null) {
       const markTime = marks[marks.length - 1].startTime;
       result.lcp = markTime;
       result.lcpRating = rate(markTime, 2500, 4000);
+      result.lcpSource = 'hero-mark';
     }
   } catch (_e) {
     // mark lookup failed
@@ -113,6 +129,7 @@ if (result.cls === null && cwv.clsSupported) {
   }
   result.cls = clsVal;
   result.clsRating = rate(clsVal, 0.1, 0.25);
+  result.clsSource = 'harness-observer';
 }
 
 for (let k = 0; k < cwv.observers.length; k++) {
