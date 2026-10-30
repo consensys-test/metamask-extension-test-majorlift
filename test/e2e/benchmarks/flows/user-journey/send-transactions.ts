@@ -191,7 +191,13 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
         );
 
         try {
-          webVitals = await collectWebVitals(driver);
+          // `fcp` is the document's first contentful paint, which is the
+          // login page's, not any step's, so this flow does not report it.
+          webVitals = {
+            ...(await collectWebVitals(driver)),
+            fcp: null,
+            fcpRating: null,
+          };
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }

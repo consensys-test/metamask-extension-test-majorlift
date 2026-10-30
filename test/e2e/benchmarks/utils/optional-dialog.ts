@@ -4,6 +4,35 @@ import type { Driver } from '../../webdriver/driver';
 export const OPTIONAL_DIALOG_POLL_MS = 100;
 
 /**
+ * Overrides {@link OPTIONAL_DIALOG_POLL_MS}. Each check is a script that runs
+ * in the page while a step's in-page timer is open, and what those checks
+ * cost that timer is not measured; an A/A pair that differs only in this
+ * value measures it. Unset or empty, the interval is
+ * {@link OPTIONAL_DIALOG_POLL_MS}, as before.
+ */
+export const OPTIONAL_DIALOG_POLL_MS_ENV = 'BENCHMARK_OPTIONAL_DIALOG_POLL_MS';
+
+/**
+ * Read how often to check for the dialog.
+ *
+ * @returns The interval in milliseconds: the variable's value, or
+ * `OPTIONAL_DIALOG_POLL_MS` when the variable is unset or empty.
+ */
+export function getOptionalDialogPollMs(): number {
+  const raw = process.env[OPTIONAL_DIALOG_POLL_MS_ENV];
+  if (raw === undefined || raw === '') {
+    return OPTIONAL_DIALOG_POLL_MS;
+  }
+  const pollMs = Number(raw);
+  if (!Number.isInteger(pollMs) || pollMs < 1) {
+    throw new Error(
+      `${OPTIONAL_DIALOG_POLL_MS_ENV} must be a positive integer, got "${raw}"`,
+    );
+  }
+  return pollMs;
+}
+
+/**
  * Whether a selector matches in the page. Runs in the page; see
  * `installInPageStepProbe` for why it takes a one-element tuple.
  *
@@ -30,7 +59,8 @@ export function isSelectorPresent([selector]: [string]): boolean {
  * @param options.destination - The step's wait for its destination.
  * @param options.dialogSelector - CSS that matches only while the dialog shows.
  * @param options.dismiss - The harness action that dismisses the dialog.
- * @param options.pollMs - How often to check for the dialog.
+ * @param options.pollMs - How often to check for the dialog; defaults to
+ * {@link getOptionalDialogPollMs}.
  * @returns Whether the dialog appeared and was dismissed.
  */
 export async function waitDismissingOptionalDialog(
@@ -39,7 +69,7 @@ export async function waitDismissingOptionalDialog(
     destination,
     dialogSelector,
     dismiss,
-    pollMs = OPTIONAL_DIALOG_POLL_MS,
+    pollMs = getOptionalDialogPollMs(),
   }: {
     destination: () => Promise<void>;
     dialogSelector: string;

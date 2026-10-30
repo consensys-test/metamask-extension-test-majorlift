@@ -1,6 +1,9 @@
 import type { Driver } from '../../webdriver/driver';
 import {
+  getOptionalDialogPollMs,
   isSelectorPresent,
+  OPTIONAL_DIALOG_POLL_MS,
+  OPTIONAL_DIALOG_POLL_MS_ENV,
   waitDismissingOptionalDialog,
 } from './optional-dialog';
 
@@ -47,6 +50,17 @@ function fakeDriver(betweenChecks: (checks: number) => void = () => undefined) {
   return driver as typeof driver & Driver;
 }
 
+/**
+ * The distinct intervals a fake driver waited between two checks.
+ *
+ * @param driver - A driver from {@link fakeDriver}.
+ * @returns Each interval passed to `delay`, once, in first-seen order.
+ */
+function intervalsWaited(driver: ReturnType<typeof fakeDriver>): unknown[] {
+  const calls = driver.delay.mock.calls as unknown[][];
+  return [...new Set(calls.map(([ms]) => ms))];
+}
+
 function showDialog(): void {
   const dialog = document.createElement('div');
   dialog.setAttribute('data-testid', 'dialog');
@@ -54,8 +68,43 @@ function showDialog(): void {
 }
 
 describe('optional-dialog', () => {
+  const pollEnvBefore = process.env[OPTIONAL_DIALOG_POLL_MS_ENV];
+
   afterEach(() => {
     document.body.innerHTML = '';
+    if (pollEnvBefore === undefined) {
+      delete process.env[OPTIONAL_DIALOG_POLL_MS_ENV];
+    } else {
+      process.env[OPTIONAL_DIALOG_POLL_MS_ENV] = pollEnvBefore;
+    }
+  });
+
+  describe('getOptionalDialogPollMs', () => {
+    it('is the fixed interval when the variable is unset', () => {
+      delete process.env[OPTIONAL_DIALOG_POLL_MS_ENV];
+      expect(getOptionalDialogPollMs()).toBe(OPTIONAL_DIALOG_POLL_MS);
+      expect(OPTIONAL_DIALOG_POLL_MS).toBe(100);
+    });
+
+    it('is the fixed interval when the variable is empty', () => {
+      process.env[OPTIONAL_DIALOG_POLL_MS_ENV] = '';
+      expect(getOptionalDialogPollMs()).toBe(OPTIONAL_DIALOG_POLL_MS);
+    });
+
+    it('reads the variable as milliseconds', () => {
+      process.env[OPTIONAL_DIALOG_POLL_MS_ENV] = '1000';
+      expect(getOptionalDialogPollMs()).toBe(1000);
+    });
+
+    it.each(['0', '-5', '2.5', 'fast'])(
+      'rejects %p, which is not a positive integer',
+      (raw) => {
+        process.env[OPTIONAL_DIALOG_POLL_MS_ENV] = raw;
+        expect(() => getOptionalDialogPollMs()).toThrow(
+          `${OPTIONAL_DIALOG_POLL_MS_ENV} must be a positive integer, got "${raw}"`,
+        );
+      },
+    );
   });
 
   describe('isSelectorPresent', () => {
@@ -170,6 +219,77 @@ describe('optional-dialog', () => {
         }),
       ).rejects.toThrow('TimeoutError');
       expect(dismiss).not.toHaveBeenCalled();
+    });
+
+    it('waits the fixed interval between checks when the variable is unset', async () => {
+      delete process.env[OPTIONAL_DIALOG_POLL_MS_ENV];
+      const destination = deferred();
+      const driver = fakeDriver((checks) => {
+        if (checks === 2) {
+          destination.resolve();
+        }
+      });
+
+      await waitDismissingOptionalDialog(driver, {
+        destination: () => destination.promise,
+        dialogSelector: DIALOG,
+        dismiss: async () => undefined,
+      });
+
+      expect(intervalsWaited(driver)).toStrictEqual([OPTIONAL_DIALOG_POLL_MS]);
+    });
+
+    it('waits the interval the variable sets between checks', async () => {
+      process.env[OPTIONAL_DIALOG_POLL_MS_ENV] = '750';
+      const destination = deferred();
+      const driver = fakeDriver((checks) => {
+        if (checks === 2) {
+          destination.resolve();
+        }
+      });
+
+      await waitDismissingOptionalDialog(driver, {
+        destination: () => destination.promise,
+        dialogSelector: DIALOG,
+        dismiss: async () => undefined,
+      });
+
+      expect(intervalsWaited(driver)).toStrictEqual([750]);
+    });
+
+    it('waits the interval the caller passes, over the variable', async () => {
+      process.env[OPTIONAL_DIALOG_POLL_MS_ENV] = '750';
+      const destination = deferred();
+      const driver = fakeDriver((checks) => {
+        if (checks === 2) {
+          destination.resolve();
+        }
+      });
+
+      await waitDismissingOptionalDialog(driver, {
+        destination: () => destination.promise,
+        dialogSelector: DIALOG,
+        dismiss: async () => undefined,
+        pollMs: 40,
+      });
+
+      expect(intervalsWaited(driver)).toStrictEqual([40]);
+    });
+
+    it('rejects before starting the destination wait when the variable is invalid', async () => {
+      process.env[OPTIONAL_DIALOG_POLL_MS_ENV] = '0';
+      const destination = jest.fn(async () => undefined);
+      const driver = fakeDriver();
+
+      await expect(
+        waitDismissingOptionalDialog(driver, {
+          destination,
+          dialogSelector: DIALOG,
+          dismiss: async () => undefined,
+        }),
+      ).rejects.toThrow(OPTIONAL_DIALOG_POLL_MS_ENV);
+      expect(destination).not.toHaveBeenCalled();
+      expect(driver.executeScript).not.toHaveBeenCalled();
     });
 
     it('propagates an error from the destination wait after the dialog was dismissed', async () => {

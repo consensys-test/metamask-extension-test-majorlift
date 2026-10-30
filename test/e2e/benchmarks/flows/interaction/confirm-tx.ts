@@ -27,6 +27,16 @@ import type {
 export const testTitle = 'benchmark-user-actions-confirm-tx';
 export const persona = BENCHMARK_PERSONA.STANDARD;
 
+/**
+ * A pending row in the activity list. `ActivityRowLayout` puts the row's
+ * status in `data-tx-status`, and a local transaction reads `pending` from
+ * approval until its receipt: `getLocalTransactionStatus` in
+ * `@metamask/client-utils` maps unapproved, approved, signed and submitted to
+ * it. It reads `confirmed` once the receipt is in.
+ */
+const PENDING_ACTIVITY_ROW =
+  '[data-testid="activity-list-item"][data-tx-status="pending"]';
+
 export async function run(): Promise<BenchmarkRunResult> {
   return runUserActionBenchmark(async () => {
     let loadingTimes: number = 0;
@@ -56,13 +66,20 @@ export async function run(): Promise<BenchmarkRunResult> {
           amount: '1',
         });
 
-        // The step holds the Confirm click and the app's response, up to the
-        // confirmed transaction in the activity list. The harness waits for
-        // the button before the timer starts.
+        // The step holds the Confirm click and the app's response. The
+        // harness waits for the button before either timer starts. The
+        // in-page timer ends at the transaction's first row in the activity
+        // list, while it is still pending. The confirmed row waits for the
+        // transaction controller's first receipt check, which the served
+        // `confirmations_transactions` flag puts 3000 ms after submit, a
+        // constant wait that no change to the extension's performance moves.
+        // A pending row already in the DOM at the click would make the in-page
+        // value absent, not wrong. The step timer, on the harness clock, still
+        // runs to the confirmed row.
         const confirmButton = { text: 'Confirm', tag: 'button' };
         await driver.findClickableElement(confirmButton);
         const confirmProbe = await startInPageStep(driver, 'confirm_tx', {
-          endSelector: '[data-tx-status="confirmed"]',
+          endSelector: PENDING_ACTIVITY_ROW,
           startWithin: '[data-testid="confirm-footer-button"]',
         });
         await driver.resetLongTaskMetrics();
@@ -95,7 +112,13 @@ export async function run(): Promise<BenchmarkRunResult> {
         }
 
         try {
-          webVitals = await collectWebVitals(driver);
+          // `fcp` is the document's first contentful paint, which is the
+          // login page's, not this step's, so this flow does not report it.
+          webVitals = {
+            ...(await collectWebVitals(driver)),
+            fcp: null,
+            fcpRating: null,
+          };
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
