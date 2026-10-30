@@ -23,7 +23,9 @@ import {
 import {
   IN_PAGE_DESTINATIONS,
   finishInPageStep,
+  logRequestsWithinInPageSteps,
   startInPageStep,
+  type InPageStepReading,
 } from '../../utils/in-page-step-timer';
 import {
   BENCHMARK_PERSONA,
@@ -69,6 +71,9 @@ export async function run(): Promise<BenchmarkRunResult> {
     let searchToken: number = 0;
     const steps: LongTaskStepResult[] = [];
     const inPageTimers: TimerResult[] = [];
+    const inPageReadings: InPageStepReading[] = [];
+    const keepReading = (stepReading: InPageStepReading) =>
+      inPageReadings.push(stepReading);
     let webVitals;
 
     const fixtureBuilder = new FixtureBuilderV2().withEnabledNetworks({
@@ -87,7 +92,13 @@ export async function run(): Promise<BenchmarkRunResult> {
           },
         },
       },
-      async ({ driver }: { driver: Driver }) => {
+      async ({
+        driver,
+        mockServer,
+      }: {
+        driver: Driver;
+        mockServer: Mockttp;
+      }) => {
         await login(driver);
         const quotePage = new BridgeQuotePage(driver);
 
@@ -126,7 +137,11 @@ export async function run(): Promise<BenchmarkRunResult> {
         });
         if (loadPageProbe) {
           inPageTimers.push(
-            ...(await finishInPageStep(driver, 'bridge_load_page')),
+            ...(await finishInPageStep(
+              driver,
+              'bridge_load_page',
+              keepReading,
+            )),
           );
         }
 
@@ -157,7 +172,11 @@ export async function run(): Promise<BenchmarkRunResult> {
         });
         if (assetPickerProbe) {
           inPageTimers.push(
-            ...(await finishInPageStep(driver, 'bridge_load_asset_picker')),
+            ...(await finishInPageStep(
+              driver,
+              'bridge_load_asset_picker',
+              keepReading,
+            )),
           );
         }
 
@@ -207,7 +226,11 @@ export async function run(): Promise<BenchmarkRunResult> {
         });
         if (searchProbe) {
           inPageTimers.push(
-            ...(await finishInPageStep(driver, 'bridge_search_token')),
+            ...(await finishInPageStep(
+              driver,
+              'bridge_search_token',
+              keepReading,
+            )),
           );
         }
 
@@ -216,6 +239,12 @@ export async function run(): Promise<BenchmarkRunResult> {
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
+
+        // After everything measured: which requests each in-page interval
+        // overlapped, to compare slow iterations with fast ones. The mock
+        // server's own rules are read, not the endpoints `mockTokensEthereum`
+        // returns, so the default mocks' requests are listed too.
+        await logRequestsWithinInPageSteps(mockServer, inPageReadings);
       },
     );
 

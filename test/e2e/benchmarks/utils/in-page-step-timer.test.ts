@@ -1,17 +1,30 @@
+import type { Mockttp } from 'mockttp';
 import type { Driver } from '../../webdriver/driver';
 import {
   IN_PAGE_DESTINATIONS,
+  KNOWN_ANSWER_INPAGE_MS,
+  KNOWN_ANSWER_INPAGE_STEP,
   assetPriceChartDestination,
+  describeRequestsWithinInPageStep,
   finishInPageStep,
+  getInPageKnownAnswerMs,
   inPageTimerResult,
   installInPageStepProbe,
+  logRequestsWithinInPageSteps,
   measureStepInPage,
   readInPageStepProbe,
+  startInPageStep,
   type InPageProbeConfig,
+  type InPageProbeReading,
+  type InPageStepReading,
+  type SeenRequest,
 } from './in-page-step-timer';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-type ProbeHost = { __benchSteps?: Record<string, unknown> };
+type ProbeHost = {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  __benchSteps?: Record<string, unknown>;
+  stateHooks?: { resetLongTaskMetrics?: () => void };
+};
 type InputInit = Partial<
   Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'>
 >;
@@ -41,12 +54,18 @@ function captureInputHandler(): void {
 function trustedInput(
   type: string,
   target: Element,
-  init: InputInit = {},
+  init: InputInit & { timeStamp?: number } = {},
 ): void {
   if (!inputHandler) {
     throw new Error('No probe listener was captured');
   }
-  inputHandler({ isTrusted: true, type, target, ...init } as unknown as Event);
+  inputHandler({
+    isTrusted: true,
+    type,
+    target,
+    timeStamp: now,
+    ...init,
+  } as unknown as Event);
 }
 
 function install(config: Partial<InPageProbeConfig> = {}): string | null {
@@ -58,6 +77,8 @@ function install(config: Partial<InPageProbeConfig> = {}): string | null {
       startWithin: null,
       typedOnly: false,
       boundMs: 60_000,
+      holdMs: 0,
+      resetLongTasks: false,
       ...config,
     },
   ]);
@@ -103,7 +124,11 @@ describe('in-page-step-timer', () => {
       readInPageStepProbe([stepId]);
     }
     delete host.__benchSteps;
+    delete host.stateHooks;
+    delete process.env[KNOWN_ANSWER_INPAGE_MS];
+    delete process.env[KNOWN_ANSWER_INPAGE_STEP];
     document.body.innerHTML = '';
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -139,6 +164,12 @@ describe('in-page-step-timer', () => {
         extraInputs: 0,
         timedOut: false,
         unobserved: false,
+        startTimeStamp: 1000,
+        typedKeys: 0,
+        lastTypedAt: null,
+        heldMs: 0,
+        longTasksReset: false,
+        epochOffset: Date.now() - 1103,
       });
       expect(inPageTimerResult('step', reading)).toStrictEqual([
         { id: 'stepInPage', value: 103, unit: 'ms' },
@@ -226,6 +257,9 @@ describe('in-page-step-timer', () => {
         end: 1300,
         startEvent: 'keydown',
         extraInputs: 0,
+        // F, X and S; not the Shift keydowns.
+        typedKeys: 3,
+        lastTypedAt: 1005,
       });
       expect(inPageTimerResult('step', reading)).toStrictEqual([
         { id: 'stepInPage', value: 300, unit: 'ms' },
@@ -437,6 +471,318 @@ describe('in-page-step-timer', () => {
     });
   });
 
+  describe('readings beside the value', () => {
+    it("records the trigger's event.timeStamp and logs the input delay beside the value", async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      install();
+
+      now = 1000;
+      trustedInput('pointerdown', element('#go'), { timeStamp: 988 });
+      now = 1100;
+      addElement('destination');
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).toMatchObject({ start: 1000, startTimeStamp: 988 });
+      // The value is unchanged: the delay before the listener stays outside.
+      expect(inPageTimerResult('step', reading)).toStrictEqual([
+        { id: 'stepInPage', value: 100, unit: 'ms' },
+      ]);
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] stepInPage: 100.0 ms from pointerdown',
+      );
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] stepInPage readings: input delay 12.0 ms (event.timeStamp to listener)',
+      );
+    });
+
+    it('counts the typed characters up to the destination, and when the last arrived', async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      install({ startWithin: '#field', typedOnly: true });
+      const field = element('#field');
+
+      now = 500;
+      trustedInput('keydown', field, { key: 'a', ctrlKey: true });
+      trustedInput('keydown', field, { key: 'Backspace', ctrlKey: true });
+      now = 1000;
+      trustedInput('keydown', field, { key: '0' });
+      now = 1004;
+      trustedInput('keydown', field, { key: '.' });
+      now = 1009;
+      trustedInput('keydown', field, { key: '0' });
+      now = 1013;
+      trustedInput('keydown', field, { key: '1' });
+      // Not typed into the field: not counted.
+      trustedInput('keydown', element('#go'), { key: '2' });
+      now = 1400;
+      addElement('destination');
+      await deliverMutations();
+      // After the destination: the next step's.
+      now = 1500;
+      trustedInput('keydown', field, { key: '9' });
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).toMatchObject({
+        start: 1000,
+        end: 1400,
+        typedKeys: 4,
+        lastTypedAt: 1013,
+      });
+      expect(inPageTimerResult('step', reading)).toStrictEqual([
+        { id: 'stepInPage', value: 400, unit: 'ms' },
+      ]);
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] stepInPage readings: input delay 0.0 ms (event.timeStamp to listener); 4 typed key(s), the last at +13.0 ms',
+      );
+    });
+
+    it('says so when event.timeStamp is not on the listener clock', () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      const reading: InPageProbeReading = {
+        start: 1000,
+        end: 1100,
+        startEvent: 'pointerdown',
+        preexisting: false,
+        extraInputs: 0,
+        timedOut: false,
+        unobserved: false,
+        startTimeStamp: 1_700_000_000_000,
+        typedKeys: 0,
+        lastTypedAt: null,
+        heldMs: 0,
+        longTasksReset: false,
+        epochOffset: 0,
+      };
+
+      expect(inPageTimerResult('step', reading)).toStrictEqual([
+        { id: 'stepInPage', value: 100, unit: 'ms' },
+      ]);
+      expect(log).toHaveBeenCalledWith(
+        "[benchmark] stepInPage readings: event.timeStamp 1700000000000.0 is not on the listener's clock (1000.0)",
+      );
+    });
+  });
+
+  describe('known-answer hold', () => {
+    describe('getInPageKnownAnswerMs', () => {
+      it('is 0 when the hold is unset, empty or 0, whatever the step filter says', () => {
+        process.env[KNOWN_ANSWER_INPAGE_STEP] = 'step';
+        expect(getInPageKnownAnswerMs('step')).toBe(0);
+        process.env[KNOWN_ANSWER_INPAGE_MS] = '';
+        expect(getInPageKnownAnswerMs('step')).toBe(0);
+        process.env[KNOWN_ANSWER_INPAGE_MS] = '0';
+        expect(getInPageKnownAnswerMs('step')).toBe(0);
+        delete process.env[KNOWN_ANSWER_INPAGE_STEP];
+        expect(getInPageKnownAnswerMs('step')).toBe(0);
+      });
+
+      it('applies the hold only to a named step, with or without the InPage suffix', () => {
+        process.env[KNOWN_ANSWER_INPAGE_MS] = '300';
+        process.env[KNOWN_ANSWER_INPAGE_STEP] =
+          'openSwapPageFromHome, bridge_load_pageInPage';
+
+        expect(getInPageKnownAnswerMs('openSwapPageFromHome')).toBe(300);
+        expect(getInPageKnownAnswerMs('bridge_load_page')).toBe(300);
+        expect(getInPageKnownAnswerMs('fetchAndDisplaySwapQuotes')).toBe(0);
+        // Whole names only.
+        expect(getInPageKnownAnswerMs('openSwapPage')).toBe(0);
+        expect(getInPageKnownAnswerMs('bridge_load_page_extra')).toBe(0);
+      });
+
+      it('throws when the hold is set and names no step', () => {
+        process.env[KNOWN_ANSWER_INPAGE_MS] = '300';
+        expect(() => getInPageKnownAnswerMs('step')).toThrow(
+          `${KNOWN_ANSWER_INPAGE_MS} is 300, but ${KNOWN_ANSWER_INPAGE_STEP} names no step`,
+        );
+        process.env[KNOWN_ANSWER_INPAGE_STEP] = ' , ';
+        expect(() => getInPageKnownAnswerMs('step')).toThrow('names no step');
+      });
+
+      it('throws on a hold that is not a non-negative integer', () => {
+        process.env[KNOWN_ANSWER_INPAGE_STEP] = 'step';
+        process.env[KNOWN_ANSWER_INPAGE_MS] = '-5';
+        expect(() => getInPageKnownAnswerMs('step')).toThrow(
+          `${KNOWN_ANSWER_INPAGE_MS} must be a non-negative integer, got "-5"`,
+        );
+      });
+    });
+
+    /**
+     * A clock that advances by `stepMs` on every read, so a loop that waits
+     * on it ends, and its reads can be counted.
+     *
+     * @param stepMs - How far each read advances the clock.
+     */
+    function advancingClock(stepMs: number): jest.SpyInstance {
+      return jest.spyOn(performance, 'now').mockImplementation(() => {
+        now += stepMs;
+        return now;
+      });
+    }
+
+    it('holds the main thread at the trigger for the hold, after recording the start', async () => {
+      install({ holdMs: 300 });
+      now = 1000;
+      const clock = advancingClock(10);
+
+      trustedInput('pointerdown', element('#go'));
+      const reads = clock.mock.calls.length;
+      jest.spyOn(performance, 'now').mockImplementation(() => now);
+      now = 2000;
+      addElement('destination');
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      // The start is the first read, before the hold.
+      expect(reading?.start).toBe(1010);
+      // The listener did not return until the clock had moved 300 ms past
+      // the hold's start (the second read, 1020): 30 more reads of 10 ms
+      // each, then one to record how long it held.
+      expect(reads).toBe(33);
+      expect(reading?.heldMs).toBe(310);
+      expect(inPageTimerResult('step', reading)).toStrictEqual([
+        { id: 'stepInPage', value: 990, unit: 'ms' },
+      ]);
+    });
+
+    it('holds nothing, and reads the clock once at the trigger, when the hold is 0', async () => {
+      install({ holdMs: 0 });
+      now = 1000;
+      const clock = advancingClock(10);
+
+      trustedInput('pointerdown', element('#go'));
+
+      expect(clock.mock.calls).toHaveLength(1);
+      expect(readInPageStepProbe(['step'])).toMatchObject({
+        start: 1010,
+        heldMs: 0,
+      });
+    });
+
+    describe('startInPageStep', () => {
+      function configCapturingDriver() {
+        const configs: InPageProbeConfig[] = [];
+        const driver = {
+          executeScript: jest.fn(
+            async (_script: unknown, config: InPageProbeConfig) => {
+              configs.push(config);
+              return null;
+            },
+          ),
+        } as unknown as Driver;
+        return { driver, configs };
+      }
+
+      it('passes the hold to the probe of a named step only, and logs it', async () => {
+        const log = jest
+          .spyOn(console, 'log')
+          .mockImplementation(() => undefined);
+        process.env[KNOWN_ANSWER_INPAGE_MS] = '300';
+        process.env[KNOWN_ANSWER_INPAGE_STEP] = 'openSwapPageFromHome';
+        const { driver, configs } = configCapturingDriver();
+
+        await startInPageStep(driver, 'openSwapPageFromHome', {
+          endSelector: '#destination',
+        });
+        await startInPageStep(driver, 'fetchAndDisplaySwapQuotes', {
+          endSelector: '#destination',
+        });
+
+        expect(configs.map((config) => config.holdMs)).toStrictEqual([300, 0]);
+        expect(log).toHaveBeenCalledWith(
+          '[benchmark] openSwapPageFromHomeInPage: known-answer hold of 300 ms at the trigger',
+        );
+        expect(log).toHaveBeenCalledTimes(1);
+      });
+
+      it('passes no hold and no long-task reset when neither is set', async () => {
+        const { driver, configs } = configCapturingDriver();
+
+        await startInPageStep(driver, 'step', { endSelector: '#destination' });
+
+        expect(configs).toStrictEqual([
+          {
+            stepId: 'step',
+            endSelectors: ['#destination'],
+            startWithin: null,
+            typedOnly: false,
+            boundMs: 60_000,
+            holdMs: 0,
+            resetLongTasks: false,
+          },
+        ]);
+      });
+
+      it('throws, and installs nothing, when the hold names no step', async () => {
+        process.env[KNOWN_ANSWER_INPAGE_MS] = '300';
+        const { driver } = configCapturingDriver();
+
+        await expect(
+          startInPageStep(driver, 'step', { endSelector: '#destination' }),
+        ).rejects.toThrow('names no step');
+        expect(driver.executeScript).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('long-task reset at the trigger', () => {
+    it("resets the app's long-task metrics once, at the trigger, before reading the start", async () => {
+      // The reset takes 5 ms here, so a start read after it shows it.
+      const resetLongTaskMetrics = jest.fn(() => {
+        now += 5;
+      });
+      (window as unknown as ProbeHost).stateHooks = { resetLongTaskMetrics };
+      install({ resetLongTasks: true, startWithin: '#go' });
+
+      // Not the trigger: no reset.
+      trustedInput('pointerdown', element('#field'));
+      expect(resetLongTaskMetrics).not.toHaveBeenCalled();
+      now = 1000;
+      trustedInput('pointerdown', element('#go'));
+      trustedInput('click', element('#go'));
+      expect(resetLongTaskMetrics).toHaveBeenCalledTimes(1);
+      now = 1200;
+      addElement('destination');
+      await deliverMutations();
+
+      expect(readInPageStepProbe(['step'])).toMatchObject({
+        start: 1005,
+        end: 1200,
+        longTasksReset: true,
+      });
+    });
+
+    it('does not reset when not asked', () => {
+      const resetLongTaskMetrics = jest.fn();
+      (window as unknown as ProbeHost).stateHooks = { resetLongTaskMetrics };
+      install();
+
+      trustedInput('pointerdown', element('#go'));
+
+      expect(resetLongTaskMetrics).not.toHaveBeenCalled();
+      expect(readInPageStepProbe(['step'])).toMatchObject({
+        longTasksReset: false,
+      });
+    });
+
+    it("records no reset where the app's hook is absent", () => {
+      install({ resetLongTasks: true });
+
+      trustedInput('pointerdown', element('#go'));
+
+      expect(readInPageStepProbe(['step'])).toMatchObject({
+        start: 1000,
+        longTasksReset: false,
+      });
+    });
+  });
+
   describe('inPageTimerResult', () => {
     it('reports nothing when no probe was found', () => {
       expect(inPageTimerResult('step', null)).toStrictEqual([]);
@@ -520,6 +866,54 @@ describe('in-page-step-timer', () => {
       expect(result).toStrictEqual([]);
     });
 
+    it('tells the timed wait whether the probe was installed', async () => {
+      const installedRun = fakeDriver();
+      const failedRun = fakeDriver({ failFirst: true });
+      const settle = jest.fn(async () => undefined);
+
+      await measureStepInPage(installedRun.driver, 'step', {
+        endSelector: '#destination',
+        trigger: async () => undefined,
+        settle,
+      });
+      await measureStepInPage(failedRun.driver, 'step', {
+        endSelector: '#destination',
+        trigger: async () => undefined,
+        settle,
+      });
+
+      expect(settle.mock.calls).toStrictEqual([
+        [{ installed: true }],
+        [{ installed: false }],
+      ]);
+    });
+
+    it('hands the reading to `onReading`', async () => {
+      const { driver } = fakeDriver();
+      captureInputHandler();
+      const readings: InPageStepReading[] = [];
+
+      await measureStepInPage(driver, 'step', {
+        endSelector: '#destination',
+        onReading: (stepReading) => readings.push(stepReading),
+        trigger: async () => {
+          now = 1000;
+          trustedInput('pointerdown', element('#go'));
+        },
+        settle: async () => {
+          now = 1250;
+          addElement('destination');
+          await deliverMutations();
+        },
+      });
+
+      expect(readings).toHaveLength(1);
+      expect(readings[0]).toMatchObject({
+        stepId: 'step',
+        reading: { start: 1000, end: 1250 },
+      });
+    });
+
     it('propagates an error from the timed wait, as the step always has', async () => {
       const { driver } = fakeDriver();
 
@@ -560,8 +954,250 @@ describe('in-page-step-timer', () => {
           throw new Error('no such window');
         }),
       } as unknown as Driver;
+      const onReading = jest.fn();
 
-      expect(await finishInPageStep(driver, 'step')).toStrictEqual([]);
+      expect(await finishInPageStep(driver, 'step', onReading)).toStrictEqual(
+        [],
+      );
+      expect(onReading).not.toHaveBeenCalled();
+    });
+
+    it('hands a missing probe to `onReading` as a null reading', async () => {
+      const driver = {
+        executeScript: jest.fn(
+          async (script: (args: unknown[]) => unknown, ...args: unknown[]) =>
+            script(args),
+        ),
+      } as unknown as Driver;
+      const onReading = jest.fn();
+
+      await finishInPageStep(driver, 'step', onReading);
+
+      expect(onReading).toHaveBeenCalledWith({ stepId: 'step', reading: null });
+    });
+  });
+
+  describe('request log', () => {
+    const EPOCH = 1_700_000_000_000;
+
+    /**
+     * A reading whose interval runs from 1000 to 1500 on the page clock,
+     * which is `EPOCH` behind the wall clock.
+     *
+     * @param overrides - Fields to change.
+     */
+    function readingOf(
+      overrides: Partial<InPageProbeReading> = {},
+    ): InPageProbeReading {
+      return {
+        start: 1000,
+        end: 1500,
+        startEvent: 'pointerdown',
+        preexisting: false,
+        extraInputs: 0,
+        timedOut: false,
+        unobserved: false,
+        startTimeStamp: 1000,
+        typedKeys: 0,
+        lastTypedAt: null,
+        heldMs: 0,
+        longTasksReset: false,
+        epochOffset: EPOCH,
+        ...overrides,
+      };
+    }
+
+    /**
+     * A request as the mock server records it, with times in ms from the
+     * trigger at wall-clock `EPOCH + 1000`.
+     *
+     * @param method - The request method.
+     * @param url - The request URL.
+     * @param received - When it arrived.
+     * @param answered - When its answer was sent, or null for none.
+     */
+    function requestOf(
+      method: string,
+      url: string,
+      received: number,
+      answered: number | null,
+    ): SeenRequest {
+      // The monotonic clock has its own origin; only differences count.
+      const startTimestamp = 50_000 + received;
+      return {
+        method,
+        url,
+        timingEvents: {
+          startTime: EPOCH + 1000 + received,
+          startTimestamp,
+          ...(answered !== null && {
+            responseSentTimestamp: startTimestamp + answered - received,
+          }),
+        },
+      };
+    }
+
+    const requests = [
+      requestOf('GET', 'https://api.test/v1/balances?chain=1', 100, 650),
+      requestOf('GET', 'https://api.test/v1/balances?chain=2', 120, 700),
+      // In flight at the trigger, answered inside the interval.
+      requestOf('POST', 'https://rpc.test/', -200, 50),
+      // Answered before the trigger.
+      requestOf('GET', 'https://api.test/v1/prices', -300, -10),
+      // Received after the destination.
+      requestOf('GET', 'https://api.test/v1/late', 505, 520),
+      // Received inside, never answered.
+      requestOf('GET', 'https://api.test/v1/pending', 400, null),
+      // Received before, never answered: cannot be placed.
+      requestOf('GET', 'https://api.test/v1/stale', -50, null),
+    ];
+
+    it('lists the requests that overlapped the interval, grouped, in ms from the trigger', () => {
+      expect(
+        describeRequestsWithinInPageStep(
+          { stepId: 'step', reading: readingOf() },
+          requests,
+        ),
+      ).toBe(
+        [
+          '[benchmark] stepInPage requests: 4 at the mock server overlapped the 500.0 ms interval (ms from the trigger)',
+          '  POST rpc.test/ x1: received -200, answered +50',
+          '  GET api.test/v1/balances x2: received +100..+120, answered +650..+700',
+          '  GET api.test/v1/pending x1: received +400, 1 without an answer',
+        ].join('\n'),
+      );
+    });
+
+    it('lists nothing for a step whose interval has no end', () => {
+      expect(
+        describeRequestsWithinInPageStep(
+          { stepId: 'step', reading: readingOf({ end: null }) },
+          requests,
+        ),
+      ).toBe(
+        '[benchmark] stepInPage requests: not listed, the interval has no end',
+      );
+      expect(
+        describeRequestsWithinInPageStep(
+          { stepId: 'step', reading: null },
+          requests,
+        ),
+      ).toBe(
+        '[benchmark] stepInPage requests: not listed, the interval has no end',
+      );
+    });
+
+    it('caps the groups it lists, and says how many it left out', () => {
+      const many = Array.from({ length: 45 }, (_, index) =>
+        requestOf('GET', `https://api.test/path/${index}`, index, index + 1),
+      );
+
+      const lines = describeRequestsWithinInPageStep(
+        { stepId: 'step', reading: readingOf() },
+        many,
+      ).split('\n');
+
+      expect(lines).toHaveLength(42);
+      expect(lines[1]).toBe(
+        '  GET api.test/path/0 x1: received +0, answered +1',
+      );
+      expect(lines[41]).toBe('  ... 5 more group(s)');
+    });
+
+    describe('logRequestsWithinInPageSteps', () => {
+      function serverOf(
+        endpoints: { getSeenRequests: () => Promise<SeenRequest[]> }[],
+      ) {
+        return {
+          getMockedEndpoints: jest.fn(async () => endpoints),
+        } as unknown as Pick<Mockttp, 'getMockedEndpoints'>;
+      }
+
+      it("reads every mock rule's record once and logs each step", async () => {
+        const log = jest
+          .spyOn(console, 'log')
+          .mockImplementation(() => undefined);
+        const first = {
+          getSeenRequests: jest.fn(async () => requests.slice(0, 3)),
+        };
+        const second = {
+          getSeenRequests: jest.fn(async () => requests.slice(3)),
+        };
+        const steps = [
+          { stepId: 'step', reading: readingOf() },
+          { stepId: 'other', reading: null },
+        ];
+
+        await logRequestsWithinInPageSteps(serverOf([first, second]), steps);
+
+        expect(first.getSeenRequests).toHaveBeenCalledTimes(1);
+        expect(second.getSeenRequests).toHaveBeenCalledTimes(1);
+        expect(log.mock.calls).toStrictEqual([
+          [describeRequestsWithinInPageStep(steps[0], requests)],
+          [describeRequestsWithinInPageStep(steps[1], requests)],
+        ]);
+        expect(jest.getTimerCount()).toBe(0);
+      });
+
+      it('leaves out a rule whose record is not ready in time, and says how many', async () => {
+        const log = jest
+          .spyOn(console, 'log')
+          .mockImplementation(() => undefined);
+        const ready = { getSeenRequests: jest.fn(async () => requests) };
+        const hung = {
+          getSeenRequests: jest.fn(
+            () => new Promise<SeenRequest[]>(() => undefined),
+          ),
+        };
+        const failed = {
+          getSeenRequests: jest.fn(async (): Promise<SeenRequest[]> => {
+            throw new Error('gone');
+          }),
+        };
+        const steps = [{ stepId: 'step', reading: readingOf() }];
+
+        const logged = logRequestsWithinInPageSteps(
+          serverOf([ready, hung, failed]),
+          steps,
+          100,
+        );
+        await jest.advanceTimersByTimeAsync(100);
+        await logged;
+
+        expect(log.mock.calls).toStrictEqual([
+          [
+            '[benchmark] request log: 2 of 3 mock rules failed or gave no record within 100 ms; their requests are not listed',
+          ],
+          [describeRequestsWithinInPageStep(steps[0], requests)],
+        ]);
+      });
+
+      it('never throws', async () => {
+        const log = jest
+          .spyOn(console, 'log')
+          .mockImplementation(() => undefined);
+        const server = {
+          getMockedEndpoints: jest.fn(async () => {
+            throw new Error('server stopped');
+          }),
+        } as unknown as Pick<Mockttp, 'getMockedEndpoints'>;
+
+        await logRequestsWithinInPageSteps(server, [
+          { stepId: 'step', reading: readingOf() },
+        ]);
+
+        expect(log).toHaveBeenCalledWith(
+          '[benchmark] request log unavailable: server stopped',
+        );
+      });
+
+      it('reads nothing when no step was read', async () => {
+        const server = serverOf([]);
+
+        await logRequestsWithinInPageSteps(server, []);
+
+        expect(server.getMockedEndpoints).not.toHaveBeenCalled();
+      });
     });
   });
 

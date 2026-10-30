@@ -27,7 +27,9 @@ import {
 } from '../../utils/long-task-helper';
 import {
   IN_PAGE_DESTINATIONS,
+  logRequestsWithinInPageSteps,
   measureStepInPage,
+  type InPageStepReading,
 } from '../../utils/in-page-step-timer';
 import {
   getTestSpecificMock,
@@ -56,6 +58,9 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
   const traceTimers: TimerResult[] = [];
   const inPageTimers: TimerResult[] = [];
+  const inPageReadings: InPageStepReading[] = [];
+  const keepReading = (stepReading: InPageStepReading) =>
+    inPageReadings.push(stepReading);
   let webVitals: WebVitalsMetrics | undefined;
   try {
     const branchMock = getTestSpecificMock();
@@ -97,9 +102,11 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
       async ({
         driver,
         mockedEndpoint,
+        mockServer,
       }: {
         driver: Driver;
         mockedEndpoint: MockedEndpoint[];
+        mockServer: Mockttp;
       }) => {
         // Login flow
         await login(driver, { validateBalance: false });
@@ -117,11 +124,17 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
 
         // Measure: Open swap page. `<stepId>InPage` times the same step from
         // the click itself, on the page's clock; the step timer is unchanged.
+        // The long-task window opens at the click too: the probe resets it at
+        // the trigger, as the bridge flow resets before its click, so long
+        // tasks the click causes are inside it. Without a probe, the step
+        // resets after the click, as before.
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'openSwapPageFromHome', {
             endSelector: IN_PAGE_DESTINATIONS.swapPage,
+            resetLongTasksAtStart: true,
+            onReading: keepReading,
             trigger: () => homePage.startSwapFlow(),
-            settle: async () => {
+            settle: async ({ installed }) => {
               steps.push(
                 await measureStepWithLongTasks(
                   driver,
@@ -130,6 +143,7 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
                     const swapPage = new SwapPage(driver);
                     await swapPage.checkPageIsLoaded();
                   },
+                  { windowOpenedAtTrigger: installed },
                 ),
               );
             },
@@ -138,13 +152,17 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
 
         // Measure: Fetch quotes. `createSwap` picks both tokens before it
         // types the amount, and typing the amount is what fetches quotes, so
-        // the in-page timer starts on the first character typed into it.
+        // the in-page timer starts on the first character typed into it, and
+        // the long-task window opens there too: the harness cannot reset it
+        // between the token picks and the typing, so the probe does.
         const swapPage = new SwapPage(driver);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'fetchAndDisplaySwapQuotes', {
             endSelector: IN_PAGE_DESTINATIONS.swapQuote,
             startWithin: '[data-testid="from-amount"]',
             typedOnly: true,
+            resetLongTasksAtStart: true,
+            onReading: keepReading,
             trigger: () =>
               swapPage.createSwap({
                 amount: 0.01,
@@ -153,7 +171,7 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
                 swapFrom: 'SOL',
                 network: 'Solana',
               }),
-            settle: async () => {
+            settle: async ({ installed }) => {
               steps.push(
                 await measureStepWithLongTasks(
                   driver,
@@ -161,6 +179,7 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
                   async () => {
                     await swapPage.checkQuoteIsDisplayed({ timeout: 60000 });
                   },
+                  { windowOpenedAtTrigger: installed },
                 ),
               );
             },
@@ -222,29 +241,32 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
           ),
         );
 
-        // Emitted beside `swapQuoteFetch` rather than replacing it, so one run
-        // carries both selections and the difference between them is a
-        // within-run reading rather than a comparison across arms.
-        try {
-          traceTimers.push(
-            sentryInitialTimerResult(
-              transactions,
-              TraceName.SwapQuoteFetch,
-              'swapQuoteFetchInitial',
-            ),
-          );
-        } catch (error) {
-          console.log(
-            `[benchmark] swapQuoteFetchInitial unavailable: ${(error as Error).message}`,
-          );
-        }
-
-        for (const [name, id] of [
-          [TraceName.SwapViewLoaded, 'swapViewLoaded'],
-          [TraceName.SwapQuoteFetch, 'swapQuoteFetch'],
+        // One series per span. `swapQuoteFetch` is the first non-refresh
+        // fetch, the one a user waits on when the page opens; a refresh, which
+        // the V14 arm forces, no longer replaces it. Without a refresh it is
+        // the same transaction as before.
+        for (const [id, read] of [
+          [
+            'swapViewLoaded',
+            () =>
+              sentryTimerResult(
+                transactions,
+                TraceName.SwapViewLoaded,
+                'swapViewLoaded',
+              ),
+          ],
+          [
+            'swapQuoteFetch',
+            () =>
+              sentryInitialTimerResult(
+                transactions,
+                TraceName.SwapQuoteFetch,
+                'swapQuoteFetch',
+              ),
+          ],
         ] as const) {
           try {
-            traceTimers.push(sentryTimerResult(transactions, name, id));
+            traceTimers.push(read());
           } catch (error) {
             console.log(
               `[benchmark] ${id} unavailable: ${(error as Error).message}`,
@@ -257,6 +279,10 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
+
+        // After everything measured: which requests each in-page interval
+        // overlapped, to compare slow iterations with fast ones.
+        await logRequestsWithinInPageSteps(mockServer, inPageReadings);
       },
     );
 

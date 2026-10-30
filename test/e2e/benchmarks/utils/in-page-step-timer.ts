@@ -1,4 +1,6 @@
+import type { CompletedRequest, Mockttp } from 'mockttp';
 import type { Driver } from '../../webdriver/driver';
+import { getKnownAnswerDelayMs } from '../mocks/known-answer';
 import type { TimerResult } from './types';
 
 /**
@@ -22,11 +24,27 @@ import type { TimerResult } from './types';
  * `executeScript`. `MutationObserver` is on the test-only part of the
  * exception list in `development/webpack/utils/plugins/LavamoatPlugin/index.ts`
  * for this probe; `setTimeout`, `clearTimeout` and `performance` are on the
- * part every build lists.
+ * part every build lists, as are `Date` and `stateHooks`.
  *
  * Observing starts at the triggering input, not at install, and stops at the
  * first match, at the read, or `boundMs` after the trigger, whichever comes
  * first, so no observer outlives its step.
+ *
+ * Beside the value, each reading records the trigger's own `event.timeStamp`,
+ * so the input delay before the listener ran can be read; for a typed
+ * trigger, how many characters were typed and when the last of them arrived,
+ * which measures the harness's typing inside the interval; and the page
+ * clock's offset from the wall clock, so the interval can be compared with
+ * the mock server's request times ({@link logRequestsWithinInPageSteps}). The
+ * log line after the value reports the first two. None of them changes the
+ * value.
+ *
+ * Known answer: with `BENCHMARK_KNOWN_ANSWER_INPAGE_MS` above 0 and the step
+ * named in `BENCHMARK_KNOWN_ANSWER_INPAGE_STEP`, the probe holds the page's
+ * main thread for that many ms as soon as it records the trigger. Its listener
+ * is a capture listener on `document`, so it runs before any handler the app
+ * registers on an element inside the document, and what the app does in
+ * response starts that much later. Unset or 0, nothing is held.
  *
  * An iteration reports nothing for the step, never zero, and logs why, when:
  * - no trusted input reached the trigger after the probe was installed;
@@ -42,6 +60,48 @@ import type { TimerResult } from './types';
 export const IN_PAGE_BOUND_MS = 60_000;
 
 /**
+ * The known-answer hold, in ms: how long the probe holds the page's main
+ * thread at the trigger of a step named in
+ * {@link KNOWN_ANSWER_INPAGE_STEP}. Unset, empty or 0 holds nothing.
+ */
+export const KNOWN_ANSWER_INPAGE_MS = 'BENCHMARK_KNOWN_ANSWER_INPAGE_MS';
+
+/**
+ * The steps the known-answer hold applies to: a step id, or a comma-separated
+ * list of them, each with or without the `InPage` suffix. A step id that more
+ * than one flow uses is held in each of them.
+ */
+export const KNOWN_ANSWER_INPAGE_STEP = 'BENCHMARK_KNOWN_ANSWER_INPAGE_STEP';
+
+/**
+ * Read the known-answer hold for one step.
+ *
+ * A hold set above 0 with no step named throws, as an invalid known-answer
+ * delay does, so a run meant as a lever arm cannot run as an unchanged one.
+ *
+ * @param stepId - The step id the probe is installed under.
+ * @returns The hold in ms: 0 unless the hold is set and names this step.
+ */
+export function getInPageKnownAnswerMs(stepId: string): number {
+  const holdMs = getKnownAnswerDelayMs(KNOWN_ANSWER_INPAGE_MS);
+  if (holdMs === 0) {
+    return 0;
+  }
+  const named = (process.env[KNOWN_ANSWER_INPAGE_STEP] ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name !== '');
+  if (named.length === 0) {
+    throw new Error(
+      `${KNOWN_ANSWER_INPAGE_MS} is ${holdMs}, but ${KNOWN_ANSWER_INPAGE_STEP} names no step`,
+    );
+  }
+  return named.includes(stepId) || named.includes(`${stepId}InPage`)
+    ? holdMs
+    : 0;
+}
+
+/**
  * The page-side probe's configuration. It crosses `executeScript`, so it must
  * be plain JSON.
  */
@@ -55,6 +115,10 @@ export type InPageProbeConfig = {
   typedOnly: boolean;
   /** Stop observing this long after the trigger. */
   boundMs: number;
+  /** Hold the main thread this long at the trigger: the known answer. */
+  holdMs: number;
+  /** Reset the app's long-task metrics at the trigger. */
+  resetLongTasks: boolean;
 };
 
 /**
@@ -75,6 +139,31 @@ export type InPageProbeReading = {
   timedOut: boolean;
   /** The destination is in the DOM, but no observer callback recorded it. */
   unobserved: boolean;
+  /**
+   * The triggering event's `event.timeStamp`, on the same clock as `start`.
+   * `start` minus this is the input delay: how long the event waited before
+   * the listener ran. It is outside the value.
+   */
+  startTimeStamp: number | null;
+  /** Typed characters from the trigger to the destination; 0 if not typed. */
+  typedKeys: number;
+  /** `performance.now()` at the last of those typed characters. */
+  lastTypedAt: number | null;
+  /** How long the known-answer hold actually held, in ms; 0 when none. */
+  heldMs: number;
+  /** The app's long-task metrics were reset at the trigger. */
+  longTasksReset: boolean;
+  /**
+   * `Date.now() - performance.now()` when read: add it to `start` or `end`
+   * for a wall-clock time comparable with the mock server's request times.
+   */
+  epochOffset: number;
+};
+
+/** A step's reading, as {@link finishInPageStep} hands it to `onReading`. */
+export type InPageStepReading = {
+  stepId: string;
+  reading: InPageProbeReading | null;
 };
 
 type InPageProbe = {
@@ -84,6 +173,11 @@ type InPageProbe = {
   preexisting: boolean;
   extraInputs: number;
   timedOut: boolean;
+  startTimeStamp: number | null;
+  typedKeys: number;
+  lastTypedAt: number | null;
+  heldMs: number;
+  longTasksReset: boolean;
   matches: () => boolean;
   stop: () => void;
 };
@@ -92,6 +186,7 @@ type ProbeHost = {
   // A page global the harness owns, named apart from the app's own.
   // eslint-disable-next-line @typescript-eslint/naming-convention
   __benchSteps?: Record<string, InPageProbe>;
+  stateHooks?: { resetLongTaskMetrics?: () => void };
 };
 
 /**
@@ -108,6 +203,11 @@ type ProbeHost = {
  * `MutationObserver` on the whole document checks the end selectors after
  * each batch of changes, and records the time of the first callback in which
  * they all match.
+ *
+ * At the trigger, the listener resets the app's long-task metrics when
+ * `resetLongTasks` is set, just before it reads the start, and holds the main
+ * thread for `holdMs` just after, when that is above 0. Both happen before any
+ * handler the app registers on an element inside the document sees the event.
  *
  * @param args - One-element tuple holding the probe configuration.
  * @param args."0" - The probe configuration.
@@ -141,6 +241,20 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
       (selector) => document.querySelector(selector) !== null,
     );
 
+  const isTypedCharacter = (event: Event): boolean => {
+    // A character key, not a modifier chord: `driver.fill` clears the field
+    // with Ctrl/Cmd+A and Backspace before it types.
+    const { key, ctrlKey, metaKey, altKey } = event as KeyboardEvent;
+    return (
+      event.type === 'keydown' &&
+      typeof key === 'string' &&
+      key.length === 1 &&
+      !ctrlKey &&
+      !metaKey &&
+      !altKey
+    );
+  };
+
   const startsRegion = (event: Event): boolean => {
     if (config.startWithin !== null) {
       const { target } = event;
@@ -152,17 +266,7 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
       }
     }
     if (config.typedOnly) {
-      // A character key, not a modifier chord: `driver.fill` clears the field
-      // with Ctrl/Cmd+A and Backspace before it types.
-      const { key, ctrlKey, metaKey, altKey } = event as KeyboardEvent;
-      return (
-        event.type === 'keydown' &&
-        typeof key === 'string' &&
-        key.length === 1 &&
-        !ctrlKey &&
-        !metaKey &&
-        !altKey
-      );
+      return isTypedCharacter(event);
     }
     return true;
   };
@@ -174,6 +278,11 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
     preexisting: false,
     extraInputs: 0,
     timedOut: false,
+    startTimeStamp: null,
+    typedKeys: 0,
+    lastTypedAt: null,
+    heldMs: 0,
+    longTasksReset: false,
     matches,
     stop: () => undefined,
   };
@@ -201,8 +310,30 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
       if (!startsRegion(event)) {
         return;
       }
+      // Before the start is read, so the reset is not inside the value.
+      if (config.resetLongTasks) {
+        const hooks = host.stateHooks;
+        if (typeof hooks?.resetLongTaskMetrics === 'function') {
+          hooks.resetLongTaskMetrics();
+          probe.longTasksReset = true;
+        }
+      }
       probe.start = performance.now();
       probe.startEvent = event.type;
+      probe.startTimeStamp = event.timeStamp;
+      if (config.typedOnly) {
+        probe.typedKeys = 1;
+        probe.lastTypedAt = probe.start;
+      }
+      if (config.holdMs > 0) {
+        // The known answer. Nothing else runs on this thread meanwhile, so
+        // the DOM the check below reads is still the DOM at the trigger.
+        const holdStart = performance.now();
+        while (performance.now() - holdStart < config.holdMs) {
+          // Hold the main thread.
+        }
+        probe.heldMs = performance.now() - holdStart;
+      }
       if (matches()) {
         probe.preexisting = true;
         probe.stop();
@@ -218,6 +349,10 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
         probe.stop();
       }, config.boundMs);
       return;
+    }
+    if (config.typedOnly && probe.end === null && startsRegion(event)) {
+      probe.typedKeys += 1;
+      probe.lastTypedAt = performance.now();
     }
     // One gesture is one pointerdown or one keydown; the mousedown and click
     // that follow a pointerdown belong to it. Typing continues the trigger
@@ -283,7 +418,50 @@ export function readInPageStepProbe([stepId]: [
       probe.end === null &&
       !probe.preexisting &&
       probe.matches(),
+    startTimeStamp: probe.startTimeStamp,
+    typedKeys: probe.typedKeys,
+    lastTypedAt: probe.lastTypedAt,
+    heldMs: probe.heldMs,
+    longTasksReset: probe.longTasksReset,
+    epochOffset: Date.now() - performance.now(),
   };
+}
+
+/**
+ * Describe the readings recorded beside a value: the input delay, the typing
+ * inside a typed step, the known-answer hold, and whether the long-task window
+ * opened at the trigger.
+ *
+ * @param reading - A reading with a start.
+ * @returns One line of `; `-separated parts.
+ */
+function describeReadings(reading: InPageProbeReading): string {
+  const parts: string[] = [];
+  const start = reading.start ?? 0;
+  if (reading.startTimeStamp !== null && reading.startTimeStamp > 0) {
+    const delay = start - reading.startTimeStamp;
+    parts.push(
+      delay >= 0 && delay <= IN_PAGE_BOUND_MS
+        ? `input delay ${delay.toFixed(1)} ms (event.timeStamp to listener)`
+        : `event.timeStamp ${reading.startTimeStamp.toFixed(1)} is not on the listener's clock (${start.toFixed(1)})`,
+    );
+  } else {
+    parts.push('no event.timeStamp');
+  }
+  if (reading.typedKeys > 0 && reading.lastTypedAt !== null) {
+    parts.push(
+      `${reading.typedKeys} typed key(s), the last at +${(
+        reading.lastTypedAt - start
+      ).toFixed(1)} ms`,
+    );
+  }
+  if (reading.heldMs > 0) {
+    parts.push(`known-answer hold ${reading.heldMs.toFixed(1)} ms`);
+  }
+  if (reading.longTasksReset) {
+    parts.push('long-task window opened at the trigger');
+  }
+  return parts.join('; ');
 }
 
 /**
@@ -348,6 +526,7 @@ export function inPageTimerResult(
   console.log(
     `[benchmark] ${id}: ${value.toFixed(1)} ms from ${reading.startEvent}`,
   );
+  console.log(`[benchmark] ${id} readings: ${describeReadings(reading)}`);
   return [{ id, value, unit: 'ms' }];
 }
 
@@ -368,11 +547,21 @@ export type InPageStepOptions = {
    * chord `driver.fill` sends first, and the 200 ms it then waits, stay out.
    */
   typedOnly?: boolean;
+  /**
+   * Reset the app's long-task metrics at the trigger, so the step's long-task
+   * window opens at the same input its in-page value starts at. The harness
+   * cannot reset there itself when the call that triggers the step makes
+   * other inputs first, as `createSwap` picks tokens before it types. The
+   * step's long-task timer is then told not to reset again
+   * (`measureStepWithLongTasks`'s `windowOpenedAtTrigger`).
+   */
+  resetLongTasksAtStart?: boolean;
 };
 
 /**
  * Install a probe before a step's trigger runs. A failure is logged and never
- * thrown, so the step's existing timer is unaffected by it.
+ * thrown, so the step's existing timer is unaffected by it. A known-answer
+ * hold set without a step to apply to is a configuration error, and throws.
  *
  * @param driver - The WebDriver instance.
  * @param stepId - The step id; the timer is reported as `<stepId>InPage`.
@@ -390,7 +579,14 @@ export async function startInPageStep(
     startWithin: options.startWithin ?? null,
     typedOnly: options.typedOnly ?? false,
     boundMs: IN_PAGE_BOUND_MS,
+    holdMs: getInPageKnownAnswerMs(stepId),
+    resetLongTasks: options.resetLongTasksAtStart ?? false,
   };
+  if (config.holdMs > 0) {
+    console.log(
+      `[benchmark] ${stepId}InPage: known-answer hold of ${config.holdMs} ms at the trigger`,
+    );
+  }
   try {
     const failure = (await driver.executeScript(
       installInPageStepProbe,
@@ -416,17 +612,22 @@ export async function startInPageStep(
  *
  * @param driver - The WebDriver instance.
  * @param stepId - The step id the probe was installed under.
+ * @param onReading - Receives the reading, for a caller that logs more than
+ * the value (see {@link logRequestsWithinInPageSteps}). Not called when the
+ * probe could not be read.
  * @returns The `<stepId>InPage` timer, or an empty array.
  */
 export async function finishInPageStep(
   driver: Driver,
   stepId: string,
+  onReading?: (stepReading: InPageStepReading) => void,
 ): Promise<TimerResult[]> {
   try {
     const reading = (await driver.executeScript(
       readInPageStepProbe,
       stepId,
     )) as InPageProbeReading | null;
+    onReading?.({ stepId, reading });
     return inPageTimerResult(stepId, reading);
   } catch (error) {
     console.log(
@@ -450,7 +651,11 @@ export async function finishInPageStep(
  * @param stepId - The step id; the timer is reported as `<stepId>InPage`.
  * @param options - The probe options, plus the trigger and the timed wait.
  * @param options.trigger - The harness action that starts the step.
- * @param options.settle - The step's existing timed wait.
+ * @param options.settle - The step's existing timed wait. It is told whether
+ * the probe was installed, so a step that asked the probe to open its
+ * long-task window at the trigger can open it itself when it was not.
+ * @param options.onReading - Receives the probe's reading; see
+ * {@link finishInPageStep}.
  * @returns The `<stepId>InPage` timer, or an empty array.
  */
 export async function measureStepInPage(
@@ -459,16 +664,207 @@ export async function measureStepInPage(
   {
     trigger,
     settle,
+    onReading,
     ...options
   }: InPageStepOptions & {
     trigger: () => Promise<void>;
-    settle: () => Promise<void>;
+    settle: (probe: { installed: boolean }) => Promise<void>;
+    onReading?: (stepReading: InPageStepReading) => void;
   },
 ): Promise<TimerResult[]> {
   const installed = await startInPageStep(driver, stepId, options);
   await trigger();
-  await settle();
-  return installed ? await finishInPageStep(driver, stepId) : [];
+  await settle({ installed });
+  return installed ? await finishInPageStep(driver, stepId, onReading) : [];
+}
+
+/** The parts of a request the mock server saw that the request log reads. */
+export type SeenRequest = Pick<
+  CompletedRequest,
+  'method' | 'url' | 'timingEvents'
+>;
+
+/** How long the request log waits for each mock rule's record of requests. */
+export const SEEN_REQUESTS_TIMEOUT_MS = 5_000;
+
+/** The most request groups listed for one step. */
+const MAX_REQUEST_GROUPS = 40;
+
+/**
+ * When the mock server received a request, and when it finished answering
+ * it, on the wall clock. `startTime` is `Date.now()` at receipt; the other
+ * timing events are on a monotonic clock whose origin `startTimestamp` gives.
+ *
+ * @param request - A request the mock server saw.
+ * @returns Wall-clock ms; `answered` is null when no answer was recorded.
+ */
+function requestTimes(request: SeenRequest): {
+  received: number;
+  answered: number | null;
+} {
+  const { startTime, startTimestamp, responseSentTimestamp, abortedTimestamp } =
+    request.timingEvents;
+  const doneAt = responseSentTimestamp ?? abortedTimestamp;
+  return {
+    received: startTime,
+    answered: doneAt === undefined ? null : startTime + doneAt - startTimestamp,
+  };
+}
+
+function requestGroupKey(request: SeenRequest): string {
+  try {
+    const { host, pathname } = new URL(request.url);
+    return `${request.method} ${host}${pathname}`;
+  } catch {
+    return `${request.method} ${request.url}`;
+  }
+}
+
+const signedMs = (ms: number): string =>
+  `${ms < 0 ? '-' : '+'}${Math.abs(ms).toFixed(0)}`;
+
+const msRange = (min: number, max: number): string =>
+  min === max ? signedMs(min) : `${signedMs(min)}..${signedMs(max)}`;
+
+/**
+ * List the requests the mock server was handling during one step's in-page
+ * interval: those received inside it, and those received before it whose
+ * answer came inside it or later. They are grouped by method, host and path,
+ * with times in ms from the trigger. The page's interval is put on the wall
+ * clock with the offset read beside it, so the times carry the two clocks'
+ * millisecond resolution.
+ *
+ * @param stepReading - The step id and its reading.
+ * @param stepReading.stepId - The step id the probe was installed under.
+ * @param stepReading.reading - The probe's reading, or null.
+ * @param requests - Every request the mock server saw in the iteration.
+ * @returns The log text.
+ */
+export function describeRequestsWithinInPageStep(
+  { stepId, reading }: InPageStepReading,
+  requests: SeenRequest[],
+): string {
+  const id = `${stepId}InPage`;
+  if (reading === null || reading.start === null || reading.end === null) {
+    return `[benchmark] ${id} requests: not listed, the interval has no end`;
+  }
+  const start = reading.start + reading.epochOffset;
+  const end = reading.end + reading.epochOffset;
+
+  type Group = {
+    key: string;
+    count: number;
+    unanswered: number;
+    received: [number, number];
+    answered: [number, number] | null;
+  };
+  const groups = new Map<string, Group>();
+  let total = 0;
+  for (const request of requests) {
+    const { received, answered } = requestTimes(request);
+    const overlaps =
+      received <= end &&
+      (answered === null ? received >= start : answered >= start);
+    if (!overlaps) {
+      continue;
+    }
+    total += 1;
+    const key = requestGroupKey(request);
+    const group = groups.get(key) ?? {
+      key,
+      count: 0,
+      unanswered: 0,
+      received: [Infinity, -Infinity],
+      answered: null,
+    };
+    group.count += 1;
+    group.received = [
+      Math.min(group.received[0], received - start),
+      Math.max(group.received[1], received - start),
+    ];
+    if (answered === null) {
+      group.unanswered += 1;
+    } else {
+      group.answered = [
+        Math.min(group.answered?.[0] ?? Infinity, answered - start),
+        Math.max(group.answered?.[1] ?? -Infinity, answered - start),
+      ];
+    }
+    groups.set(key, group);
+  }
+
+  const sorted = [...groups.values()].sort(
+    (a, b) => a.received[0] - b.received[0] || a.key.localeCompare(b.key),
+  );
+  const lines = [
+    `[benchmark] ${id} requests: ${total} at the mock server overlapped the ${(
+      end - start
+    ).toFixed(1)} ms interval (ms from the trigger)`,
+    ...sorted.slice(0, MAX_REQUEST_GROUPS).map((group) => {
+      const answered = group.answered
+        ? `, answered ${msRange(...group.answered)}`
+        : '';
+      const unanswered =
+        group.unanswered > 0 ? `, ${group.unanswered} without an answer` : '';
+      return `  ${group.key} x${group.count}: received ${msRange(
+        ...group.received,
+      )}${answered}${unanswered}`;
+    }),
+  ];
+  if (sorted.length > MAX_REQUEST_GROUPS) {
+    lines.push(`  ... ${sorted.length - MAX_REQUEST_GROUPS} more group(s)`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Log, for each step, the requests the mock server was handling during its
+ * in-page interval, so the slow iterations of a series can be compared with
+ * the fast ones. Call it once per iteration, after the last measured step:
+ * reading the mock server's record waits for requests still being answered,
+ * and must not land inside or between steps. A rule whose record fails, or
+ * is not ready within `timeoutMs`, is left out and counted. Never throws.
+ *
+ * @param mockServer - The iteration's mock server.
+ * @param steps - The readings, as `onReading` received them.
+ * @param timeoutMs - How long to wait for each rule's record.
+ */
+export async function logRequestsWithinInPageSteps(
+  mockServer: Pick<Mockttp, 'getMockedEndpoints'>,
+  steps: InPageStepReading[],
+  timeoutMs: number = SEEN_REQUESTS_TIMEOUT_MS,
+): Promise<void> {
+  if (steps.length === 0) {
+    return;
+  }
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const endpoints = await mockServer.getMockedEndpoints();
+    const timedOut = new Promise<null>((resolve) => {
+      deadline = setTimeout(() => resolve(null), timeoutMs);
+    });
+    const seen = await Promise.all(
+      endpoints.map((endpoint) =>
+        Promise.race([endpoint.getSeenRequests().catch(() => null), timedOut]),
+      ),
+    );
+    const unread = seen.filter((requests) => requests === null).length;
+    if (unread > 0) {
+      console.log(
+        `[benchmark] request log: ${unread} of ${endpoints.length} mock rules failed or gave no record within ${timeoutMs} ms; their requests are not listed`,
+      );
+    }
+    const requests = seen.flatMap((ruleRequests) => ruleRequests ?? []);
+    for (const step of steps) {
+      console.log(describeRequestsWithinInPageStep(step, requests));
+    }
+  } catch (error) {
+    console.log(
+      `[benchmark] request log unavailable: ${(error as Error).message}`,
+    );
+  } finally {
+    clearTimeout(deadline);
+  }
 }
 
 /**
