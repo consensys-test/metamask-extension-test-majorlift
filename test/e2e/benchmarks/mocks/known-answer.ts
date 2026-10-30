@@ -23,6 +23,13 @@ export const KNOWN_ANSWER_TOKEN_SEARCH_DELAY =
   'BENCHMARK_KNOWN_ANSWER_TOKEN_SEARCH_DELAY_MS';
 
 /**
+ * Delays the v3 historical-prices response, which the asset page's price chart
+ * needs before it renders `asset-price-percent-change`.
+ */
+export const KNOWN_ANSWER_HISTORICAL_PRICES_DELAY =
+  'BENCHMARK_KNOWN_ANSWER_HISTORICAL_PRICES_DELAY_MS';
+
+/**
  * Read a known-answer delay.
  *
  * @param name - The environment variable that holds it.
@@ -43,7 +50,10 @@ export function getKnownAnswerDelayMs(name: string): number {
 /**
  * Wrap a mock's handler so that its response waits the known-answer delay
  * first. The delay is added as given, and not zeroed with the fixture's own
- * delays (`BENCHMARK_ZERO_MOCK_DELAYS`), so it applies in either arm.
+ * delays (`BENCHMARK_ZERO_MOCK_DELAYS`, `BENCHMARK_ZERO_MOCK_DELAY_SET`), so it
+ * applies in either arm. That holds only where the wrapper sits outside the
+ * fixture's delayed handler, as in
+ * `withKnownAnswerDelay(name, delayedResponse(...))`.
  *
  * @param name - The environment variable that holds the delay.
  * @param handler - The mock's handler.
