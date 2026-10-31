@@ -1,3 +1,5 @@
+// No-op control for the benchmark admission gate, stage 4 criterion 3.
+// Comment-only: it rebuilds the bundle and changes no executed statement.
 import React, { useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
