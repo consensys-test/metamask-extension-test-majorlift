@@ -66,11 +66,6 @@ const ONBOARDING_IMPORT_WALLET = {
     p95: { warn: 4200, fail: 5200 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  pwFormToMetricsScreenLegacy: {
-    p75: { warn: 2700, fail: 3500 },
-    p95: { warn: 4200, fail: 5200 },
-    ciMultiplier: CI_MULTIPLIER.DEFAULT,
-  },
   metricsToWalletReadyScreenLegacy: {
     p75: { warn: 2700, fail: 3500 },
     p95: { warn: 4200, fail: 5200 },
