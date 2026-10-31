@@ -780,39 +780,39 @@ describe('buildBenchmarkSection', () => {
       const entry = makeEntry({
         benchmarkName: 'swap',
         mean: {
-          openSwapPageFromHome: 310,
-          fetchAndDisplaySwapQuotes: 5000,
+          openSwapPageFromHomeLegacy: 310,
+          fetchAndDisplaySwapQuotesLegacy: 5000,
         },
         p75: {
-          openSwapPageFromHome: 340,
-          fetchAndDisplaySwapQuotes: 5100,
+          openSwapPageFromHomeLegacy: 340,
+          fetchAndDisplaySwapQuotesLegacy: 5100,
         },
         p95: {
-          openSwapPageFromHome: 400,
-          fetchAndDisplaySwapQuotes: 6500,
+          openSwapPageFromHomeLegacy: 400,
+          fetchAndDisplaySwapQuotesLegacy: 6500,
         },
       });
 
       const html = buildBenchmarkSection(withEntries([entry]), 'Test');
 
-      expect(html).not.toContain('<code>openSwapPageFromHome</code>');
-      expect(html).toContain('<code>fetchAndDisplaySwapQuotes</code>');
+      expect(html).not.toContain('<code>openSwapPageFromHomeLegacy</code>');
+      expect(html).toContain('<code>fetchAndDisplaySwapQuotesLegacy</code>');
     });
 
     it('shows row health icon and CI log before timer details when breakdown is present', () => {
       const entry = makeEntry({
         benchmarkName: 'swap',
         mean: {
-          openSwapPageFromHome: 310,
-          fetchAndDisplaySwapQuotes: 5000,
+          openSwapPageFromHomeLegacy: 310,
+          fetchAndDisplaySwapQuotesLegacy: 5000,
         },
         p75: {
-          openSwapPageFromHome: 340,
-          fetchAndDisplaySwapQuotes: 5100,
+          openSwapPageFromHomeLegacy: 340,
+          fetchAndDisplaySwapQuotesLegacy: 5100,
         },
         p95: {
-          openSwapPageFromHome: 400,
-          fetchAndDisplaySwapQuotes: 6500,
+          openSwapPageFromHomeLegacy: 400,
+          fetchAndDisplaySwapQuotesLegacy: 6500,
         },
       });
 
@@ -835,7 +835,7 @@ describe('buildBenchmarkSection', () => {
       // Cell layout: `${icon} ${rowLinks}<br>${timerDetails}` (literal <br>, not <br/>)
       expect(html).toContain(`${rowIcon} <a href="${runUrl}"`);
       expect(html).toContain('[CI log]</a><br>');
-      expect(html).toContain('<code>fetchAndDisplaySwapQuotes</code>');
+      expect(html).toContain('<code>fetchAndDisplaySwapQuotesLegacy</code>');
     });
 
     it('shows icon with CI log when no timers present', () => {
@@ -858,24 +858,26 @@ describe('buildBenchmarkSection', () => {
       const entry = makeEntry({
         benchmarkName: 'onboardingImportWallet',
         mean: {
-          importWalletToSocialScreen: 1000,
-          doneButtonToHomeScreen: 22000,
+          importWalletToSocialScreenLegacy: 1000,
+          doneButtonToHomeScreenLegacy: 22000,
         },
         p75: {
-          importWalletToSocialScreen: 1200,
-          doneButtonToHomeScreen: 22000,
+          importWalletToSocialScreenLegacy: 1200,
+          doneButtonToHomeScreenLegacy: 22000,
         },
         p95: {
-          importWalletToSocialScreen: 1500,
-          doneButtonToHomeScreen: 32000,
+          importWalletToSocialScreenLegacy: 1500,
+          doneButtonToHomeScreenLegacy: 32000,
         },
       });
 
       const html = buildBenchmarkSection(withEntries([entry]), 'Test');
 
-      expect(html).not.toContain('<code>importWalletToSocialScreen</code>');
-      expect(html).toContain('<code>doneButtonToHomeScreen</code>');
-      expect(html).toMatch(/🔴 <code>doneButtonToHomeScreen<\/code>/u);
+      expect(html).not.toContain(
+        '<code>importWalletToSocialScreenLegacy</code>',
+      );
+      expect(html).toContain('<code>doneButtonToHomeScreenLegacy</code>');
+      expect(html).toMatch(/🔴 <code>doneButtonToHomeScreenLegacy<\/code>/u);
     });
 
     it('does not show timer details for benchmarks without timer data', () => {
@@ -1009,16 +1011,16 @@ describe('buildBenchmarkSection', () => {
       const entry = makeEntry({
         benchmarkName: 'swap',
         mean: {
-          openSwapPageFromHome: 310,
-          fetchAndDisplaySwapQuotes: 5000,
+          openSwapPageFromHomeLegacy: 310,
+          fetchAndDisplaySwapQuotesLegacy: 5000,
         },
         p75: {
-          openSwapPageFromHome: 340,
-          fetchAndDisplaySwapQuotes: 5100,
+          openSwapPageFromHomeLegacy: 340,
+          fetchAndDisplaySwapQuotesLegacy: 5100,
         },
         p95: {
-          openSwapPageFromHome: 400,
-          fetchAndDisplaySwapQuotes: 6500,
+          openSwapPageFromHomeLegacy: 400,
+          fetchAndDisplaySwapQuotesLegacy: 6500,
         },
         artifactUrl: 'https://cdn.example.com/swap.json',
       });
@@ -1028,7 +1030,7 @@ describe('buildBenchmarkSection', () => {
         undefined,
         'https://github.com/actions/runs/999',
       );
-      expect(html).toContain('<code>fetchAndDisplaySwapQuotes</code>');
+      expect(html).toContain('<code>fetchAndDisplaySwapQuotesLegacy</code>');
       expect(html).toContain('>[CI log]</a>');
       expect(html).toContain(
         'swap<br><a href="https://metamask.sentry.io/explore/logs/',
@@ -1036,7 +1038,7 @@ describe('buildBenchmarkSection', () => {
       expect(html).toContain('message%3Abenchmark.swap');
       expect(html).toContain('>[Sentry log · main/release]</a>');
       expect(html).not.toMatch(
-        /<code>fetchAndDisplaySwapQuotes<\/code><br>\[Sentry log/u,
+        /<code>fetchAndDisplaySwapQuotesLegacy<\/code><br>\[Sentry log/u,
       );
     });
   });
@@ -1484,10 +1486,10 @@ describe('buildPerformanceBenchmarksSection', () => {
         loadNewAccount: {
           testTitle: 'load-new-account',
           persona: 'standard',
-          mean: { load_new_account: 5000 },
-          stdDev: { load_new_account: 200 },
-          p75: { load_new_account: 9000 },
-          p95: { load_new_account: 12000 },
+          mean: { load_new_accountLegacy: 5000 },
+          stdDev: { load_new_accountLegacy: 200 },
+          p75: { load_new_accountLegacy: 9000 },
+          p95: { load_new_accountLegacy: 12000 },
         },
       };
       /* eslint-enable @typescript-eslint/naming-convention */

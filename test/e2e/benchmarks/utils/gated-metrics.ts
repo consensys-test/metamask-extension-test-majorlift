@@ -40,12 +40,12 @@ const GATED_METRIC_VALUES = [
   // Onboarding form-to-form transitions
   //
   // Demoted per the procedure above, restore condition #45266:
-  // `onboardingNewWallet.doneButtonToAssetList` and the import flow's
-  // `doneButtonToHomeScreen` are the same ~37% per-iteration slow path
+  // `onboardingNewWallet.doneButtonToAssetListLegacy` and the import flow's
+  // `doneButtonToHomeScreenLegacy` are the same ~37% per-iteration slow path
   // (24/65 and 30/80 slow draws), so each is a coin flip rather than a
   // measurement of one thing. No threshold value is correct against a
   // bimodal null.
-  METRIC.importSrpHome.loginToHomeScreen,
+  METRIC.importSrpHome.loginToHomeScreenLegacy,
 
   // Flow totals
   //
@@ -65,11 +65,11 @@ const GATED_METRIC_VALUES = [
   METRIC.swap.total,
 
   // Moderate-variance entries (calibrated via `CI_MULTIPLIER.TIER_2`)
-  METRIC.onboardingImportWallet.metricsToWalletReadyScreen,
-  METRIC.onboardingNewWallet.agreeButtonToOnboardingSuccess,
-  METRIC.importSrpHome.homeAfterImportWithNewWallet,
-  METRIC.swap.fetchAndDisplaySwapQuotes,
-  METRIC.sendTransactions.openSendPageFromHome,
+  METRIC.onboardingImportWallet.metricsToWalletReadyScreenLegacy,
+  METRIC.onboardingNewWallet.agreeButtonToOnboardingSuccessLegacy,
+  METRIC.importSrpHome.homeAfterImportWithNewWalletLegacy,
+  METRIC.swap.fetchAndDisplaySwapQuotesLegacy,
+  METRIC.sendTransactions.openSendPageFromHomeLegacy,
 ] as const satisfies readonly MetricKey[];
 
 /**

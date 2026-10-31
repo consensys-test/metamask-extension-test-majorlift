@@ -47,38 +47,41 @@ const CLS_THRESHOLDS = {
   },
 } satisfies ThresholdConfig;
 
+// Step thresholds are keyed by `<stepId>Legacy`: each was calibrated on the
+// step's harness-clock timer, which the flows report under that name. A step's
+// in-page timer is reported under the bare step id and has no threshold.
 const ONBOARDING_IMPORT_WALLET = {
-  importWalletToSocialScreen: {
+  importWalletToSocialScreenLegacy: {
     p75: { warn: 1800, fail: 2400 },
     p95: { warn: 2800, fail: 3500 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  srpButtonToSrpForm: {
+  srpButtonToSrpFormLegacy: {
     p75: { warn: 1800, fail: 2400 },
     p95: { warn: 2800, fail: 3500 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  confirmSrpToPwForm: {
+  confirmSrpToPwFormLegacy: {
     p75: { warn: 2700, fail: 3500 },
     p95: { warn: 4200, fail: 5200 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  pwFormToMetricsScreen: {
+  pwFormToMetricsScreenLegacy: {
     p75: { warn: 2700, fail: 3500 },
     p95: { warn: 4200, fail: 5200 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  metricsToWalletReadyScreen: {
+  metricsToWalletReadyScreenLegacy: {
     p75: { warn: 2700, fail: 3500 },
     p95: { warn: 4200, fail: 5200 },
     ciMultiplier: CI_MULTIPLIER.TIER_2,
   },
-  doneButtonToHomeScreen: {
+  doneButtonToHomeScreenLegacy: {
     p75: { warn: 10500, fail: 14000 },
     p95: { warn: 16000, fail: 21000 },
     ciMultiplier: CI_MULTIPLIER.TIER_1,
   },
-  openAccountMenuToAccountListLoaded: {
+  openAccountMenuToAccountListLoadedLegacy: {
     p75: { warn: 43000, fail: 50000 },
     p95: { warn: 50000, fail: 60000 },
     ciMultiplier: CI_MULTIPLIER.TIER_2, // interim: render depends on controller state-sync timing
@@ -92,32 +95,32 @@ const ONBOARDING_IMPORT_WALLET = {
 } satisfies ThresholdConfig;
 
 const ONBOARDING_NEW_WALLET = {
-  createWalletToSocialScreen: {
+  createWalletToSocialScreenLegacy: {
     p75: { warn: 1800, fail: 2400 },
     p95: { warn: 2800, fail: 3500 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  srpButtonToPwForm: {
+  srpButtonToPwFormLegacy: {
     p75: { warn: 1800, fail: 2400 },
     p95: { warn: 2800, fail: 3500 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  createPwToRecoveryScreen: {
+  createPwToRecoveryScreenLegacy: {
     p75: { warn: 2700, fail: 3500 },
     p95: { warn: 4200, fail: 5200 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  skipBackupToMetricsScreen: {
+  skipBackupToMetricsScreenLegacy: {
     p75: { warn: 2700, fail: 3500 },
     p95: { warn: 4200, fail: 5200 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  agreeButtonToOnboardingSuccess: {
+  agreeButtonToOnboardingSuccessLegacy: {
     p75: { warn: 2700, fail: 3500 },
     p95: { warn: 4200, fail: 5200 },
     ciMultiplier: CI_MULTIPLIER.TIER_2,
   },
-  doneButtonToAssetList: {
+  doneButtonToAssetListLegacy: {
     p75: { warn: 10500, fail: 14000 },
     p95: { warn: 16000, fail: 21000 },
     ciMultiplier: CI_MULTIPLIER.TIER_1,
@@ -131,17 +134,17 @@ const ONBOARDING_NEW_WALLET = {
 } satisfies ThresholdConfig;
 
 const IMPORT_SRP_HOME = {
-  loginToHomeScreen: {
+  loginToHomeScreenLegacy: {
     p75: { warn: 5000, fail: 7000 },
     p95: { warn: 8000, fail: 10500 },
     ciMultiplier: CI_MULTIPLIER.TIER_1,
   },
-  openAccountMenuAfterLogin: {
+  openAccountMenuAfterLoginLegacy: {
     p75: { warn: 2700, fail: 3500 },
     p95: { warn: 4200, fail: 5200 },
     ciMultiplier: CI_MULTIPLIER.TIER_2, // interim: render depends on controller state-sync timing
   },
-  homeAfterImportWithNewWallet: {
+  homeAfterImportWithNewWalletLegacy: {
     p75: { warn: 20000, fail: 27000 },
     p95: { warn: 32000, fail: 40000 },
     ciMultiplier: CI_MULTIPLIER.TIER_2,
@@ -155,12 +158,12 @@ const IMPORT_SRP_HOME = {
 } satisfies ThresholdConfig;
 
 const SWAP = {
-  openSwapPageFromHome: {
+  openSwapPageFromHomeLegacy: {
     p75: { warn: 3000, fail: 4500 },
     p95: { warn: 5000, fail: 7000 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  fetchAndDisplaySwapQuotes: {
+  fetchAndDisplaySwapQuotesLegacy: {
     p75: { warn: 2800, fail: 5000 },
     p95: { warn: 3500, fail: 6000 },
     ciMultiplier: CI_MULTIPLIER.TIER_2,
@@ -174,17 +177,17 @@ const SWAP = {
 } satisfies ThresholdConfig;
 
 const SEND_TRANSACTIONS = {
-  openSendPageFromHome: {
+  openSendPageFromHomeLegacy: {
     p75: { warn: 1800, fail: 2700 },
     p95: { warn: 3000, fail: 4000 },
     ciMultiplier: CI_MULTIPLIER.TIER_2,
   },
-  selectTokenToSendFormLoaded: {
+  selectTokenToSendFormLoadedLegacy: {
     p75: { warn: 4000, fail: 5500 },
     p95: { warn: 6000, fail: 8000 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  reviewTransactionToConfirmationPage: {
+  reviewTransactionToConfirmationPageLegacy: {
     p75: { warn: 3000, fail: 4500 },
     p95: { warn: 5000, fail: 7000 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
@@ -193,7 +196,7 @@ const SEND_TRANSACTIONS = {
 } satisfies ThresholdConfig;
 
 const ASSET_DETAILS = {
-  assetClickToPriceChart: {
+  assetClickToPriceChartLegacy: {
     p75: { warn: 500, fail: 1500 },
     p95: { warn: 1500, fail: 3000 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
@@ -202,7 +205,7 @@ const ASSET_DETAILS = {
 } satisfies ThresholdConfig;
 
 const SOLANA_ASSET_DETAILS = {
-  assetClickToPriceChart: {
+  assetClickToPriceChartLegacy: {
     p75: { warn: 500, fail: 1500 },
     p95: { warn: 1500, fail: 3000 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
@@ -248,13 +251,14 @@ const POWER_USER_HOME = {
   ...CLS_THRESHOLDS,
 } satisfies ThresholdConfig;
 
-// Threshold keys must match timer IDs emitted by the benchmark flows (snake_case).
+// Threshold keys must match timer IDs emitted by the benchmark flows: the
+// snake_case step id, plus `Legacy` for the step's harness-clock timer.
 /* eslint-disable @typescript-eslint/naming-convention */
 // Interaction benchmarks: no CLS thresholds. Short single-action measurements
 // capture layout shifts from the benchmark harness (INP probe, navigation),
 // not from application rendering behavior. CLS applies to startup + journey only.
 const LOAD_NEW_ACCOUNT = {
-  load_new_account: {
+  load_new_accountLegacy: {
     p75: { warn: 800, fail: 1200 },
     p95: { warn: 1200, fail: 1800 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
@@ -262,7 +266,7 @@ const LOAD_NEW_ACCOUNT = {
 } satisfies ThresholdConfig;
 
 const CONFIRM_TX = {
-  confirm_tx: {
+  confirm_txLegacy: {
     p75: { warn: 7000, fail: 9000 },
     p95: { warn: 9000, fail: 12000 },
     ciMultiplier: CI_MULTIPLIER.TIER_1,
@@ -270,17 +274,17 @@ const CONFIRM_TX = {
 } satisfies ThresholdConfig;
 
 const BRIDGE_USER_ACTIONS = {
-  bridge_load_page: {
+  bridge_load_pageLegacy: {
     p75: { warn: 500, fail: 800 },
     p95: { warn: 800, fail: 1200 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  bridge_load_asset_picker: {
+  bridge_load_asset_pickerLegacy: {
     p75: { warn: 500, fail: 800 },
     p95: { warn: 800, fail: 1200 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,
   },
-  bridge_search_token: {
+  bridge_search_tokenLegacy: {
     p75: { warn: 1200, fail: 1800 },
     p95: { warn: 1800, fail: 2500 },
     ciMultiplier: CI_MULTIPLIER.DEFAULT,

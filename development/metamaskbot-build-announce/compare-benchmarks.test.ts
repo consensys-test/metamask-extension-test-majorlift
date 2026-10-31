@@ -51,11 +51,11 @@ describe('compare-benchmarks', () => {
           name: 'benchmark-chrome-webpack-userJourneyOnboardingImport',
           data: {
             onboardingImportWallet: makeBenchmarkResults(
-              'importWalletToSocialScreen',
+              'importWalletToSocialScreenLegacy',
               {
-                p75: { importWalletToSocialScreen: 1500 },
-                p95: { importWalletToSocialScreen: 2000 },
-                mean: { importWalletToSocialScreen: 1200 },
+                p75: { importWalletToSocialScreenLegacy: 1500 },
+                p95: { importWalletToSocialScreenLegacy: 2000 },
+                mean: { importWalletToSocialScreenLegacy: 1200 },
               },
             ),
           },
@@ -73,11 +73,11 @@ describe('compare-benchmarks', () => {
           name: 'benchmark-chrome-webpack-userJourneyOnboardingImport',
           data: {
             onboardingImportWallet: makeBenchmarkResults(
-              'importWalletToSocialScreen',
+              'importWalletToSocialScreenLegacy',
               {
-                p75: { importWalletToSocialScreen: 1500 },
-                p95: { importWalletToSocialScreen: 2000 },
-                mean: { importWalletToSocialScreen: 1200 },
+                p75: { importWalletToSocialScreenLegacy: 1500 },
+                p95: { importWalletToSocialScreenLegacy: 2000 },
+                mean: { importWalletToSocialScreenLegacy: 1200 },
               },
             ),
           },
@@ -109,18 +109,18 @@ describe('compare-benchmarks', () => {
     });
 
     it('does not fail when a non-allowlisted metric exceeds its fail threshold', () => {
-      // onboardingImportWallet.importWalletToSocialScreen is NOT in GATED_METRICS —
+      // onboardingImportWallet.importWalletToSocialScreenLegacy is NOT in GATED_METRICS —
       // fail breach is downgraded to warn and does not affect anyFailed.
       const benchmarks = [
         {
           name: 'benchmark-chrome-webpack-userJourneyOnboardingImport',
           data: {
             onboardingImportWallet: makeBenchmarkResults(
-              'importWalletToSocialScreen',
+              'importWalletToSocialScreenLegacy',
               {
-                p75: { importWalletToSocialScreen: 99999 },
-                p95: { importWalletToSocialScreen: 99999 },
-                mean: { importWalletToSocialScreen: 99999 },
+                p75: { importWalletToSocialScreenLegacy: 99999 },
+                p95: { importWalletToSocialScreenLegacy: 99999 },
+                mean: { importWalletToSocialScreenLegacy: 99999 },
               },
             ),
           },
@@ -151,12 +151,12 @@ describe('compare-benchmarks', () => {
       {
         artifactName: 'benchmark-chrome-webpack-userJourneyOnboardingNew',
         benchmarkName: 'onboardingNewWallet',
-        metricId: 'doneButtonToAssetList',
+        metricId: 'doneButtonToAssetListLegacy',
       },
       {
         artifactName: 'benchmark-chrome-webpack-userJourneyOnboardingImport',
         benchmarkName: 'onboardingImportWallet',
-        metricId: 'doneButtonToHomeScreen',
+        metricId: 'doneButtonToHomeScreenLegacy',
       },
     ];
 
@@ -218,11 +218,11 @@ describe('compare-benchmarks', () => {
           name: 'benchmark-chrome-webpack-userJourneyOnboardingImport',
           data: {
             onboardingImportWallet: makeBenchmarkResults(
-              'importWalletToSocialScreen',
+              'importWalletToSocialScreenLegacy',
               {
-                p75: { importWalletToSocialScreen: 1500 },
-                p95: { importWalletToSocialScreen: 2000 },
-                mean: { importWalletToSocialScreen: 1200 },
+                p75: { importWalletToSocialScreenLegacy: 1500 },
+                p95: { importWalletToSocialScreenLegacy: 2000 },
+                mean: { importWalletToSocialScreenLegacy: 1200 },
               },
             ),
           },
@@ -231,7 +231,7 @@ describe('compare-benchmarks', () => {
 
       const baseline = {
         'userJourneyOnboardingImport/onboardingImportWallet': {
-          importWalletToSocialScreen: {
+          importWalletToSocialScreenLegacy: {
             mean: 1100,
             stdDev: 50,
             p75: 1400,
@@ -367,11 +367,11 @@ describe('compare-benchmarks', () => {
           name: 'benchmark-chrome-webpack-userJourneyOnboardingImport',
           data: {
             onboardingImportWallet: makeBenchmarkResults(
-              'importWalletToSocialScreen',
+              'importWalletToSocialScreenLegacy',
               {
-                p75: { importWalletToSocialScreen: 99999 },
-                p95: { importWalletToSocialScreen: 99999 },
-                mean: { importWalletToSocialScreen: 99999 },
+                p75: { importWalletToSocialScreenLegacy: 99999 },
+                p95: { importWalletToSocialScreenLegacy: 99999 },
+                mean: { importWalletToSocialScreenLegacy: 99999 },
               },
             ),
           },
