@@ -16,7 +16,7 @@ permissions:
 jobs:
   benchmarks:
     if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
-    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}
+    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}-${{ matrix.leg }}
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
     strategy:
@@ -26,17 +26,212 @@ jobs:
         # and must stay in sync with benchmark-command (startupPowerUserHome uses extra flags).
         #
         # Startup + interaction + user journeys: chrome/firefox × webpack × preset (test build: build-test-webpack / build-test-mv2-webpack).
-        browser: [chrome, firefox]
+        # Stage 4 window (s4f): chrome only, and no startup preset (rule.md sections 1 and 4).
+        browser: [chrome]
         buildType: [webpack]
-        pageType:
-          - startupStandardHome
-          - startupPowerUserHome
-          - interactionUserActions
-          - userJourneyOnboardingImport
-          - userJourneyOnboardingNew
-          - userJourneyAssets
-          - userJourneyTransactions
-          - userJourneyAccountManagement
+        # Stage 4 window (s4f), lever arm: one leg per held step (rule.md section 4, L2). Each
+        # `include` entry is keyed on its own `leg` value, so it joins that leg's combination
+        # only, adding its preset and lever values (rule.md A15).
+        leg:
+          - hold-load_new_account
+          - hold-confirm_tx
+          - hold-bridge_load_page
+          - hold-bridge_load_asset_picker
+          - hold-importWalletToSocialScreen
+          - hold-srpButtonToSrpForm
+          - hold-confirmSrpToPwForm
+          - hold-pwFormToPasskeyScreen
+          - hold-metricsToWalletReadyScreen
+          - hold-openAccountMenuToAccountListLoaded
+          - hold-createWalletToSocialScreen
+          - hold-srpButtonToPwForm
+          - hold-createPwToPasskeyScreen
+          - hold-skipBackupToMetricsScreen
+          - hold-agreeButtonToOnboardingSuccess
+          - hold-none
+          - hold-openSendPageFromHome
+          - hold-selectTokenToSendFormLoaded
+          - hold-openSwapPageFromHome
+          - hold-loginToHomeScreen
+          - hold-openAccountMenuAfterLogin
+          - hold-homeAfterImportWithNewWallet
+        include:
+          - leg: hold-load_new_account
+            pageType: interactionUserActions
+            inpageMs: '53'
+            inpageStep: 'load_new_account'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '72'
+            pricesMs: '0'
+          - leg: hold-confirm_tx
+            pageType: interactionUserActions
+            inpageMs: '110'
+            inpageStep: 'confirm_tx'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-bridge_load_page
+            pageType: interactionUserActions
+            inpageMs: '62'
+            inpageStep: 'bridge_load_page'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-bridge_load_asset_picker
+            pageType: interactionUserActions
+            inpageMs: '17'
+            inpageStep: 'bridge_load_asset_picker'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-importWalletToSocialScreen
+            pageType: userJourneyOnboardingImport
+            inpageMs: '30'
+            inpageStep: 'importWalletToSocialScreen'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-srpButtonToSrpForm
+            pageType: userJourneyOnboardingImport
+            inpageMs: '15'
+            inpageStep: 'srpButtonToSrpForm'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-confirmSrpToPwForm
+            pageType: userJourneyOnboardingImport
+            inpageMs: '8'
+            inpageStep: 'confirmSrpToPwForm'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-pwFormToPasskeyScreen
+            pageType: userJourneyOnboardingImport
+            inpageMs: '87'
+            inpageStep: 'pwFormToPasskeyScreen'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-metricsToWalletReadyScreen
+            pageType: userJourneyOnboardingImport
+            inpageMs: '10'
+            inpageStep: 'metricsToWalletReadyScreen'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-openAccountMenuToAccountListLoaded
+            pageType: userJourneyOnboardingImport
+            inpageMs: '12'
+            inpageStep: 'openAccountMenuToAccountListLoaded'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-createWalletToSocialScreen
+            pageType: userJourneyOnboardingNew
+            inpageMs: '30'
+            inpageStep: 'createWalletToSocialScreen'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-srpButtonToPwForm
+            pageType: userJourneyOnboardingNew
+            inpageMs: '16'
+            inpageStep: 'srpButtonToPwForm'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-createPwToPasskeyScreen
+            pageType: userJourneyOnboardingNew
+            inpageMs: '67'
+            inpageStep: 'createPwToPasskeyScreen'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-skipBackupToMetricsScreen
+            pageType: userJourneyOnboardingNew
+            inpageMs: '9'
+            inpageStep: 'skipBackupToMetricsScreen'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-agreeButtonToOnboardingSuccess
+            pageType: userJourneyOnboardingNew
+            inpageMs: '10'
+            inpageStep: 'agreeButtonToOnboardingSuccess'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-none
+            pageType: userJourneyAssets
+            inpageMs: '0'
+            inpageStep: ''
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '179'
+          - leg: hold-openSendPageFromHome
+            pageType: userJourneyTransactions
+            inpageMs: '22'
+            inpageStep: 'openSendPageFromHome'
+            quoteMs: '525'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-selectTokenToSendFormLoaded
+            pageType: userJourneyTransactions
+            inpageMs: '17'
+            inpageStep: 'selectTokenToSendFormLoaded'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-openSwapPageFromHome
+            pageType: userJourneyTransactions
+            inpageMs: '43'
+            inpageStep: 'openSwapPageFromHome'
+            quoteMs: '0'
+            blockhashMs: '152'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-loginToHomeScreen
+            pageType: userJourneyAccountManagement
+            inpageMs: '123'
+            inpageStep: 'loginToHomeScreen'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-openAccountMenuAfterLogin
+            pageType: userJourneyAccountManagement
+            inpageMs: '40'
+            inpageStep: 'openAccountMenuAfterLogin'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
+          - leg: hold-homeAfterImportWithNewWallet
+            pageType: userJourneyAccountManagement
+            inpageMs: '33'
+            inpageStep: 'homeAfterImportWithNewWallet'
+            quoteMs: '0'
+            blockhashMs: '0'
+            tokenSearchMs: '0'
+            pricesMs: '0'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -61,7 +256,13 @@ jobs:
       # clears both -- 2.19x and 2.02x of delta_block, the ratios the 462 ms arm ran
       # at against the mock-inflated base. The 462 arm is 5.2x/4.8x too large to say
       # anything about the current threshold.
-      BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '0'
+      # Stage 4 window (s4f), lever arm: each leg's lever values, from its `include` entry.
+      BENCHMARK_KNOWN_ANSWER_INPAGE_MS: ${{ matrix.inpageMs }}
+      BENCHMARK_KNOWN_ANSWER_INPAGE_STEP: ${{ matrix.inpageStep }}
+      BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: ${{ matrix.quoteMs }}
+      BENCHMARK_KNOWN_ANSWER_SOLANA_BLOCKHASH_DELAY_MS: ${{ matrix.blockhashMs }}
+      BENCHMARK_KNOWN_ANSWER_TOKEN_SEARCH_DELAY_MS: ${{ matrix.tokenSearchMs }}
+      BENCHMARK_KNOWN_ANSWER_HISTORICAL_PRICES_DELAY_MS: ${{ matrix.pricesMs }}
       # V14 arm: force a second quote fetch by refilling the amount, and require
       # 2 `Swap Quote Fetch` spans. Read by `swap.ts` in THIS job's Node process,
       # so it belongs here rather than on the build job.
@@ -111,7 +312,7 @@ jobs:
         timeout-minutes: 25
         id: run-benchmark
         run: >-
-          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {2} --out test-artifacts/benchmarks/benchmark-{0}-{1}-{2}.json --retries 2', matrix.browser, matrix.buildType, matrix.pageType) }}
+          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {2} --out test-artifacts/benchmarks/benchmark-{0}-{1}-{2}-{3}.json --retries 2', matrix.browser, matrix.buildType, matrix.pageType, matrix.leg) }}
         shell: bash
 
       - name: Send benchmark results to Sentry (main/release only)
@@ -123,7 +324,7 @@ jobs:
         run: |
           export GITHUB_REF_NAME="${GH_HEAD_REF:-$GH_REF_NAME}"
           yarn tsx test/e2e/benchmarks/send-to-sentry.ts \
-            --results "test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json" \
+            --results "test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}-${{ matrix.leg }}.json" \
             --browser "${{ matrix.browser }}" \
             --buildType "${{ matrix.buildType }}"
         shell: bash
@@ -142,15 +343,15 @@ jobs:
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_IAM_ROLE }}
-          s3-bucket: ${{ vars.AWS_S3_BUCKET }}/${{ github.event.repository.name }}/${{ github.run_id }}/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
-          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
+          s3-bucket: ${{ vars.AWS_S3_BUCKET }}/${{ github.event.repository.name }}/${{ github.run_id }}/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}-${{ matrix.leg }}.json
+          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}-${{ matrix.leg }}.json
 
       - name: Upload benchmark result as GitHub artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
-          name: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
-          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
+          name: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}-${{ matrix.leg }}.json
+          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}-${{ matrix.leg }}.json
           retention-days: 7
           if-no-files-found: ignore
 
@@ -182,6 +383,9 @@ jobs:
       SENTRY_DSN_PERFORMANCE: ${{ vars.SENTRY_DSN_PERFORMANCE }}
       BENCHMARK_BROWSER_LOADS: '10'
       BENCHMARK_PAGE_LOADS: '10'
+      # Stage 4 window (s4f), lever arm: the dapp lever, routed by itself (shouldRouteDappScript).
+      BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_DELAY_MS: '153'
+      BENCHMARK_DAPP_SCRIPT_ROUTE_CONTROL: '1'
       DAPP_BENCHMARK_JSON: benchmark-chrome-webpack-pageLoadBenchmark.json
       MAIN_OR_RELEASE: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
     steps:
