@@ -122,8 +122,9 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
           await tokensTab.waitForTokenToBeDisplayed('SOL');
         }
 
-        // Measure: Open swap page. `<stepId>InPage` times the same step from
-        // the click itself, on the page's clock; the step timer is unchanged.
+        // Measure: Open swap page. The in-page timer, `<stepId>`, times the
+        // same step from the click itself, on the page's clock; the step
+        // timer, `<stepId>Legacy`, is unchanged.
         // The long-task window opens at the click too: the probe resets it at
         // the trigger, as the bridge flow resets before its click, so long
         // tasks the click causes are inside it. Without a probe, the step

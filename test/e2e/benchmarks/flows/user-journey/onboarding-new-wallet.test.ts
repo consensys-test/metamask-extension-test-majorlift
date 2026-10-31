@@ -105,11 +105,16 @@ jest.mock('../../../page-objects/pages/onboarding/setup-passkey-page', () =>
 jest.mock('../../../page-objects/pages/onboarding/start-onboarding-page', () =>
   mockDefaultModule(mockPageObject('StartPage')),
 );
+// Each step timer is reported as its step id plus `Legacy`, as
+// `measureStepWithLongTasks` names it, and each in-page timer as its step id.
 jest.mock('../../utils/timer-helper', () => ({
   collectTimerResults: jest.fn(() =>
     mockEvents
       .filter((event) => event.startsWith('timer:'))
-      .map((event) => ({ id: event.slice('timer:'.length), value: 1 })),
+      .map((event) => ({
+        id: `${event.slice('timer:'.length)}Legacy`,
+        value: 1,
+      })),
   ),
 }));
 jest.mock('../../utils/long-task-helper', () => ({
@@ -131,7 +136,7 @@ jest.mock('../../utils/in-page-step-timer', () => ({
   }),
   finishInPageStep: jest.fn(async (_driver: unknown, id: string) => {
     mockEvents.push(`read:${id}`);
-    return [{ id: `${id}InPage`, value: 1, unit: 'ms' }];
+    return [{ id, value: 1, unit: 'ms' }];
   }),
   measureStepInPage: jest.fn(
     async (
@@ -146,7 +151,7 @@ jest.mock('../../utils/in-page-step-timer', () => ({
       await trigger();
       await settle();
       mockEvents.push(`read:${id}`);
-      return [{ id: `${id}InPage`, value: 1, unit: 'ms' }];
+      return [{ id, value: 1, unit: 'ms' }];
     },
   ),
 }));
@@ -258,7 +263,8 @@ describe('runOnboardingNewWalletBenchmark', () => {
       'doneButtonToAssetList',
     ]);
     const ids = result.timers.map((timer) => timer.id);
-    expect(ids).toContain('createPwToPasskeyScreenInPage');
+    expect(ids).toContain('createPwToPasskeyScreenLegacy');
+    expect(ids).toContain('createPwToPasskeyScreen');
     expect(
       ids.filter((id) => id.startsWith('createPwToRecovery')),
     ).toHaveLength(0);
@@ -274,10 +280,28 @@ describe('runOnboardingNewWalletBenchmark', () => {
       'agreeButtonToOnboardingSuccess',
       'doneButtonToAssetList',
     ]);
-    expect(result.timers.map((timer) => timer.id)).toContain(
-      'createPwToRecoveryScreenInPage',
+    expect(result.timers.map((timer) => timer.id)).toStrictEqual(
+      expect.arrayContaining([
+        'createPwToRecoveryScreenLegacy',
+        'createPwToRecoveryScreen',
+      ]),
     );
   });
+
+  for (const browser of ['chrome', 'firefox'] as const) {
+    it(`reports each series under one name on ${browser}, every step timer as its step id plus Legacy`, async () => {
+      const result = await run(browser);
+
+      const ids = result.timers.map((timer) => timer.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(ids).toStrictEqual(
+        expect.arrayContaining(stepTimers().map((step) => `${step}Legacy`)),
+      );
+      // Chrome has no in-page timer for Done, so its step id is not reported
+      // at all there.
+      expect(ids.includes('doneButtonToAssetList')).toBe(browser === 'firefox');
+    });
+  }
 
   it('waits for page idle before each of the first two probes, outside the previous step', async () => {
     await run('chrome');

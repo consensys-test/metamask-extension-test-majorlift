@@ -124,9 +124,9 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
           });
         }
 
-        // Measure: Import wallet button to Social screen. Each
-        // `<stepId>InPage` times its step from the triggering input itself, on
-        // the page's clock; the step timers are unchanged. With
+        // Measure: Import wallet button to Social screen. Each in-page timer,
+        // `<stepId>`, times its step from the triggering input itself, on the
+        // page's clock; the step timers, `<stepId>Legacy`, are unchanged. With
         // `BENCHMARK_PAGE_IDLE_BEFORE_STEP=1` this step and the next start
         // once the page has gone idle, outside both timers.
         const startOnboardingPage = new StartOnboardingPage(driver);
@@ -292,10 +292,10 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         // complete and the navigation stay outside it, so on Chrome the step
         // timer starts at that load, not at the Done click.
         // On Firefox Done navigates within the page and the step timer,
-        // `doneButtonToHomeScreen`, opens when the click returns. The in-page
-        // timer ends when the token list renders; the step timer goes on to
-        // wait for the Ethereum and Solana rows by their text, which no CSS
-        // selector can match.
+        // `doneButtonToHomeScreenLegacy`, opens when the click returns. The
+        // in-page timer ends when the token list renders; the step timer goes
+        // on to wait for the Ethereum and Solana rows by their text, which no
+        // CSS selector can match.
         const onboardingCompletePage = new OnboardingCompletePage(driver);
         const homeProbe =
           isFirefox &&

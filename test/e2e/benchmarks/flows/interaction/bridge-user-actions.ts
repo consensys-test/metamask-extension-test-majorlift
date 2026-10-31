@@ -15,7 +15,10 @@ import {
   MOCK_TOKENS_ETHEREUM,
 } from '../../../tests/bridge/constants';
 import { Driver } from '../../../webdriver/driver';
-import { buildLongTaskTimerResults } from '../../utils/long-task-helper';
+import {
+  buildLongTaskTimerResults,
+  legacyStepTimerId,
+} from '../../utils/long-task-helper';
 import {
   KNOWN_ANSWER_TOKEN_SEARCH_DELAY,
   withKnownAnswerDelay,
@@ -250,7 +253,10 @@ export async function run(): Promise<BenchmarkRunResult> {
 
     return {
       timers: [
-        ...steps.map((s) => ({ id: s.id, value: s.duration })),
+        ...steps.map((s) => ({
+          id: legacyStepTimerId(s.id),
+          value: s.duration,
+        })),
         ...buildLongTaskTimerResults(steps),
         ...inPageTimers,
       ],

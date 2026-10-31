@@ -91,8 +91,9 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
           await tokensTab.waitForTokenToBeDisplayed('SOL');
         }
 
-        // Measure: Open send page. `<stepId>InPage` times the same step from
-        // the click itself, on the page's clock; the step timer is unchanged.
+        // Measure: Open send page. The in-page timer, `<stepId>`, times the
+        // same step from the click itself, on the page's clock; the step
+        // timer, `<stepId>Legacy`, is unchanged.
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'openSendPageFromHome', {
             endSelector: IN_PAGE_DESTINATIONS.sendNetworkFilter,

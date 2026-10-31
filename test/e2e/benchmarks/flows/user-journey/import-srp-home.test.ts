@@ -78,11 +78,16 @@ jest.mock('../../../page-objects/pages/home/homepage', () =>
 jest.mock('../../../page-objects/pages/onboarding/login-page', () =>
   mockDefaultModule(mockPageObject('LoginPage')),
 );
+// Each step timer is reported as its step id plus `Legacy`, as
+// `measureStepWithLongTasks` names it, and each in-page timer as its step id.
 jest.mock('../../utils/timer-helper', () => ({
   collectTimerResults: jest.fn(() =>
     mockEvents
       .filter((event) => event.startsWith('timer:'))
-      .map((event) => ({ id: event.slice('timer:'.length), value: 1 })),
+      .map((event) => ({
+        id: `${event.slice('timer:'.length)}Legacy`,
+        value: 1,
+      })),
   ),
 }));
 jest.mock('../../utils/long-task-helper', () => ({
@@ -104,7 +109,7 @@ jest.mock('../../utils/in-page-step-timer', () => ({
   }),
   finishInPageStep: jest.fn(async (_driver: unknown, id: string) => {
     mockEvents.push(`read:${id}`);
-    return [{ id: `${id}InPage`, value: 1, unit: 'ms' }];
+    return [{ id, value: 1, unit: 'ms' }];
   }),
   measureStepInPage: jest.fn(
     async (
@@ -119,7 +124,7 @@ jest.mock('../../utils/in-page-step-timer', () => ({
       await trigger();
       await settle();
       mockEvents.push(`read:${id}`);
-      return [{ id: `${id}InPage`, value: 1, unit: 'ms' }];
+      return [{ id, value: 1, unit: 'ms' }];
     },
   ),
 }));
@@ -214,6 +219,23 @@ describe('runImportSrpHomeBenchmark', () => {
     expect(at('read:loginToHomeScreen')).toBeLessThan(at('accountSyncIdle'));
     expect(at('accountSyncIdle')).toBeLessThan(
       at('probe:openAccountMenuAfterLogin'),
+    );
+  });
+
+  it('reports each series under one name, every step timer as its step id plus Legacy', async () => {
+    const result = await run();
+
+    const ids = result.timers.map((timer) => timer.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toStrictEqual(
+      expect.arrayContaining([
+        'loginToHomeScreenLegacy',
+        'loginToHomeScreen',
+        'openAccountMenuAfterLoginLegacy',
+        'openAccountMenuAfterLogin',
+        'homeAfterImportWithNewWalletLegacy',
+        'homeAfterImportWithNewWallet',
+      ]),
     );
   });
 

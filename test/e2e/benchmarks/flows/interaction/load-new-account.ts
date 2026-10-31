@@ -9,7 +9,10 @@ import { login } from '../../../page-objects/flows/login.flow';
 import HeaderNavbar from '../../../page-objects/pages/home/header-navbar';
 import AccountListPage from '../../../page-objects/pages/accounts/list-page';
 import { Driver } from '../../../webdriver/driver';
-import { buildLongTaskTimerResults } from '../../utils/long-task-helper';
+import {
+  buildLongTaskTimerResults,
+  legacyStepTimerId,
+} from '../../utils/long-task-helper';
 import {
   finishInPageStep,
   startInPageStep,
@@ -109,7 +112,10 @@ export async function run(): Promise<BenchmarkRunResult> {
 
     return {
       timers: [
-        ...steps.map((s) => ({ id: s.id, value: s.duration })),
+        ...steps.map((s) => ({
+          id: legacyStepTimerId(s.id),
+          value: s.duration,
+        })),
         ...buildLongTaskTimerResults(steps),
         ...inPageTimers,
       ],

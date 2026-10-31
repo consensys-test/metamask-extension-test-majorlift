@@ -11,8 +11,10 @@ import type { TimerResult } from './types';
  * already returned. This module times the same step a second time, inside the
  * page: from the trusted input event that triggers the step to the moment the
  * destination's key elements are in the DOM, both read with
- * `performance.now()`. The result is reported as `<stepId>InPage` beside the
- * existing timer, which is left exactly as it was, so one run carries both.
+ * `performance.now()`. The result is reported under the step id itself,
+ * `<stepId>`, beside the existing timer, which is reported as
+ * `<stepId>Legacy` and is otherwise left exactly as it was, so one run
+ * carries both.
  *
  * The end is `performance.now()` in the first `MutationObserver` callback in
  * which every end selector matches. Callbacks run at the first microtask
@@ -68,8 +70,8 @@ export const KNOWN_ANSWER_INPAGE_MS = 'BENCHMARK_KNOWN_ANSWER_INPAGE_MS';
 
 /**
  * The steps the known-answer hold applies to: a step id, or a comma-separated
- * list of them, each with or without the `InPage` suffix. A step id that more
- * than one flow uses is held in each of them.
+ * list of them. A step id is the in-page timer's own name, with no suffix. A
+ * step id that more than one flow uses is held in each of them.
  */
 export const KNOWN_ANSWER_INPAGE_STEP = 'BENCHMARK_KNOWN_ANSWER_INPAGE_STEP';
 
@@ -78,6 +80,8 @@ export const KNOWN_ANSWER_INPAGE_STEP = 'BENCHMARK_KNOWN_ANSWER_INPAGE_STEP';
  *
  * A hold set above 0 with no step named throws, as an invalid known-answer
  * delay does, so a run meant as a lever arm cannot run as an unchanged one.
+ * For the same reason, so does a name ending in `InPage` or `Legacy`: no step
+ * id has either suffix, so the name would match nothing.
  *
  * @param stepId - The step id the probe is installed under.
  * @returns The hold in ms: 0 unless the hold is set and names this step.
@@ -96,9 +100,13 @@ export function getInPageKnownAnswerMs(stepId: string): number {
       `${KNOWN_ANSWER_INPAGE_MS} is ${holdMs}, but ${KNOWN_ANSWER_INPAGE_STEP} names no step`,
     );
   }
-  return named.includes(stepId) || named.includes(`${stepId}InPage`)
-    ? holdMs
-    : 0;
+  const suffixed = named.filter((name) => /(?:InPage|Legacy)$/u.test(name));
+  if (suffixed.length > 0) {
+    throw new Error(
+      `${KNOWN_ANSWER_INPAGE_STEP} names steps by step id, without a suffix: ${suffixed.join(', ')}`,
+    );
+  }
+  return named.includes(stepId) ? holdMs : 0;
 }
 
 /**
@@ -465,8 +473,8 @@ function describeReadings(reading: InPageProbeReading): string {
 }
 
 /**
- * Turn a reading into the `<stepId>InPage` timer, or into nothing with the
- * reason logged. Absent, never zero.
+ * Turn a reading into the step's in-page timer, reported as `<stepId>`, or
+ * into nothing with the reason logged. Absent, never zero.
  *
  * The value runs from the triggering input to the first observer callback
  * that sees all of the destination's key elements in the DOM, which runs once
@@ -474,8 +482,8 @@ function describeReadings(reading: InPageProbeReading): string {
  *
  * Tagged with a unit, as the trace timers in `sentry-transactions.ts` are, so
  * `runner.ts` leaves it out of the per-run `total`, which sums only untagged
- * timers: it overlaps the step timer, and adding both would count the same
- * time twice.
+ * timers: it overlaps the step's legacy timer, and adding both would count the
+ * same time twice.
  *
  * @param stepId - The step id the probe was installed under.
  * @param reading - The final reading, or null when no probe was found.
@@ -485,9 +493,8 @@ export function inPageTimerResult(
   stepId: string,
   reading: InPageProbeReading | null,
 ): TimerResult[] {
-  const id = `${stepId}InPage`;
   const absent = (reason: string): TimerResult[] => {
-    console.log(`[benchmark] ${id} absent: ${reason}`);
+    console.log(`[benchmark] ${stepId} absent: ${reason}`);
     return [];
   };
 
@@ -524,10 +531,10 @@ export function inPageTimerResult(
 
   const value = reading.end - reading.start;
   console.log(
-    `[benchmark] ${id}: ${value.toFixed(1)} ms from ${reading.startEvent}`,
+    `[benchmark] ${stepId}: ${value.toFixed(1)} ms from ${reading.startEvent}`,
   );
-  console.log(`[benchmark] ${id} readings: ${describeReadings(reading)}`);
-  return [{ id, value, unit: 'ms' }];
+  console.log(`[benchmark] ${stepId} readings: ${describeReadings(reading)}`);
+  return [{ id: stepId, value, unit: 'ms' }];
 }
 
 export type InPageStepOptions = {
@@ -564,7 +571,7 @@ export type InPageStepOptions = {
  * hold set without a step to apply to is a configuration error, and throws.
  *
  * @param driver - The WebDriver instance.
- * @param stepId - The step id; the timer is reported as `<stepId>InPage`.
+ * @param stepId - The step id, which is also the in-page timer's name.
  * @param options - Where the step ends, and what may start it.
  * @returns Whether the probe was installed.
  */
@@ -584,7 +591,7 @@ export async function startInPageStep(
   };
   if (config.holdMs > 0) {
     console.log(
-      `[benchmark] ${stepId}InPage: known-answer hold of ${config.holdMs} ms at the trigger`,
+      `[benchmark] ${stepId}: known-answer hold of ${config.holdMs} ms at the trigger`,
     );
   }
   try {
@@ -593,13 +600,13 @@ export async function startInPageStep(
       config,
     )) as string | null;
     if (failure !== null) {
-      console.log(`[benchmark] ${stepId}InPage not installed: ${failure}`);
+      console.log(`[benchmark] ${stepId} not installed: ${failure}`);
       return false;
     }
     return true;
   } catch (error) {
     console.log(
-      `[benchmark] ${stepId}InPage not installed: ${(error as Error).message}`,
+      `[benchmark] ${stepId} not installed: ${(error as Error).message}`,
     );
     return false;
   }
@@ -615,7 +622,7 @@ export async function startInPageStep(
  * @param onReading - Receives the reading, for a caller that logs more than
  * the value (see {@link logRequestsWithinInPageSteps}). Not called when the
  * probe could not be read.
- * @returns The `<stepId>InPage` timer, or an empty array.
+ * @returns The step's in-page timer, or an empty array.
  */
 export async function finishInPageStep(
   driver: Driver,
@@ -631,7 +638,7 @@ export async function finishInPageStep(
     return inPageTimerResult(stepId, reading);
   } catch (error) {
     console.log(
-      `[benchmark] ${stepId}InPage absent: the probe could not be read: ${
+      `[benchmark] ${stepId} absent: the probe could not be read: ${
         (error as Error).message
       }`,
     );
@@ -648,7 +655,7 @@ export async function finishInPageStep(
  * it ran before the timed wait. Errors from either are thrown as before.
  *
  * @param driver - The WebDriver instance.
- * @param stepId - The step id; the timer is reported as `<stepId>InPage`.
+ * @param stepId - The step id, which is also the in-page timer's name.
  * @param options - The probe options, plus the trigger and the timed wait.
  * @param options.trigger - The harness action that starts the step.
  * @param options.settle - The step's existing timed wait. It is told whether
@@ -656,7 +663,7 @@ export async function finishInPageStep(
  * long-task window at the trigger can open it itself when it was not.
  * @param options.onReading - Receives the probe's reading; see
  * {@link finishInPageStep}.
- * @returns The `<stepId>InPage` timer, or an empty array.
+ * @returns The step's in-page timer, or an empty array.
  */
 export async function measureStepInPage(
   driver: Driver,
@@ -744,9 +751,8 @@ export function describeRequestsWithinInPageStep(
   { stepId, reading }: InPageStepReading,
   requests: SeenRequest[],
 ): string {
-  const id = `${stepId}InPage`;
   if (reading === null || reading.start === null || reading.end === null) {
-    return `[benchmark] ${id} requests: not listed, the interval has no end`;
+    return `[benchmark] ${stepId} requests: not listed, the interval has no end`;
   }
   const start = reading.start + reading.epochOffset;
   const end = reading.end + reading.epochOffset;
@@ -797,7 +803,7 @@ export function describeRequestsWithinInPageStep(
     (a, b) => a.received[0] - b.received[0] || a.key.localeCompare(b.key),
   );
   const lines = [
-    `[benchmark] ${id} requests: ${total} at the mock server overlapped the ${(
+    `[benchmark] ${stepId} requests: ${total} at the mock server overlapped the ${(
       end - start
     ).toFixed(1)} ms interval (ms from the trigger)`,
     ...sorted.slice(0, MAX_REQUEST_GROUPS).map((group) => {

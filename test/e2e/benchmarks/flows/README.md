@@ -88,6 +88,17 @@ await timer.measure(async () => {
 });
 ```
 
+**Step timer names:**
+
+Journey steps are timed through `measureStepWithLongTasks` (`utils/long-task-helper.ts`), which wraps `TimerHelper`; interaction steps read the same clock themselves and name their timer with `legacyStepTimerId` from the same file. Most steps are also timed in the page, through `measureStepInPage` or `startInPageStep` (`utils/in-page-step-timer.ts`). Both timers of a step take the same step id:
+
+| Timer         | What it times                                                                                                | Reported as                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Step timer    | The harness's Node clock around its own calls; in most steps it opens once the triggering click has returned | `<stepId>Legacy`, e.g. `assetClickToPriceChartLegacy` |
+| In-page timer | The page's `performance.now()`, from the triggering input to the destination's key elements being in the DOM | `<stepId>`, e.g. `assetClickToPriceChart`             |
+
+A step with no in-page timer reports only `<stepId>Legacy`. Step thresholds are keyed by `<stepId>Legacy`, the series they were calibrated on.
+
 **Threshold Validation (mandatory):**
 
 Every benchmark **must** have a threshold entry in `THRESHOLD_REGISTRY` inside `test/e2e/benchmarks/utils/thresholds.ts`. Thresholds are validated after collecting statistics from all iterations.
@@ -140,8 +151,8 @@ Benchmark results are output as JSON, either to stdout or to a file via `--out`:
     "testTitle": "benchmark-onboarding-import-wallet",
     "persona": "standard",
     "mean": {
-      "importWalletToSocialScreen": 209,
-      "srpButtonToForm": 53
+      "importWalletToSocialScreenLegacy": 209,
+      "srpButtonToSrpFormLegacy": 53
     },
     "p75": { ... },
     "p95": { ... }

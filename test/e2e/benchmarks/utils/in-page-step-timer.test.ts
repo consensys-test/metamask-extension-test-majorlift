@@ -172,7 +172,7 @@ describe('in-page-step-timer', () => {
         epochOffset: Date.now() - 1103,
       });
       expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 103, unit: 'ms' },
+        { id: 'step', value: 103, unit: 'ms' },
       ]);
       expect(readInPageStepProbe(['step'])).toBeNull();
     });
@@ -226,7 +226,7 @@ describe('in-page-step-timer', () => {
 
       expect(reading).toMatchObject({ start: 1000, end: 1200, extraInputs: 0 });
       expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 200, unit: 'ms' },
+        { id: 'step', value: 200, unit: 'ms' },
       ]);
     });
 
@@ -262,7 +262,7 @@ describe('in-page-step-timer', () => {
         lastTypedAt: 1005,
       });
       expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 300, unit: 'ms' },
+        { id: 'step', value: 300, unit: 'ms' },
       ]);
     });
 
@@ -364,7 +364,7 @@ describe('in-page-step-timer', () => {
 
       expect(
         inPageTimerResult('step', readInPageStepProbe(['step'])),
-      ).toStrictEqual([{ id: 'stepInPage', value: 401, unit: 'ms' }]);
+      ).toStrictEqual([{ id: 'step', value: 401, unit: 'ms' }]);
     });
 
     it('sees an attribute change that makes the destination match', async () => {
@@ -378,7 +378,7 @@ describe('in-page-step-timer', () => {
 
       expect(
         inPageTimerResult('step', readInPageStepProbe(['step'])),
-      ).toStrictEqual([{ id: 'stepInPage', value: 150, unit: 'ms' }]);
+      ).toStrictEqual([{ id: 'step', value: 150, unit: 'ms' }]);
     });
 
     it('reports a destination that matched without a DOM change the observer saw', async () => {
@@ -488,13 +488,13 @@ describe('in-page-step-timer', () => {
       expect(reading).toMatchObject({ start: 1000, startTimeStamp: 988 });
       // The value is unchanged: the delay before the listener stays outside.
       expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 100, unit: 'ms' },
+        { id: 'step', value: 100, unit: 'ms' },
       ]);
       expect(log).toHaveBeenCalledWith(
-        '[benchmark] stepInPage: 100.0 ms from pointerdown',
+        '[benchmark] step: 100.0 ms from pointerdown',
       );
       expect(log).toHaveBeenCalledWith(
-        '[benchmark] stepInPage readings: input delay 12.0 ms (event.timeStamp to listener)',
+        '[benchmark] step readings: input delay 12.0 ms (event.timeStamp to listener)',
       );
     });
 
@@ -533,10 +533,10 @@ describe('in-page-step-timer', () => {
         lastTypedAt: 1013,
       });
       expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 400, unit: 'ms' },
+        { id: 'step', value: 400, unit: 'ms' },
       ]);
       expect(log).toHaveBeenCalledWith(
-        '[benchmark] stepInPage readings: input delay 0.0 ms (event.timeStamp to listener); 4 typed key(s), the last at +13.0 ms',
+        '[benchmark] step readings: input delay 0.0 ms (event.timeStamp to listener); 4 typed key(s), the last at +13.0 ms',
       );
     });
 
@@ -561,10 +561,10 @@ describe('in-page-step-timer', () => {
       };
 
       expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 100, unit: 'ms' },
+        { id: 'step', value: 100, unit: 'ms' },
       ]);
       expect(log).toHaveBeenCalledWith(
-        "[benchmark] stepInPage readings: event.timeStamp 1700000000000.0 is not on the listener's clock (1000.0)",
+        "[benchmark] step readings: event.timeStamp 1700000000000.0 is not on the listener's clock (1000.0)",
       );
     });
   });
@@ -582,10 +582,10 @@ describe('in-page-step-timer', () => {
         expect(getInPageKnownAnswerMs('step')).toBe(0);
       });
 
-      it('applies the hold only to a named step, with or without the InPage suffix', () => {
+      it('applies the hold only to a named step', () => {
         process.env[KNOWN_ANSWER_INPAGE_MS] = '300';
         process.env[KNOWN_ANSWER_INPAGE_STEP] =
-          'openSwapPageFromHome, bridge_load_pageInPage';
+          'openSwapPageFromHome, bridge_load_page';
 
         expect(getInPageKnownAnswerMs('openSwapPageFromHome')).toBe(300);
         expect(getInPageKnownAnswerMs('bridge_load_page')).toBe(300);
@@ -593,6 +593,16 @@ describe('in-page-step-timer', () => {
         // Whole names only.
         expect(getInPageKnownAnswerMs('openSwapPage')).toBe(0);
         expect(getInPageKnownAnswerMs('bridge_load_page_extra')).toBe(0);
+      });
+
+      it('throws on a step named with the InPage or Legacy suffix, which no step id has', () => {
+        process.env[KNOWN_ANSWER_INPAGE_MS] = '300';
+        process.env[KNOWN_ANSWER_INPAGE_STEP] =
+          'openSwapPageFromHome, bridge_load_pageInPage, confirm_txLegacy';
+
+        expect(() => getInPageKnownAnswerMs('openSwapPageFromHome')).toThrow(
+          `${KNOWN_ANSWER_INPAGE_STEP} names steps by step id, without a suffix: bridge_load_pageInPage, confirm_txLegacy`,
+        );
       });
 
       it('throws when the hold is set and names no step', () => {
@@ -647,7 +657,7 @@ describe('in-page-step-timer', () => {
       expect(reads).toBe(33);
       expect(reading?.heldMs).toBe(310);
       expect(inPageTimerResult('step', reading)).toStrictEqual([
-        { id: 'stepInPage', value: 990, unit: 'ms' },
+        { id: 'step', value: 990, unit: 'ms' },
       ]);
     });
 
@@ -696,7 +706,7 @@ describe('in-page-step-timer', () => {
 
         expect(configs.map((config) => config.holdMs)).toStrictEqual([300, 0]);
         expect(log).toHaveBeenCalledWith(
-          '[benchmark] openSwapPageFromHomeInPage: known-answer hold of 300 ms at the trigger',
+          '[benchmark] openSwapPageFromHome: known-answer hold of 300 ms at the trigger',
         );
         expect(log).toHaveBeenCalledTimes(1);
       });
@@ -843,9 +853,7 @@ describe('in-page-step-timer', () => {
         'settle',
         'executeScript:readInPageStepProbe',
       ]);
-      expect(result).toStrictEqual([
-        { id: 'stepInPage', value: 250, unit: 'ms' },
-      ]);
+      expect(result).toStrictEqual([{ id: 'step', value: 250, unit: 'ms' }]);
       expect(jest.getTimerCount()).toBe(0);
     });
 
@@ -1060,7 +1068,7 @@ describe('in-page-step-timer', () => {
         ),
       ).toBe(
         [
-          '[benchmark] stepInPage requests: 4 at the mock server overlapped the 500.0 ms interval (ms from the trigger)',
+          '[benchmark] step requests: 4 at the mock server overlapped the 500.0 ms interval (ms from the trigger)',
           '  POST rpc.test/ x1: received -200, answered +50',
           '  GET api.test/v1/balances x2: received +100..+120, answered +650..+700',
           '  GET api.test/v1/pending x1: received +400, 1 without an answer',
@@ -1074,17 +1082,13 @@ describe('in-page-step-timer', () => {
           { stepId: 'step', reading: readingOf({ end: null }) },
           requests,
         ),
-      ).toBe(
-        '[benchmark] stepInPage requests: not listed, the interval has no end',
-      );
+      ).toBe('[benchmark] step requests: not listed, the interval has no end');
       expect(
         describeRequestsWithinInPageStep(
           { stepId: 'step', reading: null },
           requests,
         ),
-      ).toBe(
-        '[benchmark] stepInPage requests: not listed, the interval has no end',
-      );
+      ).toBe('[benchmark] step requests: not listed, the interval has no end');
     });
 
     it('caps the groups it lists, and says how many it left out', () => {

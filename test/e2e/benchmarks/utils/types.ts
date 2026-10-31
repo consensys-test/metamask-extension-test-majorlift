@@ -16,6 +16,7 @@ export type TimerResult = {
 };
 
 export type LongTaskStepResult = {
+  /** The step id. The step's timer is reported as `<id>Legacy`. */
   id: string;
   duration: number;
   longTaskCount: number;

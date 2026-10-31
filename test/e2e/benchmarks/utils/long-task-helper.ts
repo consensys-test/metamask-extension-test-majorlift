@@ -20,6 +20,23 @@ function readLongTaskMetricsWithoutReset(): {
     : null;
 }
 
+/**
+ * The name a step's harness-clock timer is reported under: the step id plus
+ * `Legacy`.
+ *
+ * The timer reads the Node clock around the harness's own calls and, in most
+ * journey steps, opens only once the click that triggers the step has
+ * returned, so its value is not the app's latency for the step, and its name
+ * does not claim to be. The step's in-page timer, where it has one, is
+ * reported under the bare step id (`in-page-step-timer.ts`).
+ *
+ * @param stepId - The step id.
+ * @returns The timer's name.
+ */
+export function legacyStepTimerId(stepId: string): string {
+  return `${stepId}Legacy`;
+}
+
 export type MeasureStepWithLongTasksOptions = {
   /**
    * The step's long-task window was already opened at its triggering input,
@@ -37,10 +54,12 @@ export type MeasureStepWithLongTasksOptions = {
  * Resets long task metrics before the action, unless the window was opened
  * at the step's trigger, times the action with TimerHelper, then collects the
  * delta. The TimerHelper is also registered with performanceTracker for
- * report generation.
+ * report generation. The timer is reported as `<stepId>Legacy`
+ * ({@link legacyStepTimerId}).
  *
  * @param driver - Selenium driver instance
- * @param stepId - Unique identifier for this step (used as timer ID)
+ * @param stepId - Unique identifier for this step; the timer is reported as
+ * `<stepId>Legacy`
  * @param action - Async function to measure
  * @param options - Where the long-task window opens.
  * @param options.windowOpenedAtTrigger - See
@@ -53,14 +72,14 @@ export async function measureStepWithLongTasks(
   action: () => Promise<void>,
   { windowOpenedAtTrigger = false }: MeasureStepWithLongTasksOptions = {},
 ): Promise<LongTaskStepResult> {
-  const timer = new TimerHelper(stepId);
+  const timer = new TimerHelper(legacyStepTimerId(stepId));
 
   if (windowOpenedAtTrigger) {
     const sinceTrigger = (await driver.executeScript(
       readLongTaskMetricsWithoutReset,
     )) as Awaited<ReturnType<typeof readLongTaskMetricsWithoutReset>>;
     console.log(
-      `[benchmark] ${stepId}: ${sinceTrigger?.count ?? 'no'} long task(s), ${
+      `[benchmark] ${timer.id}: ${sinceTrigger?.count ?? 'no'} long task(s), ${
         sinceTrigger?.totalDuration ?? 0
       } ms, between the trigger and the step timer's start`,
     );

@@ -8,7 +8,10 @@ import { withFixtures } from '../../../helpers';
 import { login } from '../../../page-objects/flows/login.flow';
 import { createInternalTransaction } from '../../../page-objects/flows/transaction.flow';
 import { Driver } from '../../../webdriver/driver';
-import { buildLongTaskTimerResults } from '../../utils/long-task-helper';
+import {
+  buildLongTaskTimerResults,
+  legacyStepTimerId,
+} from '../../utils/long-task-helper';
 import {
   finishInPageStep,
   startInPageStep,
@@ -127,7 +130,10 @@ export async function run(): Promise<BenchmarkRunResult> {
 
     return {
       timers: [
-        ...steps.map((s) => ({ id: s.id, value: s.duration })),
+        ...steps.map((s) => ({
+          id: legacyStepTimerId(s.id),
+          value: s.duration,
+        })),
         ...buildLongTaskTimerResults(steps),
         ...inPageTimers,
       ],
