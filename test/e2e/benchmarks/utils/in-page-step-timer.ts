@@ -38,8 +38,11 @@ import type { TimerResult } from './types';
  * which measures the harness's typing inside the interval; and the page
  * clock's offset from the wall clock, so the interval can be compared with
  * the mock server's request times ({@link logRequestsWithinInPageSteps}). The
- * log line after the value reports the first two. None of them changes the
- * value.
+ * log line after the value reports the first two. With
+ * `BENCHMARK_TYPED_KEY_BEFORE_TRIGGER=1`, a step that asks for it also records
+ * when the last character typed before its trigger arrived, and the line
+ * reports that too, as it does anything the harness read just before the
+ * trigger. None of them changes the value.
  *
  * Known answer: with `BENCHMARK_KNOWN_ANSWER_INPAGE_MS` above 0 and the step
  * named in `BENCHMARK_KNOWN_ANSWER_INPAGE_STEP`, the probe holds the page's
@@ -74,6 +77,13 @@ export const KNOWN_ANSWER_INPAGE_MS = 'BENCHMARK_KNOWN_ANSWER_INPAGE_MS';
  * step id that more than one flow uses is held in each of them.
  */
 export const KNOWN_ANSWER_INPAGE_STEP = 'BENCHMARK_KNOWN_ANSWER_INPAGE_STEP';
+
+/**
+ * Record, for a step that asks for it, when the last character typed before
+ * its trigger arrived: see {@link InPageStepOptions.recordTypingBeforeTrigger}.
+ * Unset, no probe records it.
+ */
+export const TYPED_KEY_BEFORE_TRIGGER = 'BENCHMARK_TYPED_KEY_BEFORE_TRIGGER';
 
 /**
  * Read the known-answer hold for one step.
@@ -127,6 +137,8 @@ export type InPageProbeConfig = {
   holdMs: number;
   /** Reset the app's long-task metrics at the trigger. */
   resetLongTasks: boolean;
+  /** Record the last character typed before the trigger. */
+  typedBeforeTrigger: boolean;
 };
 
 /**
@@ -157,6 +169,14 @@ export type InPageProbeReading = {
   typedKeys: number;
   /** `performance.now()` at the last of those typed characters. */
   lastTypedAt: number | null;
+  /**
+   * The `event.timeStamp` of the last character typed after the probe was
+   * installed and before the trigger, on the same clock as `start`. Null
+   * unless the probe was asked to record it, or when nothing was typed.
+   */
+  typedBeforeTriggerTimeStamp: number | null;
+  /** `performance.now()` in the listener for that character. */
+  typedBeforeTriggerAt: number | null;
   /** How long the known-answer hold actually held, in ms; 0 when none. */
   heldMs: number;
   /** The app's long-task metrics were reset at the trigger. */
@@ -184,6 +204,8 @@ type InPageProbe = {
   startTimeStamp: number | null;
   typedKeys: number;
   lastTypedAt: number | null;
+  typedBeforeTriggerTimeStamp: number | null;
+  typedBeforeTriggerAt: number | null;
   heldMs: number;
   longTasksReset: boolean;
   matches: () => boolean;
@@ -289,6 +311,8 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
     startTimeStamp: null,
     typedKeys: 0,
     lastTypedAt: null,
+    typedBeforeTriggerTimeStamp: null,
+    typedBeforeTriggerAt: null,
     heldMs: 0,
     longTasksReset: false,
     matches,
@@ -316,6 +340,10 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
     }
     if (probe.start === null) {
       if (!startsRegion(event)) {
+        if (config.typedBeforeTrigger && isTypedCharacter(event)) {
+          probe.typedBeforeTriggerAt = performance.now();
+          probe.typedBeforeTriggerTimeStamp = event.timeStamp;
+        }
         return;
       }
       // Before the start is read, so the reset is not inside the value.
@@ -429,6 +457,8 @@ export function readInPageStepProbe([stepId]: [
     startTimeStamp: probe.startTimeStamp,
     typedKeys: probe.typedKeys,
     lastTypedAt: probe.lastTypedAt,
+    typedBeforeTriggerTimeStamp: probe.typedBeforeTriggerTimeStamp,
+    typedBeforeTriggerAt: probe.typedBeforeTriggerAt,
     heldMs: probe.heldMs,
     longTasksReset: probe.longTasksReset,
     epochOffset: Date.now() - performance.now(),
@@ -437,22 +467,39 @@ export function readInPageStepProbe([stepId]: [
 
 /**
  * Describe the readings recorded beside a value: the input delay, the typing
- * inside a typed step, the known-answer hold, and whether the long-task window
- * opened at the trigger.
+ * inside a typed step, the last character typed before the trigger, the
+ * known-answer hold, whether the long-task window opened at the trigger, and
+ * what the harness read just before the trigger.
  *
  * @param reading - A reading with a start.
+ * @param harnessReadings - Parts the harness recorded around the trigger,
+ * appended as they are.
  * @returns One line of `; `-separated parts.
  */
-function describeReadings(reading: InPageProbeReading): string {
+function describeReadings(
+  reading: InPageProbeReading,
+  harnessReadings: readonly string[],
+): string {
   const parts: string[] = [];
   const start = reading.start ?? 0;
+  // The trigger's own time, where its event.timeStamp is on the listener's
+  // clock; otherwise the listener's.
+  let triggerAt: { time: number; name: string } = {
+    time: start,
+    name: 'listener',
+  };
   if (reading.startTimeStamp !== null && reading.startTimeStamp > 0) {
     const delay = start - reading.startTimeStamp;
-    parts.push(
-      delay >= 0 && delay <= IN_PAGE_BOUND_MS
-        ? `input delay ${delay.toFixed(1)} ms (event.timeStamp to listener)`
-        : `event.timeStamp ${reading.startTimeStamp.toFixed(1)} is not on the listener's clock (${start.toFixed(1)})`,
-    );
+    if (delay >= 0 && delay <= IN_PAGE_BOUND_MS) {
+      triggerAt = { time: reading.startTimeStamp, name: 'event.timeStamp' };
+      parts.push(
+        `input delay ${delay.toFixed(1)} ms (event.timeStamp to listener)`,
+      );
+    } else {
+      parts.push(
+        `event.timeStamp ${reading.startTimeStamp.toFixed(1)} is not on the listener's clock (${start.toFixed(1)})`,
+      );
+    }
   } else {
     parts.push('no event.timeStamp');
   }
@@ -463,12 +510,29 @@ function describeReadings(reading: InPageProbeReading): string {
       ).toFixed(1)} ms`,
     );
   }
+  if (
+    reading.typedBeforeTriggerTimeStamp !== null &&
+    reading.typedBeforeTriggerAt !== null
+  ) {
+    const fromTrigger = (time: number): string => {
+      const ms = time - triggerAt.time;
+      return `${ms < 0 ? '' : '+'}${ms.toFixed(1)}`;
+    };
+    parts.push(
+      `last key typed before the trigger at ${fromTrigger(
+        reading.typedBeforeTriggerTimeStamp,
+      )} ms, its listener at ${fromTrigger(
+        reading.typedBeforeTriggerAt,
+      )} ms (from the trigger's ${triggerAt.name})`,
+    );
+  }
   if (reading.heldMs > 0) {
     parts.push(`known-answer hold ${reading.heldMs.toFixed(1)} ms`);
   }
   if (reading.longTasksReset) {
     parts.push('long-task window opened at the trigger');
   }
+  parts.push(...harnessReadings);
   return parts.join('; ');
 }
 
@@ -487,11 +551,14 @@ function describeReadings(reading: InPageProbeReading): string {
  *
  * @param stepId - The step id the probe was installed under.
  * @param reading - The final reading, or null when no probe was found.
+ * @param harnessReadings - Parts the harness recorded around the trigger, for
+ * the readings line after the value.
  * @returns The timer, or an empty array.
  */
 export function inPageTimerResult(
   stepId: string,
   reading: InPageProbeReading | null,
+  harnessReadings: readonly string[] = [],
 ): TimerResult[] {
   const absent = (reason: string): TimerResult[] => {
     console.log(`[benchmark] ${stepId} absent: ${reason}`);
@@ -533,7 +600,12 @@ export function inPageTimerResult(
   console.log(
     `[benchmark] ${stepId}: ${value.toFixed(1)} ms from ${reading.startEvent}`,
   );
-  console.log(`[benchmark] ${stepId} readings: ${describeReadings(reading)}`);
+  console.log(
+    `[benchmark] ${stepId} readings: ${describeReadings(
+      reading,
+      harnessReadings,
+    )}`,
+  );
   return [{ id: stepId, value, unit: 'ms' }];
 }
 
@@ -563,6 +635,14 @@ export type InPageStepOptions = {
    * (`measureStepWithLongTasks`'s `windowOpenedAtTrigger`).
    */
   resetLongTasksAtStart?: boolean;
+  /**
+   * With `BENCHMARK_TYPED_KEY_BEFORE_TRIGGER=1`, record when the last
+   * character typed after install and before the trigger arrived, for a step
+   * whose triggering call types first, as `loginToHomepage` types the password
+   * before it clicks Unlock. The readings line gives its time from the
+   * trigger's. Outside the value, which still starts at the trigger.
+   */
+  recordTypingBeforeTrigger?: boolean;
 };
 
 /**
@@ -588,6 +668,9 @@ export async function startInPageStep(
     boundMs: IN_PAGE_BOUND_MS,
     holdMs: getInPageKnownAnswerMs(stepId),
     resetLongTasks: options.resetLongTasksAtStart ?? false,
+    typedBeforeTrigger:
+      (options.recordTypingBeforeTrigger ?? false) &&
+      process.env[TYPED_KEY_BEFORE_TRIGGER] === '1',
   };
   if (config.holdMs > 0) {
     console.log(
@@ -622,12 +705,15 @@ export async function startInPageStep(
  * @param onReading - Receives the reading, for a caller that logs more than
  * the value (see {@link logRequestsWithinInPageSteps}). Not called when the
  * probe could not be read.
+ * @param harnessReadings - Parts the harness recorded around the trigger, for
+ * the readings line after the value.
  * @returns The step's in-page timer, or an empty array.
  */
 export async function finishInPageStep(
   driver: Driver,
   stepId: string,
   onReading?: (stepReading: InPageStepReading) => void,
+  harnessReadings: readonly string[] = [],
 ): Promise<TimerResult[]> {
   try {
     const reading = (await driver.executeScript(
@@ -635,7 +721,7 @@ export async function finishInPageStep(
       stepId,
     )) as InPageProbeReading | null;
     onReading?.({ stepId, reading });
-    return inPageTimerResult(stepId, reading);
+    return inPageTimerResult(stepId, reading, harnessReadings);
   } catch (error) {
     console.log(
       `[benchmark] ${stepId} absent: the probe could not be read: ${
@@ -649,10 +735,11 @@ export async function finishInPageStep(
 /**
  * Time a step inside the page, around its existing harness-clock timer.
  *
- * Installs the probe, runs the trigger, runs `settle` (the step's existing
- * timed wait, unchanged), then reads the probe. The trigger keeps its
- * position relative to the existing timer: it runs before `settle` exactly as
- * it ran before the timed wait. Errors from either are thrown as before.
+ * Installs the probe, runs `readBeforeTrigger` when given, runs the trigger,
+ * runs `settle` (the step's existing timed wait, unchanged), then reads the
+ * probe. The trigger keeps its position relative to the existing timer: it
+ * runs before `settle` exactly as it ran before the timed wait. Errors from
+ * either are thrown as before.
  *
  * @param driver - The WebDriver instance.
  * @param stepId - The step id, which is also the in-page timer's name.
@@ -663,6 +750,10 @@ export async function finishInPageStep(
  * long-task window at the trigger can open it itself when it was not.
  * @param options.onReading - Receives the probe's reading; see
  * {@link finishInPageStep}.
+ * @param options.readBeforeTrigger - A read the harness takes once,
+ * immediately before the trigger and so outside the timed interval. What it
+ * returns goes on the step's readings line. A read that throws is reported
+ * there instead, and the step goes on.
  * @returns The step's in-page timer, or an empty array.
  */
 export async function measureStepInPage(
@@ -672,17 +763,31 @@ export async function measureStepInPage(
     trigger,
     settle,
     onReading,
+    readBeforeTrigger,
     ...options
   }: InPageStepOptions & {
     trigger: () => Promise<void>;
     settle: (probe: { installed: boolean }) => Promise<void>;
     onReading?: (stepReading: InPageStepReading) => void;
+    readBeforeTrigger?: () => Promise<readonly string[]>;
   },
 ): Promise<TimerResult[]> {
   const installed = await startInPageStep(driver, stepId, options);
+  let harnessReadings: readonly string[] = [];
+  if (readBeforeTrigger) {
+    try {
+      harnessReadings = await readBeforeTrigger();
+    } catch (error) {
+      harnessReadings = [
+        `the read before the trigger failed: ${(error as Error).message}`,
+      ];
+    }
+  }
   await trigger();
   await settle({ installed });
-  return installed ? await finishInPageStep(driver, stepId, onReading) : [];
+  return installed
+    ? await finishInPageStep(driver, stepId, onReading, harnessReadings)
+    : [];
 }
 
 /** The parts of a request the mock server saw that the request log reads. */

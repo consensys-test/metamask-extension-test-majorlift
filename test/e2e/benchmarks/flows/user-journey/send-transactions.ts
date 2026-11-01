@@ -3,6 +3,7 @@
  * Measures time for send flow from opening send page to confirmation
  */
 
+import type { Mockttp } from 'mockttp';
 import { generateWalletState } from '../../../../../app/scripts/fixtures/generate-wallet-state';
 import { ALL_POPULAR_NETWORKS } from '../../../../../app/scripts/fixtures/with-networks';
 import { withFixtures } from '../../../helpers';
@@ -21,7 +22,9 @@ import {
 } from '../../utils/long-task-helper';
 import {
   IN_PAGE_DESTINATIONS,
+  logRequestsWithinInPageSteps,
   measureStepInPage,
+  type InPageStepReading,
 } from '../../utils/in-page-step-timer';
 import { waitDismissingOptionalDialog } from '../../utils/optional-dialog';
 import {
@@ -56,6 +59,9 @@ export const persona = BENCHMARK_PERSONA.POWER_USER;
 export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
   const inPageTimers: TimerResult[] = [];
+  const inPageReadings: InPageStepReading[] = [];
+  const keepReading = (stepReading: InPageStepReading) =>
+    inPageReadings.push(stepReading);
   let webVitals: WebVitalsMetrics | undefined;
   try {
     await withFixtures(
@@ -74,7 +80,13 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
         extendedTimeoutMultiplier: 3,
         testSpecificMock: getTestSpecificMock(),
       },
-      async ({ driver }: { driver: Driver }) => {
+      async ({
+        driver,
+        mockServer,
+      }: {
+        driver: Driver;
+        mockServer: Mockttp;
+      }) => {
         // Login flow
         await login(driver, { validateBalance: false });
         const homePage = new HomePage(driver);
@@ -97,6 +109,7 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'openSendPageFromHome', {
             endSelector: IN_PAGE_DESTINATIONS.sendNetworkFilter,
+            onReading: keepReading,
             trigger: () => homePage.startSendFlow(),
             settle: async () => {
               steps.push(
@@ -118,6 +131,7 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'selectTokenToSendFormLoaded', {
             endSelector: IN_PAGE_DESTINATIONS.sendForm,
+            onReading: keepReading,
             trigger: () =>
               sendPage.selectToken(
                 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
@@ -156,6 +170,7 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
             {
               endSelector: IN_PAGE_DESTINATIONS.snapConfirmation,
               startWithin: SEND_CONTINUE_BUTTON,
+              onReading: keepReading,
               trigger: async () => {
                 await sendPage.waitForContinueButtonStablyEnabled();
                 await driver.clickElement(SEND_CONTINUE_BUTTON);
@@ -202,6 +217,10 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
+
+        // After everything measured: which requests each in-page interval
+        // overlapped, to compare slow iterations with fast ones.
+        await logRequestsWithinInPageSteps(mockServer, inPageReadings);
       },
     );
 

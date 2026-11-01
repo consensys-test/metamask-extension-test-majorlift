@@ -103,10 +103,19 @@ jest.mock('../../utils/long-task-helper', () => ({
 }));
 jest.mock('../../utils/in-page-step-timer', () => ({
   IN_PAGE_DESTINATIONS: new Proxy({}, { get: (_target, prop) => [prop] }),
-  startInPageStep: jest.fn(async (_driver: unknown, id: string) => {
-    mockEvents.push(`probe:${id}`);
-    return true;
-  }),
+  startInPageStep: jest.fn(
+    async (
+      _driver: unknown,
+      id: string,
+      options: { recordTypingBeforeTrigger?: boolean },
+    ) => {
+      mockEvents.push(`probe:${id}`);
+      if (options.recordTypingBeforeTrigger) {
+        mockEvents.push(`recordTypingBeforeTrigger:${id}`);
+      }
+      return true;
+    },
+  ),
   finishInPageStep: jest.fn(async (_driver: unknown, id: string) => {
     mockEvents.push(`read:${id}`);
     return [{ id, value: 1, unit: 'ms' }];
@@ -118,9 +127,17 @@ jest.mock('../../utils/in-page-step-timer', () => ({
       {
         trigger,
         settle,
-      }: { trigger: () => Promise<void>; settle: () => Promise<void> },
+        recordTypingBeforeTrigger,
+      }: {
+        trigger: () => Promise<void>;
+        settle: () => Promise<void>;
+        recordTypingBeforeTrigger?: boolean;
+      },
     ) => {
       mockEvents.push(`probe:${id}`);
+      if (recordTypingBeforeTrigger) {
+        mockEvents.push(`recordTypingBeforeTrigger:${id}`);
+      }
       await trigger();
       await settle();
       mockEvents.push(`read:${id}`);
@@ -220,6 +237,16 @@ describe('runImportSrpHomeBenchmark', () => {
     expect(at('accountSyncIdle')).toBeLessThan(
       at('probe:openAccountMenuAfterLogin'),
     );
+  });
+
+  it('asks the login probe, and only it, to record the typing before the Unlock click', async () => {
+    await run();
+
+    expect(
+      mockEvents.filter((event) =>
+        event.startsWith('recordTypingBeforeTrigger:'),
+      ),
+    ).toStrictEqual(['recordTypingBeforeTrigger:loginToHomeScreen']);
   });
 
   it('reports each series under one name, every step timer as its step id plus Legacy', async () => {

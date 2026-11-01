@@ -13,11 +13,12 @@ import type { TimerResult } from './types';
 /**
  * Harness steps shared by the onboarding and import journeys: loading the home
  * page after side-panel onboarding, waits that set the app's state before a
- * step's trigger, and the read of the app's `UI Startup` span for the home
- * page the harness loads.
+ * step's trigger, a read of that state just before one, and the read of the
+ * app's `UI Startup` span for the home page the harness loads.
  *
- * Each wait runs outside every timer, and only when its switch is set to `1`.
- * Unset, a flow runs exactly as it did before the switch existed.
+ * Each wait and the read before a trigger run outside every timer, and only
+ * when their switch is set to `1`. Unset, a flow runs exactly as it did before
+ * the switch existed.
  */
 
 /**
@@ -32,6 +33,15 @@ export const PAGE_IDLE_BEFORE_STEP = 'BENCHMARK_PAGE_IDLE_BEFORE_STEP';
  */
 export const ACCOUNT_SYNC_IDLE_BEFORE_STEP =
   'BENCHMARK_ACCOUNT_SYNC_IDLE_BEFORE_STEP';
+
+/**
+ * Immediately before the account-list step's trigger, read the flag that wait
+ * waits on, once, for the step's readings line: see
+ * {@link readAccountSyncFlagBeforeTrigger}. Independent of the wait, so both
+ * arms of the wait can carry it.
+ */
+export const ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER =
+  'BENCHMARK_ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER';
 
 /**
  * In the new-wallet flow, sample every trace and read the app's `UI Startup`
@@ -146,6 +156,73 @@ export async function waitForAccountSyncIdleBeforeStep(
     return;
   }
   await waitUntilAccountTreeSyncIdle(driver);
+}
+
+type StateHooksHost = {
+  stateHooks?: {
+    getCleanAppState?: () => Promise<{
+      metamask?: { isAccountTreeSyncingInProgress?: unknown };
+    }>;
+  };
+};
+
+/**
+ * Read `metamask.isAccountTreeSyncingInProgress` from the app's state, the
+ * field `waitUntilAccountTreeSyncIdle` checks, through the same state hook.
+ * Runs in the page, through `executeScript`, which awaits the returned
+ * promise; only the flag crosses back, not the whole state. `stateHooks` is
+ * on every build's LavaMoat scuttling exception list.
+ *
+ * @returns The flag, or null when the hook or the field is missing.
+ */
+export function readAccountTreeSyncingInProgress(): Promise<
+  boolean | null
+> | null {
+  const hooks = (window as unknown as StateHooksHost).stateHooks;
+  if (typeof hooks?.getCleanAppState !== 'function') {
+    return null;
+  }
+  return hooks.getCleanAppState().then((state) => {
+    const syncing = state?.metamask?.isAccountTreeSyncingInProgress;
+    return typeof syncing === 'boolean' ? syncing : null;
+  });
+}
+
+/**
+ * When `BENCHMARK_ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER=1`, read the account-sync
+ * flag once, for the step's readings line. Pass it as `measureStepInPage`'s
+ * `readBeforeTrigger`, so it runs after the probe is installed and just
+ * before the click, outside both of the step's timers.
+ *
+ * The flag also reads false before a sync has begun, so a false here does not
+ * by itself say a sync finished.
+ *
+ * @param driver - The WebDriver instance.
+ * @returns The readings-line part, or nothing when the switch is unset. Never
+ * throws.
+ */
+export async function readAccountSyncFlagBeforeTrigger(
+  driver: Driver,
+): Promise<string[]> {
+  if (process.env[ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER] !== '1') {
+    return [];
+  }
+  try {
+    const syncing = (await driver.executeScript(
+      readAccountTreeSyncingInProgress,
+    )) as unknown;
+    return [
+      typeof syncing === 'boolean'
+        ? `isAccountTreeSyncingInProgress ${syncing} before the trigger`
+        : 'isAccountTreeSyncingInProgress unreadable before the trigger: the app reported no flag',
+    ];
+  } catch (error) {
+    return [
+      `isAccountTreeSyncingInProgress unreadable before the trigger: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    ];
+  }
 }
 
 /**

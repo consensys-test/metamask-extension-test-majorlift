@@ -37,6 +37,7 @@ import {
 } from '../../utils/in-page-step-timer';
 import {
   loadHomeAfterSidepanelOnboarding,
+  readAccountSyncFlagBeforeTrigger,
   readCurrentDocumentUiStartup,
   waitForAccountSyncIdleBeforeStep,
   waitForPageIdleBeforeStep,
@@ -336,6 +337,9 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
         // `BENCHMARK_ACCOUNT_SYNC_IDLE_BEFORE_STEP=1` the click waits until
         // the app reports account syncing idle, so the step starts with no
         // sync reported in progress rather than straight after the Solana row.
+        // With `BENCHMARK_ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER=1`, either way, the
+        // harness reads the same flag once just before the click, outside both
+        // timers, and the step's readings line reports it.
         await waitForAccountSyncIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(
@@ -343,6 +347,7 @@ export async function runOnboardingImportWalletBenchmark(): Promise<BenchmarkRun
             'openAccountMenuToAccountListLoaded',
             {
               endSelector: IN_PAGE_DESTINATIONS.accountList,
+              readBeforeTrigger: () => readAccountSyncFlagBeforeTrigger(driver),
               trigger: () =>
                 driver.clickElement('[data-testid="account-menu-icon"]'),
               settle: async () => {

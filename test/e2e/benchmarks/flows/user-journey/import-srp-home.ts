@@ -100,7 +100,10 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         // timer also covers typing the password; the in-page timer starts on
         // the Unlock click, which is what triggers the step. With
         // `BENCHMARK_PAGE_IDLE_BEFORE_STEP=1` the step starts once the login
-        // page has gone idle, rather than straight after its check.
+        // page has gone idle, rather than straight after its check. With
+        // `BENCHMARK_TYPED_KEY_BEFORE_TRIGGER=1` the probe also records when
+        // the last password character arrived, and the readings line gives it
+        // from the Unlock pointerdown.
         await driver.navigate();
         const loginPage = new LoginPage(driver);
         await loginPage.checkPageIsLoaded();
@@ -108,6 +111,7 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         const loginProbe = await startInPageStep(driver, 'loginToHomeScreen', {
           endSelector: IN_PAGE_DESTINATIONS.home,
           startWithin: '[data-testid="unlock-submit"]',
+          recordTypingBeforeTrigger: true,
         });
         steps.push(
           await measureStepWithLongTasks(

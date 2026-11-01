@@ -34,6 +34,7 @@ import {
   DAPP_PAGE_LOAD_BENCHMARK_SPEC_BASENAME,
 } from './utils/constants';
 import { THRESHOLD_REGISTRY } from './utils/thresholds';
+import { inPageCpuProbeReader } from './utils/in-page-cpu-probe';
 import {
   validateResultThresholds,
   logThresholdResult,
@@ -215,6 +216,7 @@ async function runBenchmarkFile(
       options.iterations,
       options.retries,
       thresholdConfig,
+      inPageCpuProbeReader(),
     );
 
     console.log(

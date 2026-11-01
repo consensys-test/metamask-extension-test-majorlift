@@ -4,6 +4,7 @@ import {
   IN_PAGE_DESTINATIONS,
   KNOWN_ANSWER_INPAGE_MS,
   KNOWN_ANSWER_INPAGE_STEP,
+  TYPED_KEY_BEFORE_TRIGGER,
   assetPriceChartDestination,
   describeRequestsWithinInPageStep,
   finishInPageStep,
@@ -79,6 +80,7 @@ function install(config: Partial<InPageProbeConfig> = {}): string | null {
       boundMs: 60_000,
       holdMs: 0,
       resetLongTasks: false,
+      typedBeforeTrigger: false,
       ...config,
     },
   ]);
@@ -127,6 +129,7 @@ describe('in-page-step-timer', () => {
     delete host.stateHooks;
     delete process.env[KNOWN_ANSWER_INPAGE_MS];
     delete process.env[KNOWN_ANSWER_INPAGE_STEP];
+    delete process.env[TYPED_KEY_BEFORE_TRIGGER];
     document.body.innerHTML = '';
     jest.restoreAllMocks();
     jest.useRealTimers();
@@ -167,6 +170,8 @@ describe('in-page-step-timer', () => {
         startTimeStamp: 1000,
         typedKeys: 0,
         lastTypedAt: null,
+        typedBeforeTriggerTimeStamp: null,
+        typedBeforeTriggerAt: null,
         heldMs: 0,
         longTasksReset: false,
         epochOffset: Date.now() - 1103,
@@ -555,6 +560,8 @@ describe('in-page-step-timer', () => {
         startTimeStamp: 1_700_000_000_000,
         typedKeys: 0,
         lastTypedAt: null,
+        typedBeforeTriggerTimeStamp: null,
+        typedBeforeTriggerAt: null,
         heldMs: 0,
         longTasksReset: false,
         epochOffset: 0,
@@ -565,6 +572,105 @@ describe('in-page-step-timer', () => {
       ]);
       expect(log).toHaveBeenCalledWith(
         "[benchmark] step readings: event.timeStamp 1700000000000.0 is not on the listener's clock (1000.0)",
+      );
+    });
+
+    it('with `typedBeforeTrigger`, records the last character typed before the trigger and logs it from the trigger', async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      install({ startWithin: '#go', typedBeforeTrigger: true });
+      const field = element('#field');
+
+      // The clear chord `driver.fill` sends first is not a typed character.
+      now = 700;
+      trustedInput('keydown', field, {
+        key: 'a',
+        ctrlKey: true,
+        timeStamp: 699,
+      });
+      now = 802;
+      trustedInput('keydown', field, { key: 'p', timeStamp: 800 });
+      now = 853;
+      trustedInput('keydown', field, { key: 'w', timeStamp: 850 });
+      now = 900;
+      trustedInput('pointerdown', element('#field'), { timeStamp: 900 });
+      now = 1072;
+      trustedInput('pointerdown', element('#go'), { timeStamp: 960 });
+      now = 1300;
+      addElement('destination');
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).toMatchObject({
+        start: 1072,
+        startTimeStamp: 960,
+        typedKeys: 0,
+        lastTypedAt: null,
+        typedBeforeTriggerTimeStamp: 850,
+        typedBeforeTriggerAt: 853,
+      });
+      // The value still starts at the trigger.
+      expect(inPageTimerResult('step', reading)).toStrictEqual([
+        { id: 'step', value: 228, unit: 'ms' },
+      ]);
+      expect(log).toHaveBeenCalledWith(
+        "[benchmark] step readings: input delay 112.0 ms (event.timeStamp to listener); last key typed before the trigger at -110.0 ms, its listener at -107.0 ms (from the trigger's event.timeStamp)",
+      );
+    });
+
+    it('records nothing typed before the trigger unless asked', async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      install({ startWithin: '#go' });
+
+      now = 850;
+      trustedInput('keydown', element('#field'), { key: 'p' });
+      now = 1000;
+      trustedInput('pointerdown', element('#go'));
+      now = 1100;
+      addElement('destination');
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).toMatchObject({
+        typedBeforeTriggerTimeStamp: null,
+        typedBeforeTriggerAt: null,
+      });
+      inPageTimerResult('step', reading);
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] step readings: input delay 0.0 ms (event.timeStamp to listener)',
+      );
+    });
+
+    it('appends what the harness read around the trigger to the readings line', () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      const reading: InPageProbeReading = {
+        start: 1000,
+        end: 1100,
+        startEvent: 'pointerdown',
+        preexisting: false,
+        extraInputs: 0,
+        timedOut: false,
+        unobserved: false,
+        startTimeStamp: 998,
+        typedKeys: 0,
+        lastTypedAt: null,
+        typedBeforeTriggerTimeStamp: null,
+        typedBeforeTriggerAt: null,
+        heldMs: 0,
+        longTasksReset: false,
+        epochOffset: 0,
+      };
+
+      expect(
+        inPageTimerResult('step', reading, ['flag false before the trigger']),
+      ).toStrictEqual([{ id: 'step', value: 100, unit: 'ms' }]);
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] step readings: input delay 2.0 ms (event.timeStamp to listener); flag false before the trigger',
       );
     });
   });
@@ -725,8 +831,35 @@ describe('in-page-step-timer', () => {
             boundMs: 60_000,
             holdMs: 0,
             resetLongTasks: false,
+            typedBeforeTrigger: false,
           },
         ]);
+      });
+
+      it('records typing before the trigger only for a step that asks, and only with the switch set', async () => {
+        const { driver, configs } = configCapturingDriver();
+
+        await startInPageStep(driver, 'asks', {
+          endSelector: '#destination',
+          recordTypingBeforeTrigger: true,
+        });
+        process.env[TYPED_KEY_BEFORE_TRIGGER] = '1';
+        await startInPageStep(driver, 'asks', {
+          endSelector: '#destination',
+          recordTypingBeforeTrigger: true,
+        });
+        await startInPageStep(driver, 'doesNotAsk', {
+          endSelector: '#destination',
+        });
+        process.env[TYPED_KEY_BEFORE_TRIGGER] = '0';
+        await startInPageStep(driver, 'asks', {
+          endSelector: '#destination',
+          recordTypingBeforeTrigger: true,
+        });
+
+        expect(
+          configs.map((config) => config.typedBeforeTrigger),
+        ).toStrictEqual([false, true, false, false]);
       });
 
       it('throws, and installs nothing, when the hold names no step', async () => {
@@ -922,6 +1055,77 @@ describe('in-page-step-timer', () => {
       });
     });
 
+    it('reads once after install and before the trigger, and puts the read on the readings line', async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      const { driver, order } = fakeDriver();
+      captureInputHandler();
+
+      const result = await measureStepInPage(driver, 'step', {
+        endSelector: '#destination',
+        readBeforeTrigger: async () => {
+          order.push('readBeforeTrigger');
+          return ['flag true before the trigger'];
+        },
+        trigger: async () => {
+          order.push('trigger');
+          now = 1000;
+          trustedInput('pointerdown', element('#go'));
+        },
+        settle: async () => {
+          order.push('settle');
+          now = 1250;
+          addElement('destination');
+          await deliverMutations();
+        },
+      });
+
+      expect(order).toStrictEqual([
+        'executeScript:installInPageStepProbe',
+        'readBeforeTrigger',
+        'trigger',
+        'settle',
+        'executeScript:readInPageStepProbe',
+      ]);
+      // The read is outside the value, which starts at the trigger.
+      expect(result).toStrictEqual([{ id: 'step', value: 250, unit: 'ms' }]);
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] step readings: input delay 0.0 ms (event.timeStamp to listener); flag true before the trigger',
+      );
+    });
+
+    it('reports a read before the trigger that throws, and still runs the step', async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      const { driver } = fakeDriver();
+      captureInputHandler();
+      const trigger = jest.fn(async () => {
+        now = 1000;
+        trustedInput('pointerdown', element('#go'));
+      });
+
+      const result = await measureStepInPage(driver, 'step', {
+        endSelector: '#destination',
+        readBeforeTrigger: async () => {
+          throw new Error('no such window');
+        },
+        trigger,
+        settle: async () => {
+          now = 1100;
+          addElement('destination');
+          await deliverMutations();
+        },
+      });
+
+      expect(trigger).toHaveBeenCalledTimes(1);
+      expect(result).toStrictEqual([{ id: 'step', value: 100, unit: 'ms' }]);
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] step readings: input delay 0.0 ms (event.timeStamp to listener); the read before the trigger failed: no such window',
+      );
+    });
+
     it('propagates an error from the timed wait, as the step always has', async () => {
       const { driver } = fakeDriver();
 
@@ -1008,6 +1212,8 @@ describe('in-page-step-timer', () => {
         startTimeStamp: 1000,
         typedKeys: 0,
         lastTypedAt: null,
+        typedBeforeTriggerTimeStamp: null,
+        typedBeforeTriggerAt: null,
         heldMs: 0,
         longTasksReset: false,
         epochOffset: EPOCH,

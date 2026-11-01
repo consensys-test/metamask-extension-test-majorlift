@@ -23,6 +23,7 @@ import {
   KNOWN_ANSWER_TOKEN_SEARCH_DELAY,
   withKnownAnswerDelay,
 } from '../../mocks/known-answer';
+import bridgeTokensPopular from '../../mocks/bridge-tokens-popular.json';
 import {
   IN_PAGE_DESTINATIONS,
   finishInPageStep,
@@ -30,6 +31,7 @@ import {
   startInPageStep,
   type InPageStepReading,
 } from '../../utils/in-page-step-timer';
+import { waitForPageIdleBeforeStep } from '../../utils/sidepanel-onboarding';
 import {
   BENCHMARK_PERSONA,
   BENCHMARK_TYPE,
@@ -67,6 +69,31 @@ async function mockTokensEthereum(mockServer: Mockttp) {
   );
 }
 
+/**
+ * Answer the swap page's popular-token request with the list the swap flow's
+ * mocks serve. Unset, this flow leaves it to the default mocks, whose
+ * catch-all answers 200 with no body. The app then fails to parse it, Chrome
+ * reports `SyntaxError: Unexpected end of JSON input` in some iterations, and
+ * `withFixtures` fails each of those once the flow returns. Changes what the
+ * bridge steps run against, so it is off unless set to `1`.
+ */
+export const BRIDGE_POPULAR_TOKENS_MOCK =
+  'BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK';
+
+async function mockPopularTokens(mockServer: Mockttp) {
+  return await mockServer
+    .forPost(/getTokens\/popular/u)
+    .thenCallback(() => ({ statusCode: 200, json: bridgeTokensPopular }));
+}
+
+async function mockBridgeEndpoints(mockServer: Mockttp) {
+  const endpoints = [await mockTokensEthereum(mockServer)];
+  if (process.env[BRIDGE_POPULAR_TOKENS_MOCK] === '1') {
+    endpoints.push(await mockPopularTokens(mockServer));
+  }
+  return endpoints;
+}
+
 export async function run(): Promise<BenchmarkRunResult> {
   return runUserActionBenchmark(async () => {
     let loadPage: number = 0;
@@ -87,7 +114,7 @@ export async function run(): Promise<BenchmarkRunResult> {
       {
         fixtures: fixtureBuilder.build(),
         disableServerMochaToBackground: true,
-        testSpecificMock: mockTokensEthereum,
+        testSpecificMock: mockBridgeEndpoints,
         title: testTitle,
         manifestFlags: {
           remoteFeatureFlags: {
@@ -149,7 +176,10 @@ export async function run(): Promise<BenchmarkRunResult> {
         }
 
         // Measure: source asset button to the asset picker's search field.
+        // With `BENCHMARK_PAGE_IDLE_BEFORE_STEP=1` the step starts once the
+        // swap page has gone idle, outside both timers.
         await driver.findClickableElement(quotePage.sourceAssetPickerButton);
+        await waitForPageIdleBeforeStep(driver);
         const assetPickerProbe = await startInPageStep(
           driver,
           'bridge_load_asset_picker',

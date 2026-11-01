@@ -35,6 +35,7 @@ import {
   getTestSpecificMock,
   shouldUseMockedRequests,
 } from '../../utils/mock-config';
+import { waitForPageIdleBeforeStep } from '../../utils/sidepanel-onboarding';
 import {
   BENCHMARK_PERSONA,
   BENCHMARK_TYPE,
@@ -128,7 +129,10 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         // The long-task window opens at the click too: the probe resets it at
         // the trigger, as the bridge flow resets before its click, so long
         // tasks the click causes are inside it. Without a probe, the step
-        // resets after the click, as before.
+        // resets after the click, as before. With
+        // `BENCHMARK_PAGE_IDLE_BEFORE_STEP=1` the step starts once the home
+        // page has gone idle, outside both timers.
+        await waitForPageIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'openSwapPageFromHome', {
             endSelector: IN_PAGE_DESTINATIONS.swapPage,

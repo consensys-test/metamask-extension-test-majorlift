@@ -49,8 +49,11 @@ import {
 import type { PreparedMetricSample } from './statistics';
 import type {
   BenchmarkFunction,
+  BenchmarkHost,
   BenchmarkRunResult,
   BenchmarkSummary,
+  InPageCpuProbeReading,
+  InPageCpuProbeRecord,
   MeasurePageResult,
   Metrics,
   NetworkReport,
@@ -236,12 +239,50 @@ export async function collectGarbageBetweenIterations(
   }
 }
 
+/**
+ * Take one in-page CPU probe reading and log it. A reader that throws gives
+ * a reading with an `error`, so the iterations go on.
+ *
+ * @param read - The probe reader.
+ * @param position - Where the reading sits among the iterations, for the log.
+ */
+async function readInPageCpuProbeAt(
+  read: () => Promise<InPageCpuProbeReading>,
+  position: string,
+): Promise<InPageCpuProbeReading> {
+  let reading: InPageCpuProbeReading;
+  try {
+    reading = await read();
+  } catch (error) {
+    reading = { error: error instanceof Error ? error.message : String(error) };
+  }
+  console.log(
+    'ms' in reading
+      ? `[benchmark] in-page CPU probe ${position}: ${reading.ms.toFixed(1)} ms`
+      : `[benchmark] in-page CPU probe ${position} absent: ${reading.error}`,
+  );
+  return reading;
+}
+
+/**
+ * Run a benchmark's iterations and aggregate them.
+ *
+ * @param name - The benchmark's name, for reports.
+ * @param benchmarkFn - Runs one iteration.
+ * @param iterations - How many iterations to run, the warm-up included.
+ * @param retries - Retries of a failed iteration.
+ * @param thresholdConfig - The thresholds to check the statistics against.
+ * @param readInPageCpuProbe - When given, read before iteration 0 and after
+ * each iteration, outside them, and kept in the summary
+ * (`in-page-cpu-probe.ts`). Not given, nothing runs between iterations.
+ */
 export async function runBenchmarkWithIterations(
   name: string,
   benchmarkFn: BenchmarkFunction,
   iterations: number,
   retries: number,
   thresholdConfig: ThresholdConfig,
+  readInPageCpuProbe?: () => Promise<InPageCpuProbeReading>,
 ): Promise<BenchmarkSummary> {
   if (iterations <= WARMUP_RUNS) {
     throw new Error(
@@ -252,6 +293,15 @@ export async function runBenchmarkWithIterations(
   const allResults: BenchmarkRunResult[] = [];
   let successfulRuns = 0;
   let failedRuns = 0;
+  const inPageCpuProbe: InPageCpuProbeRecord | undefined = readInPageCpuProbe
+    ? {
+        beforeIteration0: await readInPageCpuProbeAt(
+          readInPageCpuProbe,
+          'before iteration 0',
+        ),
+        afterIteration: [],
+      }
+    : undefined;
 
   for (let i = 0; i < iterations; i++) {
     const result = await runWithRetries(benchmarkFn, retries);
@@ -266,6 +316,12 @@ export async function runBenchmarkWithIterations(
       }
     } else {
       failedRuns += 1;
+    }
+
+    if (readInPageCpuProbe && inPageCpuProbe) {
+      inPageCpuProbe.afterIteration.push(
+        await readInPageCpuProbeAt(readInPageCpuProbe, `after iteration ${i}`),
+      );
     }
   }
 
@@ -412,6 +468,7 @@ export async function runBenchmarkWithIterations(
     thresholdViolations: thresholdResult?.violations ?? [],
     thresholdsPassed: thresholdResult?.passed ?? true,
     ...(webVitalsSummary && { webVitals: webVitalsSummary }),
+    ...(inPageCpuProbe && { inPageCpuProbe }),
     // Carry the reasons only when nothing succeeded. Each failed iteration
     // already records why it failed; that was discarded here, so a benchmark
     // whose every iteration threw produced empty statistics and no trace of
@@ -522,7 +579,7 @@ export function convertSummaryToResults(
   platform?: string,
   buildType?: string,
 ): BenchmarkResults {
-  const results = convertTimerStatisticsToBenchmarkResults(
+  const converted = convertTimerStatisticsToBenchmarkResults(
     summary.timers,
     testTitle,
     persona,
@@ -531,6 +588,13 @@ export function convertSummaryToResults(
     buildType,
     summary.webVitals,
   );
+  // The in-page CPU probe's readings go beside the host fields, which are
+  // captured once, here, after the iterations.
+  const host: BenchmarkHost | undefined = summary.inPageCpuProbe && {
+    ...converted.host,
+    inPageCpuProbe: summary.inPageCpuProbe,
+  };
+  const results = host ? { ...converted, host } : converted;
 
   if (summary.successfulRuns > 0) {
     return results;

@@ -1,6 +1,7 @@
 import type {
   Persona,
   BenchmarkType,
+  HostProvenance,
   WebVitalsMetrics,
   WebVitalsSummary,
   TimerStatistics,
@@ -123,6 +124,33 @@ export type BenchmarkSummary = {
    * artifact from one that ran clean: the statistics are simply empty.
    */
   iterationErrors?: string[];
+  /** The in-page CPU probe's readings, when it ran (`in-page-cpu-probe.ts`). */
+  inPageCpuProbe?: InPageCpuProbeRecord;
+};
+
+/**
+ * One reading of the in-page CPU probe: how long the page took over the
+ * probe's fixed work, or why there is no time.
+ */
+export type InPageCpuProbeReading = { ms: number } | { error: string };
+
+/** The in-page CPU probe's readings over one flow's iterations. */
+export type InPageCpuProbeRecord = {
+  /** Read before the first iteration, the warm-up, started. */
+  beforeIteration0: InPageCpuProbeReading;
+  /**
+   * One reading per iteration, in order: entry `i` is read after iteration
+   * `i` and its retries have finished, and before the next one starts.
+   */
+  afterIteration: InPageCpuProbeReading[];
+};
+
+/**
+ * The `host` of a flow's result. When the in-page CPU probe ran, its readings
+ * sit beside the host fields the runner always captures.
+ */
+export type BenchmarkHost = HostProvenance & {
+  inPageCpuProbe?: InPageCpuProbeRecord;
 };
 
 /**

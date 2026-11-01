@@ -4,8 +4,11 @@ import { waitUntilAccountTreeSyncIdle } from '../../page-objects/flows/add-accou
 import type { Driver } from '../../webdriver/driver';
 import type { SentryTransaction } from './sentry-transactions';
 import {
+  ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER,
   ACCOUNT_SYNC_IDLE_BEFORE_STEP,
   PAGE_IDLE_BEFORE_STEP,
+  readAccountSyncFlagBeforeTrigger,
+  readAccountTreeSyncingInProgress,
   readCurrentDocumentUiStartup,
   readDocumentTimeOrigin,
   resolveAfterTwoIdlePeriods,
@@ -198,6 +201,104 @@ describe('waitForAccountSyncIdleBeforeStep', () => {
     await waitForAccountSyncIdleBeforeStep(driver);
 
     expect(waitUntilAccountTreeSyncIdle).toHaveBeenCalledWith(driver);
+  });
+});
+
+describe('readAccountSyncFlagBeforeTrigger', () => {
+  const original = process.env[ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER];
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env[ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER];
+    } else {
+      process.env[ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER] = original;
+    }
+  });
+
+  /**
+   * A driver whose `executeScript` resolves to `value`, or rejects with it
+   * when it is an `Error`.
+   *
+   * @param value - What the page returns.
+   * @returns The driver.
+   */
+  function pageReturning(value: unknown): Driver {
+    return {
+      executeScript: jest.fn(async () => {
+        if (value instanceof Error) {
+          throw value;
+        }
+        return value;
+      }),
+    } as unknown as Driver;
+  }
+
+  it('reads nothing in the page when the switch is unset or 0', async () => {
+    const driver = pageReturning(true);
+
+    delete process.env[ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER];
+    expect(await readAccountSyncFlagBeforeTrigger(driver)).toStrictEqual([]);
+    process.env[ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER] = '0';
+    expect(await readAccountSyncFlagBeforeTrigger(driver)).toStrictEqual([]);
+    expect(driver.executeScript).not.toHaveBeenCalled();
+  });
+
+  it('reads the flag once in the page when the switch is 1, for the readings line', async () => {
+    process.env[ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER] = '1';
+    const syncing = pageReturning(true);
+    const idle = pageReturning(false);
+
+    expect(await readAccountSyncFlagBeforeTrigger(syncing)).toStrictEqual([
+      'isAccountTreeSyncingInProgress true before the trigger',
+    ]);
+    expect(await readAccountSyncFlagBeforeTrigger(idle)).toStrictEqual([
+      'isAccountTreeSyncingInProgress false before the trigger',
+    ]);
+    expect(syncing.executeScript).toHaveBeenCalledTimes(1);
+    expect(syncing.executeScript).toHaveBeenCalledWith(
+      readAccountTreeSyncingInProgress,
+    );
+  });
+
+  it('says so, without throwing, when the page reports no flag or cannot be read', async () => {
+    process.env[ACCOUNT_SYNC_FLAG_BEFORE_TRIGGER] = '1';
+
+    expect(
+      await readAccountSyncFlagBeforeTrigger(pageReturning(null)),
+    ).toStrictEqual([
+      'isAccountTreeSyncingInProgress unreadable before the trigger: the app reported no flag',
+    ]);
+    expect(
+      await readAccountSyncFlagBeforeTrigger(
+        pageReturning(new Error('no such window')),
+      ),
+    ).toStrictEqual([
+      'isAccountTreeSyncingInProgress unreadable before the trigger: no such window',
+    ]);
+  });
+});
+
+describe('readAccountTreeSyncingInProgress', () => {
+  type StateHooksWindow = { stateHooks?: Record<string, unknown> };
+  afterEach(() => {
+    delete (window as unknown as StateHooksWindow).stateHooks;
+  });
+
+  it("returns the app state's account-sync flag, and nothing else of the state", async () => {
+    (window as unknown as StateHooksWindow).stateHooks = {
+      getCleanAppState: async () => ({
+        metamask: { isAccountTreeSyncingInProgress: true, accounts: {} },
+      }),
+    };
+
+    expect(await readAccountTreeSyncingInProgress()).toBe(true);
+  });
+
+  it('returns null when the hook or the field is missing', async () => {
+    expect(readAccountTreeSyncingInProgress()).toBeNull();
+    (window as unknown as StateHooksWindow).stateHooks = {
+      getCleanAppState: async () => ({ metamask: {} }),
+    };
+    expect(await readAccountTreeSyncingInProgress()).toBeNull();
   });
 });
 

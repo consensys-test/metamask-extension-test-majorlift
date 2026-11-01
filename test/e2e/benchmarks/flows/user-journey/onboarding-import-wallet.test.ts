@@ -149,11 +149,20 @@ jest.mock('../../utils/in-page-step-timer', () => ({
       _driver: unknown,
       id: string,
       {
+        readBeforeTrigger,
         trigger,
         settle,
-      }: { trigger: () => Promise<void>; settle: () => Promise<void> },
+      }: {
+        readBeforeTrigger?: () => Promise<readonly string[]>;
+        trigger: () => Promise<void>;
+        settle: () => Promise<void>;
+      },
     ) => {
       mockEvents.push(`probe:${id}`);
+      if (readBeforeTrigger) {
+        const parts = await readBeforeTrigger();
+        mockEvents.push(`readBeforeTrigger:${id}:${parts.join('|')}`);
+      }
       await trigger();
       await settle();
       mockEvents.push(`read:${id}`);
@@ -181,6 +190,10 @@ jest.mock('../../utils/sidepanel-onboarding', () => ({
   }),
   waitForAccountSyncIdleBeforeStep: jest.fn(async () => {
     mockEvents.push('accountSyncIdle');
+  }),
+  readAccountSyncFlagBeforeTrigger: jest.fn(async () => {
+    mockEvents.push('accountSyncFlag');
+    return ['isAccountTreeSyncingInProgress false before the trigger'];
   }),
 }));
 jest.mock('../../utils/sentry-transactions', () => ({
@@ -337,6 +350,29 @@ describe('runOnboardingImportWalletBenchmark', () => {
     expect(at('accountSyncIdle')).toBeLessThan(
       at('probe:openAccountMenuToAccountListLoaded'),
     );
+  });
+
+  it('reads the account-sync flag once, after the account-list probe and before its trigger and step timer', async () => {
+    await run('chrome');
+
+    expect(
+      mockEvents.filter((event) => event === 'accountSyncFlag'),
+    ).toHaveLength(1);
+    expect(at('accountSyncIdle')).toBeLessThan(
+      at('probe:openAccountMenuToAccountListLoaded'),
+    );
+    expect(at('probe:openAccountMenuToAccountListLoaded')).toBeLessThan(
+      at('accountSyncFlag'),
+    );
+    expect(at('accountSyncFlag')).toBeLessThan(
+      at('timer:openAccountMenuToAccountListLoaded'),
+    );
+    // What it read goes to the step's readings line, and no other step reads.
+    expect(
+      mockEvents.filter((event) => event.startsWith('readBeforeTrigger:')),
+    ).toStrictEqual([
+      'readBeforeTrigger:openAccountMenuToAccountListLoaded:isAccountTreeSyncingInProgress false before the trigger',
+    ]);
   });
 
   it('reads UI Startup on Chrome after the last timer, under a name for the harness navigation', async () => {

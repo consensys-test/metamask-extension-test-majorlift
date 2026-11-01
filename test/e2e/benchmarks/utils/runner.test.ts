@@ -10,6 +10,7 @@ import {
   applyStartupPageSignals,
   boundLongTasksToStartup,
   collectGarbageBetweenIterations,
+  convertSummaryToResults,
   convertTimerStatisticsToBenchmarkResults,
   documentStartDelaySource,
   installDocumentStartDelay,
@@ -24,7 +25,12 @@ import type {
   PreparedWebVitalsRun,
   StartupMeasurePageResult,
 } from './runner';
-import type { BenchmarkRunResult, Metrics } from './types';
+import type {
+  BenchmarkRunResult,
+  BenchmarkSummary,
+  InPageCpuProbeReading,
+  Metrics,
+} from './types';
 
 jest.mock('./host-provenance', () => ({
   captureHostProvenance: () => ({ label: 'test' }),
@@ -303,6 +309,172 @@ describe('runBenchmarkWithIterations', () => {
       runBenchmarkWithIterations('flow', benchmarkFn, 1, 0, {}),
     ).rejects.toThrow('iterations (1) must be greater than WARMUP_RUNS (1)');
     expect(benchmarkFn).not.toHaveBeenCalled();
+  });
+
+  describe('in-page CPU probe', () => {
+    beforeEach(() => {
+      jest.spyOn(console, 'log').mockImplementation(() => undefined);
+      // `retry` logs each failed iteration.
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('reads before iteration 0 and after each iteration, outside them, and keeps the readings', async () => {
+      const order: string[] = [];
+      let calls = 0;
+      const benchmarkFn = jest.fn(async (): Promise<BenchmarkRunResult> => {
+        order.push(`iteration ${calls}`);
+        calls += 1;
+        return { success: true, timers: [{ id: 'step', value: 100 }] };
+      });
+      let reads = 0;
+      const read = jest.fn(async (): Promise<InPageCpuProbeReading> => {
+        order.push('probe');
+        reads += 1;
+        return { ms: 60 + reads };
+      });
+
+      const summary = await runBenchmarkWithIterations(
+        'flow',
+        benchmarkFn,
+        3,
+        0,
+        {},
+        read,
+      );
+
+      expect(order).toStrictEqual([
+        'probe',
+        'iteration 0',
+        'probe',
+        'iteration 1',
+        'probe',
+        'iteration 2',
+        'probe',
+      ]);
+      expect(summary.inPageCpuProbe).toStrictEqual({
+        beforeIteration0: { ms: 61 },
+        afterIteration: [{ ms: 62 }, { ms: 63 }, { ms: 64 }],
+      });
+      expect(console.log).toHaveBeenCalledWith(
+        '[benchmark] in-page CPU probe before iteration 0: 61.0 ms',
+      );
+      expect(console.log).toHaveBeenCalledWith(
+        '[benchmark] in-page CPU probe after iteration 2: 64.0 ms',
+      );
+      // The readings are not timers, so no statistic is made of them.
+      expect(summary.timers.map((timer) => timer.id)).toStrictEqual([
+        'step',
+        'total',
+      ]);
+    });
+
+    it('reads after a failed iteration too, and keeps a reader that throws as an error', async () => {
+      const benchmarkFn = jest.fn(
+        async (): Promise<BenchmarkRunResult> => ({
+          success: false,
+          timers: [],
+          error: 'failed',
+        }),
+      );
+      const read = jest
+        .fn<Promise<InPageCpuProbeReading>, []>()
+        .mockResolvedValueOnce({ ms: 61 })
+        .mockRejectedValueOnce(new Error('session failed'))
+        .mockResolvedValueOnce({ error: 'the page returned null' });
+
+      const summary = await runBenchmarkWithIterations(
+        'flow',
+        benchmarkFn,
+        2,
+        0,
+        {},
+        read,
+      );
+
+      expect(summary.inPageCpuProbe).toStrictEqual({
+        beforeIteration0: { ms: 61 },
+        afterIteration: [
+          { error: 'session failed' },
+          { error: 'the page returned null' },
+        ],
+      });
+      expect(console.log).toHaveBeenCalledWith(
+        '[benchmark] in-page CPU probe after iteration 0 absent: session failed',
+      );
+    });
+
+    it('runs nothing between iterations without a reader', async () => {
+      const summary = await runBenchmarkWithIterations(
+        'flow',
+        iterationsOf([500, 100]),
+        2,
+        0,
+        {},
+      );
+
+      expect(summary).not.toHaveProperty('inPageCpuProbe');
+      expect(console.log).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('convertSummaryToResults', () => {
+  /**
+   * A summary of one flow's iterations.
+   *
+   * @param overrides - Fields to replace.
+   * @returns The summary.
+   */
+  function summaryOf(
+    overrides: Partial<BenchmarkSummary> = {},
+  ): BenchmarkSummary {
+    return {
+      name: 'flow',
+      iterations: 2,
+      successfulRuns: 2,
+      failedRuns: 0,
+      timers: [createTimerStats('step')],
+      timestamp: '2026-10-31T00:00:00.000Z',
+      excludedDueToQuality: 0,
+      exclusionRatePassed: true,
+      exclusionRate: 0,
+      thresholdViolations: [],
+      thresholdsPassed: true,
+      ...overrides,
+    };
+  }
+
+  const inPageCpuProbe = {
+    beforeIteration0: { ms: 61 },
+    afterIteration: [{ ms: 62 }, { error: 'session failed' }],
+  };
+
+  it('puts the in-page CPU probe readings beside the host fields', () => {
+    const results = convertSummaryToResults(
+      summaryOf({ inPageCpuProbe }),
+      'flow',
+    );
+
+    expect(results.host).toStrictEqual({ label: 'test', inPageCpuProbe });
+  });
+
+  it('keeps them when every iteration failed', () => {
+    const results = convertSummaryToResults(
+      summaryOf({ successfulRuns: 0, failedRuns: 2, inPageCpuProbe }),
+      'flow',
+    );
+
+    expect(results.error).toMatch(/^every iteration failed/u);
+    expect(results.host).toStrictEqual({ label: 'test', inPageCpuProbe });
+  });
+
+  it('leaves the host fields as they are when the probe did not run', () => {
+    const results = convertSummaryToResults(summaryOf(), 'flow');
+
+    expect(results.host).toStrictEqual({ label: 'test' });
   });
 });
 
