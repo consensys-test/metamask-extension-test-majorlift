@@ -16,7 +16,7 @@ permissions:
 jobs:
   benchmarks:
     if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
-    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}
+    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.suffix }}
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
     strategy:
@@ -26,17 +26,42 @@ jobs:
         # and must stay in sync with benchmark-command (startupPowerUserHome uses extra flags).
         #
         # Startup + interaction + user journeys: chrome/firefox × webpack × preset (test build: build-test-webpack / build-test-mv2-webpack).
-        browser: [chrome, firefox]
+        # Stage 4 window (s4f): chrome only, and no startup preset (rule.md sections 1 and 4).
+        browser: [chrome]
         buildType: [webpack]
-        pageType:
-          - startupStandardHome
-          - startupPowerUserHome
-          - interactionUserActions
-          - userJourneyOnboardingImport
-          - userJourneyOnboardingNew
-          - userJourneyAssets
-          - userJourneyTransactions
-          - userJourneyAccountManagement
+        # Stage 4 window 2 (s4f2): one `entry` per job of this arm. Each `include` entry is keyed on
+        # its own `entry` value, so it joins that job only, adding its preset, artifact suffix and
+        # configuration (rule.md sections 3 and 4).
+        entry:
+          - kprime-hold-load_new_account
+          - kprime-hold-confirm_tx
+          - kprime-hold-bridge_load_page
+          - kprime-hold-bridge_load_asset_picker
+        include:
+          - entry: kprime-hold-load_new_account
+            pageType: interactionUserActions
+            suffix: '-kprime-hold-load_new_account'
+            BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK: '1'
+            BENCHMARK_KNOWN_ANSWER_INPAGE_MS: '124'
+            BENCHMARK_KNOWN_ANSWER_INPAGE_STEP: 'load_new_account'
+          - entry: kprime-hold-confirm_tx
+            pageType: interactionUserActions
+            suffix: '-kprime-hold-confirm_tx'
+            BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK: '1'
+            BENCHMARK_KNOWN_ANSWER_INPAGE_MS: '154'
+            BENCHMARK_KNOWN_ANSWER_INPAGE_STEP: 'confirm_tx'
+          - entry: kprime-hold-bridge_load_page
+            pageType: interactionUserActions
+            suffix: '-kprime-hold-bridge_load_page'
+            BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK: '1'
+            BENCHMARK_KNOWN_ANSWER_INPAGE_MS: '588'
+            BENCHMARK_KNOWN_ANSWER_INPAGE_STEP: 'bridge_load_page'
+          - entry: kprime-hold-bridge_load_asset_picker
+            pageType: interactionUserActions
+            suffix: '-kprime-hold-bridge_load_asset_picker'
+            BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK: '1'
+            BENCHMARK_KNOWN_ANSWER_INPAGE_MS: '44'
+            BENCHMARK_KNOWN_ANSWER_INPAGE_STEP: 'bridge_load_asset_picker'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -69,6 +94,10 @@ jobs:
       # '0' for the production-configuration window: `mockDelayMs()` gates on
       # `=== '1'`, so every one of the 77 artificial delays applies, as on main.
       BENCHMARK_ZERO_MOCK_DELAYS: '0'
+      # Stage 4 window 2 (s4f2): this job's switches and levers, from its `include` entry.
+      BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK: ${{ matrix.BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK }}
+      BENCHMARK_KNOWN_ANSWER_INPAGE_MS: ${{ matrix.BENCHMARK_KNOWN_ANSWER_INPAGE_MS }}
+      BENCHMARK_KNOWN_ANSWER_INPAGE_STEP: ${{ matrix.BENCHMARK_KNOWN_ANSWER_INPAGE_STEP }}
       SELENIUM_BROWSER: ${{ matrix.browser }}
       SELENIUM_HEADLESS: true
       INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
@@ -111,7 +140,7 @@ jobs:
         timeout-minutes: 25
         id: run-benchmark
         run: >-
-          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {2} --out test-artifacts/benchmarks/benchmark-{0}-{1}-{2}.json --retries 2', matrix.browser, matrix.buildType, matrix.pageType) }}
+          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {2} --out test-artifacts/benchmarks/benchmark-{0}-{1}-{2}{3}.json --retries 2', matrix.browser, matrix.buildType, matrix.pageType, matrix.suffix) }}
         shell: bash
 
       - name: Send benchmark results to Sentry (main/release only)
@@ -123,7 +152,7 @@ jobs:
         run: |
           export GITHUB_REF_NAME="${GH_HEAD_REF:-$GH_REF_NAME}"
           yarn tsx test/e2e/benchmarks/send-to-sentry.ts \
-            --results "test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json" \
+            --results "test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.suffix }}.json" \
             --browser "${{ matrix.browser }}" \
             --buildType "${{ matrix.buildType }}"
         shell: bash
@@ -142,15 +171,15 @@ jobs:
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_IAM_ROLE }}
-          s3-bucket: ${{ vars.AWS_S3_BUCKET }}/${{ github.event.repository.name }}/${{ github.run_id }}/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
-          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
+          s3-bucket: ${{ vars.AWS_S3_BUCKET }}/${{ github.event.repository.name }}/${{ github.run_id }}/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.suffix }}.json
+          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.suffix }}.json
 
       - name: Upload benchmark result as GitHub artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
-          name: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
-          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
+          name: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.suffix }}.json
+          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.suffix }}.json
           retention-days: 7
           if-no-files-found: ignore
 
@@ -161,7 +190,23 @@ jobs:
 
   benchmarks-page-load:
     if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
-    name: chrome-webpack-pageLoadBenchmark
+    name: chrome-webpack-pageLoadBenchmark${{ matrix.suffix }}
+    # Stage 4 window 2 (s4f2): one dapp job per leg, each `include` entry keyed on its own `entry` value.
+    strategy:
+      fail-fast: false
+      matrix:
+        entry:
+          - dapp
+          - kprime
+        include:
+          - entry: dapp
+            suffix: ''
+            BENCHMARK_DAPP_SCRIPT_ROUTE_CONTROL: '1'
+            BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_DELAY_MS: '153'
+          - entry: kprime
+            suffix: '-kprime'
+            BENCHMARK_DAPP_SCRIPT_ROUTE_CONTROL: '1'
+            BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_DELAY_MS: '371'
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
     runs-on: ubuntu-latest
@@ -182,7 +227,10 @@ jobs:
       SENTRY_DSN_PERFORMANCE: ${{ vars.SENTRY_DSN_PERFORMANCE }}
       BENCHMARK_BROWSER_LOADS: '10'
       BENCHMARK_PAGE_LOADS: '10'
-      DAPP_BENCHMARK_JSON: benchmark-chrome-webpack-pageLoadBenchmark.json
+      # Stage 4 window 2 (s4f2): this leg's lever values, from its `include` entry.
+      BENCHMARK_DAPP_SCRIPT_ROUTE_CONTROL: ${{ matrix.BENCHMARK_DAPP_SCRIPT_ROUTE_CONTROL }}
+      BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_DELAY_MS: ${{ matrix.BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_DELAY_MS }}
+      DAPP_BENCHMARK_JSON: benchmark-chrome-webpack-pageLoadBenchmark${{ matrix.suffix }}.json
       MAIN_OR_RELEASE: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
     steps:
       - name: Checkout and setup environment
@@ -209,6 +257,16 @@ jobs:
         timeout-minutes: 25
         id: run-page-load
         run: yarn test:e2e:benchmark --preset=pageLoadBenchmark
+
+      # Stage 4 window 2 (s4f2): the page-load spec writes one fixed file name (utils/constants.ts L45-L46); a leg with
+      # a suffix renames it to its own, so two dapp jobs of one run upload under different names.
+      - name: Name this leg's result (s4f2)
+        if: ${{ always() && matrix.suffix != '' }}
+        run: |
+          if [ -f test-artifacts/benchmarks/benchmark-chrome-webpack-pageLoadBenchmark.json ]; then
+            mv test-artifacts/benchmarks/benchmark-chrome-webpack-pageLoadBenchmark.json "test-artifacts/benchmarks/$DAPP_BENCHMARK_JSON"
+          fi
+        shell: bash
 
       - name: Send benchmark results to Sentry (main/release only)
         if: >-
