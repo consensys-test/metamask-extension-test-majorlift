@@ -32,6 +32,7 @@ import {
   type InPageStepReading,
 } from '../../utils/in-page-step-timer';
 import { waitForPageIdleBeforeStep } from '../../utils/sidepanel-onboarding';
+import { WARMUP_RUNS } from '../../utils/constants';
 import {
   BENCHMARK_PERSONA,
   BENCHMARK_TYPE,
@@ -92,6 +93,30 @@ async function mockBridgeEndpoints(mockServer: Mockttp) {
     endpoints.push(await mockPopularTokens(mockServer));
   }
   return endpoints;
+}
+
+/**
+ * Run this flow at {@link BRIDGE_SCORED_ITERATIONS} scored iterations after
+ * the warm-up, instead of the invocation's `--iterations`. The preset's other
+ * flows keep the invocation's count. Lengthens every job that runs this flow,
+ * so it is off unless set to `1`.
+ */
+export const BRIDGE_17_ITERATIONS = 'BENCHMARK_BRIDGE_17_ITERATIONS';
+
+/** The iterations scored when {@link BRIDGE_17_ITERATIONS} is on. */
+export const BRIDGE_SCORED_ITERATIONS = 16;
+
+/**
+ * This flow's own iteration count, read by `run-benchmark.ts`.
+ *
+ * @returns With `BENCHMARK_BRIDGE_17_ITERATIONS=1`, the scored iterations
+ * plus the warm-up, 17; otherwise `undefined`, so the flow runs the
+ * invocation's `--iterations`.
+ */
+export function iterations(): number | undefined {
+  return process.env[BRIDGE_17_ITERATIONS] === '1'
+    ? BRIDGE_SCORED_ITERATIONS + WARMUP_RUNS
+    : undefined;
 }
 
 export async function run(): Promise<BenchmarkRunResult> {
