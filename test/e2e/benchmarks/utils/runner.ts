@@ -24,6 +24,7 @@ import {
   DEFAULT_NUM_PAGE_LOADS,
   EXCLUDED_LEADING_PAGE_LOADS,
   KNOWN_ANSWER_STARTUP_DELAY,
+  KNOWN_ANSWER_STARTUP_SYNC_BLOCK,
   SAMPLE_EXCLUSION,
   STARTUP_SETTLE_MAX_MS,
   STARTUP_SETTLE_POLL_MS,
@@ -111,14 +112,33 @@ export type BrowserLoadRecord = {
   settle?: SettleRecord;
 };
 
+/**
+ * The startup lever's own marks on one page load, `mm-lever-start` and
+ * `mm-lever-end`, in the page's `performance.now()` frame. Null where the page
+ * has no such mark, which on a lever run means the wait did not run.
+ */
+export type StartupLeverMarks = {
+  start: number | null;
+  end: number | null;
+};
+
+/** One page load's lever marks in the artifact, numbered as `values` is. */
+export type StartupLeverMarkSample = StartupLeverMarks & {
+  iteration: number;
+  excluded?: SampleExclusion;
+};
+
 /** One browser load's result from a startup flow. */
 export type StartupMeasurePageResult = MeasurePageResult & {
   browserLoad?: Omit<BrowserLoadRecord, 'browserLoad'>;
+  /** One per page load, in order; only when a startup lever is set. */
+  leverMarks?: StartupLeverMarks[];
 };
 
 /** Startup benchmark results, with what each browser load recorded. */
 export type PageLoadBenchmarkResults = BenchmarkResults & {
   browserLoadRecords?: BrowserLoadRecord[];
+  leverMarks?: StartupLeverMarkSample[];
 };
 
 /** Per-page-load metrics from a startup flow, with the series it adds. */
@@ -681,18 +701,22 @@ export async function runPageLoadBenchmark(
   let runResults: Metrics[] = [];
   let allWebVitalsRuns: WebVitalsRun[] = [];
   const browserLoadRecords: BrowserLoadRecord[] = [];
+  const allLeverMarks: (StartupLeverMarks & { iteration: number })[] = [];
   let testTitle = '';
   let resultPersona: Persona = BENCHMARK_PERSONA.STANDARD;
 
   for (let i = 0; i < browserLoads; i += 1) {
     console.log('Starting browser load', i + 1, 'of', browserLoads);
-    const { metrics, title, persona, webVitalsRuns, browserLoad } =
+    const { metrics, title, persona, webVitalsRuns, browserLoad, leverMarks } =
       await retryBrowserLoad(() => measurePageFn(pageName, pageLoads), {
         index: i,
         total: browserLoads,
         retries,
       });
     runResults = runResults.concat(metrics);
+    leverMarks?.forEach((marks, j) =>
+      allLeverMarks.push({ iteration: i * pageLoads + j, ...marks }),
+    );
     if (webVitalsRuns) {
       const indexed = webVitalsRuns.map((wv: WebVitalsMetrics, j: number) => ({
         ...wv,
@@ -734,6 +758,14 @@ export async function runPageLoadBenchmark(
         inpSource: null,
         ...(excluded && { excluded }),
       };
+    });
+  // The lever's marks are not a series: they sit beside `values`, numbered and
+  // flagged as `values` is, so a reader can check each load's wait.
+  const measuredLeverMarks: StartupLeverMarkSample[] = allLeverMarks
+    .filter((marks) => marks.iteration >= warmupSize)
+    .map((marks) => {
+      const excluded = exclusionForPageLoad(marks.iteration);
+      return { ...marks, ...(excluded && { excluded }) };
     });
 
   if (measuredResults.some((result) => result.navigation.length > 1)) {
@@ -819,6 +851,7 @@ export async function runPageLoadBenchmark(
     trimmedCount: trimmedCounts,
     outliers: { ...trimmedCounts },
     values,
+    ...(measuredLeverMarks.length > 0 && { leverMarks: measuredLeverMarks }),
     host: captureHostProvenance(),
     ...(webVitals && { webVitals }),
     ...(browserLoadRecords.length > 0 && { browserLoadRecords }),
@@ -871,6 +904,24 @@ export function readStartupDelayMs(): number {
 }
 
 /**
+ * The startup lever at `START_UI_SYNC`, from
+ * {@link KNOWN_ANSWER_STARTUP_SYNC_BLOCK}. Only one startup lever runs at a
+ * time: with both, the ui intervals would carry both waits, and both levers
+ * write the same marks.
+ *
+ * @returns Milliseconds, 0 when the variable is unset or empty.
+ */
+export function readStartupSyncBlockMs(): number {
+  const blockMs = getKnownAnswerDelayMs(KNOWN_ANSWER_STARTUP_SYNC_BLOCK);
+  if (blockMs > 0 && readStartupDelayMs() > 0) {
+    throw new Error(
+      `${KNOWN_ANSWER_STARTUP_SYNC_BLOCK} and ${KNOWN_ANSWER_STARTUP_DELAY} are both set; set one startup lever at a time`,
+    );
+  }
+  return blockMs;
+}
+
+/**
  * The startup settle window, from {@link STARTUP_SETTLE_QUIET}.
  *
  * @returns Milliseconds, 0 (no settle step) when the variable is unset or empty.
@@ -883,12 +934,65 @@ export function readStartupSettleQuietMs(): number {
  * The page script that busy-waits `delayMs` milliseconds, in the top-level
  * document only. The automation protocol runs it at the start of every new
  * document, child frames included, and each frame's wait would add another
- * `delayMs` to the measured page.
+ * `delayMs` to the measured page. After the wait it marks its start and end
+ * (`mm-lever-start`, `mm-lever-end`), so each load shows the wait it ran.
  *
  * @param delayMs - How long to block the page's main thread.
  */
 export function documentStartDelaySource(delayMs: number): string {
-  return `(() => { if (window !== window.top) { return; } const end = performance.now() + ${delayMs}; while (performance.now() < end) { /* known-answer startup delay */ } })();`;
+  return `(() => { if (window !== window.top) { return; } const start = performance.now(); const end = start + ${delayMs}; while (performance.now() < end) { /* known-answer startup delay */ } try { performance.mark('mm-lever-start', { startTime: start }); performance.mark('mm-lever-end'); } catch (e) { /* the marks are a record only */ } })();`;
+}
+
+/**
+ * The page script that busy-waits `blockMs` milliseconds when the page's port
+ * first delivers `START_UI_SYNC`, before the app's listeners see it, in the
+ * top-level document only. It wraps `chrome.runtime.connect` so that each
+ * port's listeners are called from one listener of its own, which blocks once
+ * per document. The wait is the same loop as
+ * {@link documentStartDelaySource}'s, and it marks its start and end
+ * (`mm-lever-start`, `mm-lever-end`) the same way.
+ *
+ * @param blockMs - How long to block the page's main thread.
+ */
+export function startUiSyncBlockSource(blockMs: number): string {
+  return `(() => {
+  if (window !== window.top) { return; }
+  const perf = performance;
+  try {
+    const rt = globalThis.chrome && globalThis.chrome.runtime;
+    if (!rt || typeof rt.connect !== 'function') { return; }
+    const BLOCK = ${blockMs};
+    let blockDone = false;
+    const origConnect = rt.connect;
+    rt.connect = function (...args) {
+      const port = origConnect.apply(this, args);
+      try {
+        const ev = port.onMessage;
+        const origAdd = ev.addListener.bind(ev);
+        const appListeners = [];
+        const deliver = (m, p) => {
+          for (const fn of appListeners.slice()) {
+            try { fn(m, p); } catch (err) { setTimeout(() => { throw err; }, 0); }
+          }
+        };
+        origAdd((m, p) => {
+          if (!blockDone && m && m.name === 'controller' && m.data && m.data.method === 'START_UI_SYNC') {
+            blockDone = true;
+            const start = perf.now(); const end = start + BLOCK;
+            while (perf.now() < end) { /* known-answer startup block at START_UI_SYNC */ }
+            try { perf.mark('mm-lever-start', { startTime: start }); perf.mark('mm-lever-end'); } catch (e) { /* the marks are a record only */ }
+          }
+          deliver(m, p);
+        });
+        ev.addListener = (fn) => { appListeners.push(fn); };
+        ev.removeListener = (fn) => { const i = appListeners.indexOf(fn); if (i >= 0) { appListeners.splice(i, 1); } };
+        ev.hasListener = (fn) => appListeners.includes(fn);
+        ev.hasListeners = () => appListeners.length > 0;
+      } catch (e) { /* the port is returned unwrapped */ }
+      return port;
+    };
+  } catch (e) { /* nothing is wrapped */ }
+})();`;
 }
 
 type DocumentStartInnerDriver = CdpInnerDriver & {
@@ -923,7 +1027,54 @@ export async function installDocumentStartDelay(
   if (delayMs <= 0) {
     return;
   }
-  const source = documentStartDelaySource(delayMs);
+  await addDocumentStartScript(
+    driver,
+    documentStartDelaySource(delayMs),
+    `${KNOWN_ANSWER_STARTUP_DELAY} is ${delayMs}, but this session has neither CDP nor a WebDriver BiDi connection, so the delay cannot be registered`,
+  );
+}
+
+/**
+ * Known-answer lever for the ui intervals (`uiStartup`, `heroPainted`) only:
+ * register {@link startUiSyncBlockSource} to run at the start of every
+ * document this session loads from now on, as
+ * {@link installDocumentStartDelay} registers its busy-wait. The wait itself
+ * runs later, when the page's port first delivers `START_UI_SYNC`.
+ * `loadScripts` ends at the top of `start()`, before the page opens that port,
+ * so it never carries the wait. Nothing orders `domContentLoaded` and `load`
+ * before it; the per-load marks show where each wait landed.
+ *
+ * @param driver - The benchmark's driver.
+ * @param blockMs - Milliseconds; 0 registers nothing.
+ */
+export async function installStartUiSyncBlock(
+  driver: Driver,
+  blockMs: number,
+): Promise<void> {
+  if (blockMs <= 0) {
+    return;
+  }
+  await addDocumentStartScript(
+    driver,
+    startUiSyncBlockSource(blockMs),
+    `${KNOWN_ANSWER_STARTUP_SYNC_BLOCK} is ${blockMs}, but this session has neither CDP nor a WebDriver BiDi connection, so the block cannot be registered`,
+  );
+}
+
+/**
+ * Register `source` to run at the start of every new document: CDP
+ * `Page.addScriptToEvaluateOnNewDocument` on chrome, `script.addPreloadScript`
+ * on a session with a WebDriver BiDi connection.
+ *
+ * @param driver - The benchmark's driver.
+ * @param source - The page script.
+ * @param unavailable - The error thrown when the session has neither.
+ */
+async function addDocumentStartScript(
+  driver: Driver,
+  source: string,
+  unavailable: string,
+): Promise<void> {
   const innerDriver = driver.driver as DocumentStartInnerDriver | undefined;
 
   if (innerDriver?.sendDevToolsCommand) {
@@ -947,9 +1098,7 @@ export async function installDocumentStartDelay(
     return;
   }
 
-  throw new Error(
-    `${KNOWN_ANSWER_STARTUP_DELAY} is ${delayMs}, but this session has neither CDP nor a WebDriver BiDi connection, so the delay cannot be registered`,
-  );
+  throw new Error(unavailable);
 }
 
 /**
@@ -1050,6 +1199,32 @@ export async function readStartupPageSignals(
   return (await driver.executeScript(
     readStartupPageSignalsInPage,
   )) as StartupPageSignals;
+}
+
+/**
+ * Runs in the page. Kept free of closures: it is serialized and sent there.
+ */
+const readStartupLeverMarksInPage = (): StartupLeverMarks => {
+  const start = performance.getEntriesByName('mm-lever-start', 'mark');
+  const end = performance.getEntriesByName('mm-lever-end', 'mark');
+  return {
+    start: start.length > 0 ? start[0].startTime : null,
+    end: end.length > 0 ? end[0].startTime : null,
+  };
+};
+
+/**
+ * Read the startup lever's marks from the page: the first `mm-lever-start` and
+ * `mm-lever-end`, which either lever sets after its wait.
+ *
+ * @param driver - The benchmark's driver, on the extension page.
+ */
+export async function readStartupLeverMarks(
+  driver: Driver,
+): Promise<StartupLeverMarks> {
+  return (await driver.executeScript(
+    readStartupLeverMarksInPage,
+  )) as StartupLeverMarks;
 }
 
 /** A task longer than this blocks input; the app uses the same bound. */

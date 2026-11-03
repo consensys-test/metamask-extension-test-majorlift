@@ -14,10 +14,14 @@ import {
   convertTimerStatisticsToBenchmarkResults,
   documentStartDelaySource,
   installDocumentStartDelay,
+  installStartUiSyncBlock,
+  readStartupLeverMarks,
   readStartupPageSignals,
+  readStartupSyncBlockMs,
   retryBrowserLoad,
   runBenchmarkWithIterations,
   runPageLoadBenchmark,
+  startUiSyncBlockSource,
   waitForNetworkQuiet,
 } from './runner';
 import type {
@@ -1139,6 +1143,424 @@ describe('cwv-read.js', () => {
       clsSource: null,
       inp: null,
       inpSource: null,
+    });
+  });
+});
+
+describe('startup lever at START_UI_SYNC', () => {
+  const SYNC_BLOCK = 'BENCHMARK_KNOWN_ANSWER_STARTUP_SYNC_BLOCK_MS';
+  const DOCUMENT_START = 'BENCHMARK_KNOWN_ANSWER_STARTUP_DELAY_MS';
+  const START_UI_SYNC = {
+    name: 'controller',
+    data: { method: 'START_UI_SYNC', params: [{}] },
+  };
+  const savedEnv = {
+    [SYNC_BLOCK]: process.env[SYNC_BLOCK],
+    [DOCUMENT_START]: process.env[DOCUMENT_START],
+  };
+
+  afterEach(() => {
+    for (const [name, value] of Object.entries(savedEnv)) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
+  });
+
+  describe('readStartupSyncBlockMs', () => {
+    it('reads 0 when the switch is unset or empty', () => {
+      delete process.env[SYNC_BLOCK];
+      delete process.env[DOCUMENT_START];
+      expect(readStartupSyncBlockMs()).toBe(0);
+      process.env[SYNC_BLOCK] = '';
+      expect(readStartupSyncBlockMs()).toBe(0);
+    });
+
+    it('reads 0 when the switch is 0', () => {
+      process.env[SYNC_BLOCK] = '0';
+      process.env[DOCUMENT_START] = '300';
+      expect(readStartupSyncBlockMs()).toBe(0);
+    });
+
+    it('reads K when the switch is K', () => {
+      process.env[SYNC_BLOCK] = '300';
+      process.env[DOCUMENT_START] = '0';
+      expect(readStartupSyncBlockMs()).toBe(300);
+    });
+
+    it('throws when the document-start lever is set too', () => {
+      process.env[SYNC_BLOCK] = '300';
+      process.env[DOCUMENT_START] = '151';
+      expect(() => readStartupSyncBlockMs()).toThrow(
+        'BENCHMARK_KNOWN_ANSWER_STARTUP_SYNC_BLOCK_MS and BENCHMARK_KNOWN_ANSWER_STARTUP_DELAY_MS are both set; set one startup lever at a time',
+      );
+    });
+
+    it('rejects a value that is not a non-negative integer', () => {
+      process.env[SYNC_BLOCK] = '30.5';
+      expect(() => readStartupSyncBlockMs()).toThrow(
+        'BENCHMARK_KNOWN_ANSWER_STARTUP_SYNC_BLOCK_MS must be a non-negative integer, got "30.5"',
+      );
+    });
+  });
+
+  describe('installStartUiSyncBlock', () => {
+    it('registers nothing when the block is 0', async () => {
+      const sendDevToolsCommand = jest.fn();
+      const driver = { driver: { sendDevToolsCommand } } as unknown as Driver;
+
+      await installStartUiSyncBlock(driver, 0);
+
+      expect(sendDevToolsCommand).not.toHaveBeenCalled();
+    });
+
+    it('registers the block through CDP where the session has it', async () => {
+      const sendDevToolsCommand = jest.fn().mockResolvedValue(undefined);
+      const driver = { driver: { sendDevToolsCommand } } as unknown as Driver;
+
+      await installStartUiSyncBlock(driver, 300);
+
+      expect(sendDevToolsCommand).toHaveBeenCalledTimes(1);
+      expect(sendDevToolsCommand).toHaveBeenCalledWith(
+        'Page.addScriptToEvaluateOnNewDocument',
+        { source: startUiSyncBlockSource(300) },
+      );
+    });
+
+    it('registers a BiDi preload script where the session has BiDi', async () => {
+      const send = jest.fn().mockResolvedValue({ result: { script: 'id' } });
+      const driver = {
+        driver: {
+          getCapabilities: jest.fn().mockResolvedValue({
+            get: (key: string) =>
+              key === 'webSocketUrl'
+                ? 'ws://localhost:1234/session'
+                : undefined,
+          }),
+          getBidi: jest.fn().mockResolvedValue({ send }),
+        },
+      } as unknown as Driver;
+
+      await installStartUiSyncBlock(driver, 300);
+
+      expect(send).toHaveBeenCalledWith({
+        method: 'script.addPreloadScript',
+        params: {
+          functionDeclaration: `() => { ${startUiSyncBlockSource(300)} }`,
+        },
+      });
+    });
+
+    it('throws rather than run a lever that cannot be registered', async () => {
+      const driver = {
+        driver: {
+          getCapabilities: jest
+            .fn()
+            .mockResolvedValue({ get: () => undefined }),
+          getBidi: jest.fn(),
+        },
+      } as unknown as Driver;
+
+      await expect(installStartUiSyncBlock(driver, 300)).rejects.toThrow(
+        'BENCHMARK_KNOWN_ANSWER_STARTUP_SYNC_BLOCK_MS is 300, but this session has neither CDP nor a WebDriver BiDi connection, so the block cannot be registered',
+      );
+    });
+  });
+
+  type Listener = (message: unknown, port: unknown) => void;
+  type FakePort = {
+    onMessage: {
+      addListener: (fn: Listener) => void;
+      removeListener: (fn: Listener) => void;
+      hasListener: (fn: Listener) => boolean;
+      hasListeners: () => boolean;
+    };
+  };
+
+  /**
+   * A page with `chrome.runtime.connect`, whose ports dispatch each message to
+   * their listeners in order, as the browser does; and a `performance` that
+   * records marks.
+   *
+   * @param options - The page.
+   * @param options.topLevel - False for a child frame.
+   */
+  function fakePage({ topLevel = true }: { topLevel?: boolean } = {}) {
+    const ports: { port: FakePort; listeners: Listener[] }[] = [];
+    const connect = jest.fn((_options: { name: string }) => {
+      const listeners: Listener[] = [];
+      const port: FakePort = {
+        onMessage: {
+          addListener: (fn) => listeners.push(fn),
+          removeListener: (fn) => listeners.splice(listeners.indexOf(fn), 1),
+          hasListener: (fn) => listeners.includes(fn),
+          hasListeners: () => listeners.length > 0,
+        },
+      };
+      ports.push({ port, listeners });
+      return port;
+    });
+    const marks: { name: string; startTime: number }[] = [];
+    const pageWindow: Record<string, unknown> = {};
+    pageWindow.top = topLevel ? pageWindow : {};
+    const chrome = { runtime: { connect } };
+    const pageSetTimeout = jest.fn();
+    const context = {
+      window: pageWindow,
+      chrome,
+      setTimeout: pageSetTimeout,
+      performance: {
+        now: () => performance.now(),
+        mark: (name: string, options?: { startTime?: number }) => {
+          marks.push({
+            name,
+            startTime: options?.startTime ?? performance.now(),
+          });
+        },
+      },
+    };
+    return {
+      context,
+      connect,
+      marks,
+      setTimeout: pageSetTimeout,
+      /** What the app calls: the page's `chrome.runtime.connect`. */
+      open: (name: string) => chrome.runtime.connect({ name }) as FakePort,
+      /** The browser delivering `message` on the `index`th port opened. */
+      dispatch: (message: unknown, index = 0) => {
+        const { port, listeners } = ports[index];
+        for (const fn of listeners.slice()) {
+          fn(message, port);
+        }
+      },
+    };
+  }
+
+  describe('startUiSyncBlockSource', () => {
+    it('blocks once, on the first START_UI_SYNC, before the app sees it, and marks the wait', () => {
+      const page = fakePage();
+      runInNewContext(startUiSyncBlockSource(30), page.context);
+      const port = page.open('home');
+      const seenAt: number[] = [];
+      port.onMessage.addListener(() => seenAt.push(performance.now()));
+
+      const before = performance.now();
+      page.dispatch(START_UI_SYNC);
+      const after = performance.now();
+
+      expect(page.connect).toHaveBeenCalledWith({ name: 'home' });
+      expect(after - before).toBeGreaterThanOrEqual(30);
+      expect(page.marks.map((mark) => mark.name)).toStrictEqual([
+        'mm-lever-start',
+        'mm-lever-end',
+      ]);
+      const [start, end] = page.marks;
+      expect(start.startTime).toBeGreaterThanOrEqual(before);
+      expect(end.startTime - start.startTime).toBeGreaterThanOrEqual(30);
+      expect(seenAt).toHaveLength(1);
+      expect(seenAt[0]).toBeGreaterThanOrEqual(end.startTime);
+
+      // A second START_UI_SYNC, on this port or another, does not block.
+      page.dispatch(START_UI_SYNC);
+      page.open('home');
+      page.dispatch(START_UI_SYNC, 1);
+      expect(seenAt).toHaveLength(2);
+      expect(page.marks).toHaveLength(2);
+    });
+
+    it("delivers every other message at once, in order, to the app's listeners", () => {
+      const page = fakePage();
+      runInNewContext(startUiSyncBlockSource(200), page.context);
+      const port = page.open('home');
+      const first = jest.fn();
+      const second = jest.fn();
+      const removed = jest.fn();
+      port.onMessage.addListener(first);
+      port.onMessage.addListener(removed);
+      port.onMessage.addListener(second);
+      port.onMessage.removeListener(removed);
+      const update = { name: 'controller', data: { method: 'sendUpdate' } };
+      const providerSync = {
+        name: 'provider',
+        data: { method: 'START_UI_SYNC' },
+      };
+
+      const before = performance.now();
+      page.dispatch(update);
+      page.dispatch(providerSync);
+
+      expect(performance.now() - before).toBeLessThan(100);
+      expect(first.mock.calls).toStrictEqual([
+        [update, port],
+        [providerSync, port],
+      ]);
+      expect(second.mock.calls).toStrictEqual(first.mock.calls);
+      expect(removed).not.toHaveBeenCalled();
+      expect(port.onMessage.hasListener(first)).toBe(true);
+      expect(port.onMessage.hasListener(removed)).toBe(false);
+      expect(port.onMessage.hasListeners()).toBe(true);
+      expect(page.marks).toStrictEqual([]);
+    });
+
+    it("calls the next listener when one throws, and rethrows the error outside the port's dispatch", () => {
+      const page = fakePage();
+      runInNewContext(startUiSyncBlockSource(1), page.context);
+      const port = page.open('home');
+      const error = new Error('listener failed');
+      const next = jest.fn();
+      port.onMessage.addListener(() => {
+        throw error;
+      });
+      port.onMessage.addListener(next);
+
+      page.dispatch(START_UI_SYNC);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(page.setTimeout).toHaveBeenCalledTimes(1);
+      const [rethrow, delay] = page.setTimeout.mock.calls[0];
+      expect(delay).toBe(0);
+      expect(rethrow).toThrow(error);
+    });
+
+    it('wraps nothing in a child frame', () => {
+      const page = fakePage({ topLevel: false });
+      const { connect } = page.context.chrome.runtime;
+      runInNewContext(startUiSyncBlockSource(200), page.context);
+
+      expect(page.context.chrome.runtime.connect).toBe(connect);
+    });
+
+    it('does nothing on a page without chrome.runtime.connect', () => {
+      const pageWindow: Record<string, unknown> = {};
+      pageWindow.top = pageWindow;
+      expect(() =>
+        runInNewContext(startUiSyncBlockSource(200), {
+          window: pageWindow,
+          performance,
+        }),
+      ).not.toThrow();
+    });
+  });
+
+  describe("the document-start lever's marks", () => {
+    it('marks the start and end of the wait it ran', () => {
+      const page = fakePage();
+      const before = performance.now();
+      runInNewContext(documentStartDelaySource(30), page.context);
+
+      expect(page.marks.map((mark) => mark.name)).toStrictEqual([
+        'mm-lever-start',
+        'mm-lever-end',
+      ]);
+      const [start, end] = page.marks;
+      expect(start.startTime).toBeGreaterThanOrEqual(before);
+      expect(end.startTime - start.startTime).toBeGreaterThanOrEqual(30);
+    });
+
+    it('still waits when the page cannot mark', () => {
+      const pageWindow: Record<string, unknown> = {};
+      pageWindow.top = pageWindow;
+      const start = performance.now();
+      runInNewContext(documentStartDelaySource(30), {
+        window: pageWindow,
+        performance: { now: () => performance.now() },
+      });
+      expect(performance.now() - start).toBeGreaterThanOrEqual(30);
+    });
+  });
+
+  describe('readStartupLeverMarks', () => {
+    const originalGetEntriesByName = performance.getEntriesByName;
+
+    afterEach(() => {
+      performance.getEntriesByName = originalGetEntriesByName;
+    });
+
+    it('reads the first lever start and end marks in the page', async () => {
+      performance.getEntriesByName = jest.fn((name: string) =>
+        name === 'mm-lever-start'
+          ? [{ startTime: 865 }, { startTime: 2000 }]
+          : [{ startTime: 1165.2 }],
+      ) as unknown as typeof performance.getEntriesByName;
+      const driver = {
+        executeScript: jest.fn((script: () => unknown) => script()),
+      } as unknown as Driver;
+
+      await expect(readStartupLeverMarks(driver)).resolves.toStrictEqual({
+        start: 865,
+        end: 1165.2,
+      });
+      expect(performance.getEntriesByName).toHaveBeenCalledWith(
+        'mm-lever-start',
+        'mark',
+      );
+      expect(performance.getEntriesByName).toHaveBeenCalledWith(
+        'mm-lever-end',
+        'mark',
+      );
+    });
+
+    it('reads null for a mark the page does not have', async () => {
+      performance.getEntriesByName = jest.fn().mockReturnValue([]);
+      const driver = {
+        executeScript: jest.fn((script: () => unknown) => script()),
+      } as unknown as Driver;
+
+      await expect(readStartupLeverMarks(driver)).resolves.toStrictEqual({
+        start: null,
+        end: null,
+      });
+    });
+  });
+
+  describe("runPageLoadBenchmark's lever marks", () => {
+    const UI_STARTUP = [
+      [999, 999, 999],
+      [500, 100, 102],
+      [500, 104, 106],
+    ];
+
+    it("keeps each measured page load's marks beside `values`, numbered and flagged as `values` is", async () => {
+      const results = await runPageLoadBenchmark(
+        browserLoadsOf(UI_STARTUP, (browserLoad) => ({
+          leverMarks: [0, 1, 2].map((pageLoad) =>
+            browserLoad === 2 && pageLoad === 1
+              ? { start: null, end: null }
+              : { start: 20 + pageLoad, end: 320 + pageLoad + browserLoad },
+          ),
+        })),
+        { browserLoads: 3, pageLoads: 3 },
+      );
+
+      expect(results.leverMarks).toStrictEqual([
+        { iteration: 3, start: 20, end: 321, excluded: 'first-page-load' },
+        { iteration: 4, start: 21, end: 322 },
+        { iteration: 5, start: 22, end: 323 },
+        { iteration: 6, start: 20, end: 322, excluded: 'first-page-load' },
+        { iteration: 7, start: null, end: null },
+        { iteration: 8, start: 22, end: 324 },
+      ]);
+      const keys = Object.keys(results);
+      expect(keys.indexOf('leverMarks')).toBe(keys.indexOf('values') + 1);
+    });
+
+    it('changes no series, and adds no key when no lever is set', async () => {
+      const withMarks = await runPageLoadBenchmark(
+        browserLoadsOf(UI_STARTUP, () => ({
+          leverMarks: [0, 1, 2].map(() => ({ start: 20, end: 320 })),
+        })),
+        { browserLoads: 3, pageLoads: 3 },
+      );
+      const without = await runPageLoadBenchmark(browserLoadsOf(UI_STARTUP), {
+        browserLoads: 3,
+        pageLoads: 3,
+      });
+
+      expect(without).not.toHaveProperty('leverMarks');
+      const { leverMarks: _leverMarks, ...rest } = withMarks;
+      expect(rest).toStrictEqual(without);
     });
   });
 });
