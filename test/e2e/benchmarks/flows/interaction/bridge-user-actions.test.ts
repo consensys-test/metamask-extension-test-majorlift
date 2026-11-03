@@ -136,8 +136,12 @@ jest.mock('../../utils', () => ({
 
 // Imported after the mocks above, which jest hoists over it.
 // eslint-disable-next-line import-x/first
+import { resolveFlowIterations } from '../../utils/flow-iterations';
+// eslint-disable-next-line import-x/first
 import {
+  BRIDGE_17_ITERATIONS,
   BRIDGE_POPULAR_TOKENS_MOCK,
+  iterations as bridgeIterations,
   run as runBridge,
 } from './bridge-user-actions';
 
@@ -272,4 +276,63 @@ describe('bridge user actions', () => {
       '0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0',
     );
   });
+});
+
+describe("bridge user actions' iteration count", () => {
+  const original = process.env[BRIDGE_17_ITERATIONS];
+
+  // `restoreMocks` in `jest.config.js` restores the spy after each test.
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env[BRIDGE_17_ITERATIONS];
+    } else {
+      process.env[BRIDGE_17_ITERATIONS] = original;
+    }
+  });
+
+  /**
+   * The count `run-benchmark.ts` runs this flow at, under the CI command's
+   * default of 5 iterations.
+   *
+   * @returns The iterations.
+   */
+  function resolve(): number {
+    return resolveFlowIterations(
+      'bridge-user-actions',
+      { iterations: bridgeIterations },
+      { iterations: 5, retries: 2 },
+    );
+  }
+
+  it("runs the invocation's count, and logs it, when the switch is unset", () => {
+    delete process.env[BRIDGE_17_ITERATIONS];
+
+    expect(bridgeIterations()).toBeUndefined();
+    expect(resolve()).toBe(5);
+    expect(console.log).toHaveBeenCalledWith(
+      'Running bridge-user-actions with 5 iterations (retries: 2)',
+    );
+  });
+
+  it('runs 17 iterations, the warm-up and 16 scored, and logs 17, when the switch is 1', () => {
+    process.env[BRIDGE_17_ITERATIONS] = '1';
+
+    expect(resolve()).toBe(17);
+    expect(console.log).toHaveBeenCalledWith(
+      'Running bridge-user-actions with 17 iterations (retries: 2)',
+    );
+  });
+
+  // @ts-expect-error '.each' is missing from type definitions
+  it.each(['0', '', 'true', '17'])(
+    "stays on the invocation's count when the switch is %j",
+    (value: string) => {
+      process.env[BRIDGE_17_ITERATIONS] = value;
+
+      expect(resolve()).toBe(5);
+    },
+  );
 });

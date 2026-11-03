@@ -303,6 +303,26 @@ describe('runBenchmarkWithIterations', () => {
     expect(onlyFirst?.dataQuality).toBe('unreliable');
   });
 
+  it('flags only iteration 0 as warm-up at a flow-specific count, so 17 run and 16 are scored', async () => {
+    const stepValues = [500, ...Array.from({ length: 16 }, (_, i) => 100 + i)];
+    const summary = await runBenchmarkWithIterations(
+      'flow',
+      iterationsOf(stepValues),
+      17,
+      0,
+      {},
+    );
+    const step = summary.timers.find((timer) => timer.id === 'step');
+
+    expect(summary.iterations).toBe(17);
+    expect(summary.successfulRuns).toBe(17);
+    expect(step?.values).toStrictEqual([
+      { iteration: 0, value: 500, excluded: 'warm-up' },
+      ...stepValues.slice(1).map((value, i) => ({ iteration: i + 1, value })),
+    ]);
+    expect(step?.samples).toBe(16);
+  });
+
   it('rejects a run too short to keep anything after the warm-up', async () => {
     const benchmarkFn = iterationsOf([100]);
     await expect(
