@@ -13,6 +13,8 @@ import {
 } from '../../../../../shared/constants/benchmarks';
 import type {
   DappPageLoadMetric,
+  DappPageLoadProbe,
+  DappPageLoadProbeReads,
   DappPageLoadSample,
   DappPageLoadStats,
 } from '../../utils/types';
@@ -146,6 +148,27 @@ export const KNOWN_ANSWER_DAPP_SCRIPT_DELAY =
   'BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_DELAY_MS';
 
 /**
+ * Known-answer lever: a busy-wait of this many ms prepended to the test
+ * dapp's served `main.js`, so the deferred script's evaluation, which
+ * `domContentLoaded` and `pageLoadTime` wait on, holds the main thread that
+ * long before the script's own code runs. Nothing is routed, so the HTTP
+ * cache stays on and the lever is compared with the unrouted A/A arm. Set,
+ * including to `0`, it rewrites `main.js`; unset or empty, it changes
+ * nothing.
+ */
+export const KNOWN_ANSWER_DAPP_SCRIPT_WORK =
+  'BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_WORK_MS';
+
+/**
+ * The `performance.measure` the busy-wait records over itself: the lever's
+ * hold check, read back into each load's probe.
+ */
+export const DAPP_SCRIPT_WORK_MEASURE = 'benchmark-known-answer-work';
+
+/** The test dapp's own deferred script, as the page requests it. */
+const DAPP_SCRIPT_URL = new URL('main.js', `${DAPP_URL}/`).href;
+
+/**
  * Set to `1` to route `main.js` exactly as the lever does, with no delay: the
  * comparison arm for a lever run. Routing any URL in a context makes
  * Playwright intercept every request of every page in it and turns the HTTP
@@ -166,6 +189,157 @@ export function shouldRouteDappScript(): boolean {
     getKnownAnswerDelayMs(KNOWN_ANSWER_DAPP_SCRIPT_DELAY) > 0 ||
     process.env[DAPP_SCRIPT_ROUTE_CONTROL] === '1'
   );
+}
+
+/**
+ * Read the busy-wait lever ({@link KNOWN_ANSWER_DAPP_SCRIPT_WORK}).
+ *
+ * Throws when the route lever is also set, at any value, or its control is
+ * on: the busy-wait is compared with the unrouted A/A arm, and a job that
+ * also routes `main.js` would measure the route's cache change with it.
+ *
+ * @returns The busy-wait in ms, 0 included, or undefined when unset or empty.
+ */
+export function getDappScriptWorkMs(): number | undefined {
+  const raw = process.env[KNOWN_ANSWER_DAPP_SCRIPT_WORK];
+  if (raw === undefined || raw === '') {
+    return undefined;
+  }
+  const delay = process.env[KNOWN_ANSWER_DAPP_SCRIPT_DELAY];
+  if (
+    (delay !== undefined && delay !== '') ||
+    process.env[DAPP_SCRIPT_ROUTE_CONTROL] === '1'
+  ) {
+    throw new Error(
+      `${KNOWN_ANSWER_DAPP_SCRIPT_WORK} cannot be set with ${KNOWN_ANSWER_DAPP_SCRIPT_DELAY} or ${DAPP_SCRIPT_ROUTE_CONTROL}=1: the busy-wait runs unrouted, against the A/A arm`,
+    );
+  }
+  return getKnownAnswerDelayMs(KNOWN_ANSWER_DAPP_SCRIPT_WORK);
+}
+
+/**
+ * The statement the busy-wait lever prepends to `main.js`: it spins on
+ * `performance.now()` until `workMs` has passed, then records
+ * {@link DAPP_SCRIPT_WORK_MEASURE} over the spin. Nothing else on the page
+ * can run while it spins.
+ *
+ * @param workMs - How long to spin, in ms.
+ * @returns The statement, ending in a newline.
+ */
+export function dappScriptWorkPrefix(workMs: number): string {
+  return `(function(){var t=performance.now();while(performance.now()-t<${workMs}){}performance.measure('${DAPP_SCRIPT_WORK_MEASURE}',{start:t,end:performance.now()})})();\n`;
+}
+
+/**
+ * Prepend {@link dappScriptWorkPrefix} to a served script, byte for byte,
+ * keeping the file's times as {@link PageLoadBenchmark} keeps every served
+ * file's: the static server's `Last-Modified` comes from them.
+ *
+ * The prefix is a plain statement, so it would demote a directive prologue
+ * (`'use strict'`) that opened the script. The test dapp's `main.js` opens
+ * with `(()=>{`, and a test pins that.
+ *
+ * @param scriptPath - The script to rewrite.
+ * @param workMs - The busy-wait, in ms.
+ */
+export async function prependDappScriptWork(
+  scriptPath: string,
+  workMs: number,
+): Promise<void> {
+  const { atime, mtime } = await fs.stat(scriptPath);
+  await fs.writeFile(
+    scriptPath,
+    Buffer.concat([
+      Buffer.from(dappScriptWorkPrefix(workMs)),
+      await fs.readFile(scriptPath),
+    ]),
+  );
+  await fs.utimes(scriptPath, atime, mtime);
+}
+
+/**
+ * How long the probe waits for buffered `longtask` entries. A buffered
+ * observer receives them in its first callback; `main.js`'s own evaluation is
+ * always one, so the wait runs out only where the read saw none.
+ */
+export const LONG_TASK_READ_TIMEOUT_MS = 500;
+
+/**
+ * Read one load's test-side probe ({@link DappPageLoadProbe}). Runs in the
+ * page, after the load, so it must not reference anything outside its own
+ * body. Long tasks come from a buffered `PerformanceObserver`, since
+ * `performance.getEntriesByType` does not return them.
+ *
+ * @param names - What to read.
+ * @param names.measureName - The busy-wait's measure.
+ * @param names.scriptUrl - The dapp script's URL.
+ * @param names.timeoutMs - How long to wait for buffered long tasks.
+ * @returns The probe, with null for each entry the page did not record.
+ */
+export function readDappScriptProbe({
+  measureName,
+  scriptUrl,
+  timeoutMs,
+}: {
+  measureName: string;
+  scriptUrl: string;
+  timeoutMs: number;
+}): Promise<DappPageLoadProbe> {
+  const [measure] = performance.getEntriesByName(measureName, 'measure');
+  const [script] = performance.getEntriesByName(
+    scriptUrl,
+    'resource',
+  ) as PerformanceResourceTiming[];
+  const [navigation] = performance.getEntriesByType(
+    'navigation',
+  ) as PerformanceNavigationTiming[];
+  const loadEventEnd = navigation ? navigation.loadEventEnd : 0;
+  const workEnd = measure ? measure.startTime + measure.duration : null;
+  const observed = PerformanceObserver.supportedEntryTypes.includes('longtask');
+
+  const summarize = (tasks: PerformanceEntry[]): DappPageLoadProbe => {
+    const beforeLoad = tasks.filter((task) => task.startTime < loadEventEnd);
+    const afterWork =
+      workEnd === null
+        ? null
+        : beforeLoad.filter((task) => task.startTime >= workEnd);
+    return {
+      scriptWorkMs: measure ? measure.duration : null,
+      scriptStartTime: script ? script.startTime : null,
+      scriptResponseEnd: script ? script.responseEnd : null,
+      longTaskCount: observed ? beforeLoad.length : null,
+      afterWorkLongTaskCount: observed && afterWork ? afterWork.length : null,
+      afterWorkLongTaskTotalMs:
+        observed && afterWork
+          ? afterWork.reduce((sum, task) => sum + task.duration, 0)
+          : null,
+      afterWorkLongTaskLongestMs:
+        observed && afterWork
+          ? afterWork.reduce(
+              (longest, task) => Math.max(longest, task.duration),
+              0,
+            )
+          : null,
+    };
+  };
+
+  return new Promise((resolve) => {
+    if (!observed) {
+      resolve(summarize([]));
+      return;
+    }
+    // Whichever settles the promise first wins, as in
+    // `readLargestContentfulPaint`.
+    const observer = new PerformanceObserver((list) => {
+      observer.disconnect();
+      resolve(summarize(list.getEntries()));
+    });
+    observer.observe({ type: 'longtask', buffered: true });
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(summarize([]));
+    }, timeoutMs);
+  });
 }
 
 declare global {
@@ -214,6 +388,13 @@ export class PageLoadBenchmark {
   private firstMeasuredRun = 0;
 
   /**
+   * Service workers the context listed once the extension loaded, read by
+   * {@link setup}. The extension's background runs in one, so 0 means the
+   * page was measured with no MetaMask background.
+   */
+  private serviceWorkerCount: number | undefined;
+
+  /**
    * Creates a new PageLoadBenchmark instance.
    *
    * @param extensionPath - Path to the MetaMask extension directory to test
@@ -230,8 +411,10 @@ export class PageLoadBenchmark {
    * @throws {Error} If browser or context initialization fails
    */
   async setup() {
+    // Read before anything starts, so a job that sets both levers fails here.
+    const scriptWorkMs = getDappScriptWorkMs();
     await this.buildExtension();
-    await this.createStaticDappServer(await this.prepareDappRoot());
+    await this.createStaticDappServer(await this.prepareDappRoot(scriptWorkMs));
 
     const userDataDir = path.join(process.cwd(), this.userDataDirectory);
     await fs.mkdir(userDataDir, { recursive: true });
@@ -260,6 +443,10 @@ export class PageLoadBenchmark {
 
     await this.installDappScriptRoute();
     await this.waitForExtensionLoad();
+    this.serviceWorkerCount = this.context.serviceWorkers().length;
+    console.log(
+      `Extension service workers after load: ${this.serviceWorkerCount}`,
+    );
   }
 
   /**
@@ -271,9 +458,8 @@ export class PageLoadBenchmark {
     if (!shouldRouteDappScript()) {
       return;
     }
-    const script = new URL('main.js', `${DAPP_URL}/`).href;
     await this.context?.route(
-      (url) => url.href === script,
+      (url) => url.href === DAPP_SCRIPT_URL,
       withKnownAnswerDelay(KNOWN_ANSWER_DAPP_SCRIPT_DELAY, (route: Route) =>
         route.continue(),
       ),
@@ -290,9 +476,16 @@ export class PageLoadBenchmark {
    * `Last-Modified`, from which the browser derives how long to reuse a cached
    * response. Fresh times would make it revalidate files it reuses today.
    *
+   * With the busy-wait lever set ({@link KNOWN_ANSWER_DAPP_SCRIPT_WORK}),
+   * `main.js` is rewritten too, keeping its own times
+   * ({@link prependDappScriptWork}).
+   *
+   * @param scriptWorkMs - The busy-wait lever, or undefined when unset.
    * @returns The directory to serve.
    */
-  private async prepareDappRoot(): Promise<string> {
+  private async prepareDappRoot(
+    scriptWorkMs: number | undefined,
+  ): Promise<string> {
     const source = path.join(
       process.cwd(),
       'node_modules',
@@ -310,6 +503,11 @@ export class PageLoadBenchmark {
       indexPath,
       localizeOffHostStylesheets(await fs.readFile(indexPath, 'utf8')),
     );
+
+    if (scriptWorkMs !== undefined) {
+      console.log(`Known-answer busy-wait in main.js: ${scriptWorkMs} ms`);
+      await prependDappScriptWork(path.join(root, 'main.js'), scriptWorkMs);
+    }
 
     const stylesheetRoot = path.join(root, LOCAL_STYLESHEET_DIRECTORY);
     await fs.mkdir(stylesheetRoot, { recursive: true });
@@ -510,11 +708,18 @@ export class PageLoadBenchmark {
         LCP_READ_TIMEOUT_MS,
       ),
     };
+    // Read after every series, so it cannot move one.
+    const probe = await page.evaluate(readDappScriptProbe, {
+      measureName: DAPP_SCRIPT_WORK_MEASURE,
+      scriptUrl: DAPP_SCRIPT_URL,
+      timeoutMs: LONG_TASK_READ_TIMEOUT_MS,
+    });
 
     const result: DappPageLoadSample = {
       page: url === DAPP_URL ? 'Localhost MetaMask Test Dapp' : url,
       run: runNumber,
       metrics,
+      probe,
       timestamp: new Date().getTime(),
     };
 
@@ -580,6 +785,20 @@ export class PageLoadBenchmark {
     return aggregateDappPageLoadStatistics(this.results, {
       firstMeasuredRun: this.firstMeasuredRun,
     });
+  }
+
+  /**
+   * The test-side reads to write beside the series, for
+   * `addDappPageLoadProbe` in `dapp-page-load-stats.ts`.
+   *
+   * @returns Every page load's sample, warm-up included, and the service
+   * workers listed after setup, or null when setup has not read them.
+   */
+  getProbeReads(): DappPageLoadProbeReads {
+    return {
+      samples: this.results,
+      serviceWorkers: this.serviceWorkerCount ?? null,
+    };
   }
 
   /**

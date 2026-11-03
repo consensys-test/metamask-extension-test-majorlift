@@ -4,7 +4,10 @@ import { test as pwTest, expect } from '@playwright/test';
 import { DAPP_PAGE_LOAD_BENCHMARK_ARTIFACT_FILENAME } from '../../utils/constants';
 import { DAPP_URL } from '../../../constants';
 import { PageLoadBenchmark } from './dapp-page-load-benchmark';
-import { dappPageLoadStatsToBenchmarkResults } from './dapp-page-load-stats';
+import {
+  addDappPageLoadProbe,
+  dappPageLoadStatsToBenchmarkResults,
+} from './dapp-page-load-stats';
 
 pwTest.describe('Page Load Benchmark', () => {
   let benchmark: PageLoadBenchmark;
@@ -39,7 +42,10 @@ pwTest.describe('Page Load Benchmark', () => {
     await benchmark.runBenchmark(testUrls, browserLoads, pageLoads);
 
     const results = benchmark.calculateStatistics();
-    const perfFormat = dappPageLoadStatsToBenchmarkResults(results);
+    const perfFormat = addDappPageLoadProbe(
+      dappPageLoadStatsToBenchmarkResults(results),
+      benchmark.getProbeReads(),
+    );
     await fs.writeFile(outputPath, JSON.stringify(perfFormat, null, 2));
 
     expect(results.length).toBeGreaterThan(0);

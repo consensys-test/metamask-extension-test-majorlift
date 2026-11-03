@@ -7,7 +7,13 @@ import {
 import { calculateTimerStatistics } from '../../utils/statistics';
 import { convertTimerStatisticsToBenchmarkResults } from '../../utils/runner';
 import { WARMUP_RUNS } from '../../utils/constants';
-import type { DappPageLoadSample, DappPageLoadStats } from '../../utils/types';
+import type {
+  DappPageLoadBenchmarkResults,
+  DappPageLoadProbeEntry,
+  DappPageLoadProbeReads,
+  DappPageLoadSample,
+  DappPageLoadStats,
+} from '../../utils/types';
 
 const DAPP_PAGE_LOAD_BENCHMARK_KEY = 'dappPageLoad';
 
@@ -133,5 +139,35 @@ export function dappPageLoadStatsToBenchmarkResults(
       BENCHMARK_PERSONA.POWER_USER,
       BENCHMARK_TYPE.PERFORMANCE,
     ),
+  };
+}
+
+/**
+ * Adds the test-side reads to the dapp page-load results, beside `values`:
+ * `probe`, every page load's `DappPageLoadProbe` under its run number,
+ * warm-up included so a lever's hold check covers every load; and
+ * `serviceWorkers`. Neither enters a statistic, and every series is left as
+ * it was. The harvested job logs carry none of the flow's output, so the
+ * artifact is where these reads survive.
+ *
+ * @param results - From {@link dappPageLoadStatsToBenchmarkResults}.
+ * @param reads - The run's samples and service-worker count.
+ * @param reads.samples - Every page load's sample, warm-up included.
+ * @param reads.serviceWorkers - Service workers listed after setup.
+ */
+export function addDappPageLoadProbe(
+  results: Record<string, BenchmarkResults>,
+  { samples, serviceWorkers }: DappPageLoadProbeReads,
+): Record<string, BenchmarkResults | DappPageLoadBenchmarkResults> {
+  const probe: DappPageLoadProbeEntry[] = samples.flatMap(
+    ({ run, probe: read }) => (read ? [{ iteration: run, ...read }] : []),
+  );
+  return {
+    ...results,
+    [DAPP_PAGE_LOAD_BENCHMARK_KEY]: {
+      ...results[DAPP_PAGE_LOAD_BENCHMARK_KEY],
+      probe,
+      serviceWorkers,
+    },
   };
 }
