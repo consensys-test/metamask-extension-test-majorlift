@@ -1,4 +1,5 @@
 import type {
+  BenchmarkResults,
   Persona,
   BenchmarkType,
   HostProvenance,
@@ -171,12 +172,45 @@ export type DappPageLoadMetric = {
 };
 
 /**
+ * Test-side reads of one dapp page load, kept beside the series and in none
+ * of them: what a known-answer lever on the test dapp's `main.js` did on that
+ * load. Each is null when the page recorded no entry for it.
+ */
+export type DappPageLoadProbe = {
+  /** Duration of the known-answer busy-wait's `performance.measure`, in ms. */
+  scriptWorkMs: number | null;
+  /** `main.js`'s resource timing `startTime`, in ms from navigation start. */
+  scriptStartTime: number | null;
+  /** `main.js`'s resource timing `responseEnd`, in ms from navigation start. */
+  scriptResponseEnd: number | null;
+  /**
+   * Long tasks that started before `loadEventEnd`, the main-thread work a
+   * blocking lever can displace. `main.js`'s own evaluation is one, so 0 says
+   * the read saw none rather than that the page had none. Null when the
+   * browser does not support `longtask` entries.
+   */
+  longTaskCount: number | null;
+  /**
+   * The long tasks that started at or after the busy-wait's measure ended
+   * and before `loadEventEnd`: work the busy-wait may have pushed into the
+   * measured interval. Each is null when the page recorded no measure.
+   */
+  afterWorkLongTaskCount: number | null;
+  /** Their summed durations, in ms. */
+  afterWorkLongTaskTotalMs: number | null;
+  /** The longest of them, in ms, or 0 when there were none. */
+  afterWorkLongTaskLongestMs: number | null;
+};
+
+/**
  * One raw measurement from a Playwright dapp page-load benchmark run.
  */
 export type DappPageLoadSample = {
   page: string;
   run: number;
   metrics: DappPageLoadMetric;
+  /** Test-side reads of the load, outside `metrics` so no series changes. */
+  probe?: DappPageLoadProbe;
   timestamp: number;
 };
 
@@ -189,6 +223,33 @@ export type DappPageLoadSample = {
 export type DappPageLoadStats = {
   page: string;
   timers: TimerStatistics[];
+};
+
+/**
+ * One page load's {@link DappPageLoadProbe}, under its run number, as the
+ * dapp page-load artifact carries it.
+ */
+export type DappPageLoadProbeEntry = DappPageLoadProbe & { iteration: number };
+
+/**
+ * A dapp page-load run's test-side reads: its samples, each carrying its
+ * probe, and the service workers the browser context listed once the
+ * extension loaded (null when not read).
+ */
+export type DappPageLoadProbeReads = {
+  samples: DappPageLoadSample[];
+  serviceWorkers: number | null;
+};
+
+/**
+ * The dapp page-load artifact's block: the series' results, plus the
+ * test-side reads beside `values`, which enter no statistic.
+ */
+export type DappPageLoadBenchmarkResults = BenchmarkResults & {
+  /** Every page load's probe, warm-up included, in run order. */
+  probe: DappPageLoadProbeEntry[];
+  /** Service workers the browser context listed once the extension loaded. */
+  serviceWorkers: number | null;
 };
 
 export type PerformanceBenchmarkResults = {
