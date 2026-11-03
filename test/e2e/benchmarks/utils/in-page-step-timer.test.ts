@@ -1,6 +1,8 @@
 import type { Mockttp } from 'mockttp';
 import type { Driver } from '../../webdriver/driver';
 import {
+  CLICK_LAG_AFTER_TRIGGER,
+  FailIterationError,
   IN_PAGE_DESTINATIONS,
   KNOWN_ANSWER_INPAGE_MS,
   KNOWN_ANSWER_INPAGE_STEP,
@@ -130,6 +132,7 @@ describe('in-page-step-timer', () => {
     delete process.env[KNOWN_ANSWER_INPAGE_MS];
     delete process.env[KNOWN_ANSWER_INPAGE_STEP];
     delete process.env[TYPED_KEY_BEFORE_TRIGGER];
+    delete process.env[CLICK_LAG_AFTER_TRIGGER];
     document.body.innerHTML = '';
     jest.restoreAllMocks();
     jest.useRealTimers();
@@ -644,6 +647,99 @@ describe('in-page-step-timer', () => {
       );
     });
 
+    it('with `clickLag`, records the first click from the trigger on and logs its lag', async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      install({ startWithin: '#go', clickLag: true });
+
+      now = 1000;
+      trustedInput('pointerdown', element('#go'), { timeStamp: 998 });
+      // A page task ran between the pointerdown and the click: the click was
+      // dispatched at 1005 and its listener ran at 1090.
+      now = 1090;
+      trustedInput('click', element('#go'), { timeStamp: 1005 });
+      now = 1150;
+      trustedInput('click', element('#go'), { timeStamp: 1149 });
+      now = 1200;
+      addElement('destination');
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).toMatchObject({
+        start: 1000,
+        clickTimeStamp: 1005,
+        clickAt: 1090,
+        extraInputs: 0,
+      });
+      // The value still runs from the pointerdown.
+      expect(inPageTimerResult('step', reading)).toStrictEqual([
+        { id: 'step', value: 200, unit: 'ms' },
+      ]);
+      expect(log).toHaveBeenCalledWith(
+        "[benchmark] step readings: input delay 2.0 ms (event.timeStamp to listener); click lag 85.0 ms (event.timeStamp to listener), the click's event.timeStamp at +7.0 ms from the trigger's event.timeStamp",
+      );
+    });
+
+    it('with `clickLag`, takes a click that is itself the trigger as the first click', async () => {
+      install({ startWithin: '#go', clickLag: true });
+
+      now = 1004;
+      trustedInput('click', element('#go'), { timeStamp: 1000 });
+      now = 1100;
+      addElement('destination');
+      await deliverMutations();
+
+      expect(readInPageStepProbe(['step'])).toMatchObject({
+        startEvent: 'click',
+        clickTimeStamp: 1000,
+        clickAt: 1004,
+      });
+    });
+
+    it('with `clickLag`, says so when no click came', async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      install({ clickLag: true });
+
+      now = 1000;
+      trustedInput('pointerdown', element('#go'));
+      now = 1100;
+      addElement('destination');
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).toMatchObject({ clickTimeStamp: null, clickAt: null });
+      inPageTimerResult('step', reading);
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] step readings: input delay 0.0 ms (event.timeStamp to listener); no click from the trigger on',
+      );
+    });
+
+    it('records no click unless asked, and the readings line is unchanged', async () => {
+      const log = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+      install({ startWithin: '#go' });
+
+      now = 1000;
+      trustedInput('pointerdown', element('#go'));
+      now = 1050;
+      trustedInput('click', element('#go'), { timeStamp: 1001 });
+      now = 1100;
+      addElement('destination');
+      await deliverMutations();
+      const reading = readInPageStepProbe(['step']);
+
+      expect(reading).not.toHaveProperty('clickAt');
+      expect(reading).not.toHaveProperty('clickTimeStamp');
+      inPageTimerResult('step', reading);
+      expect(log).toHaveBeenCalledWith(
+        '[benchmark] step readings: input delay 0.0 ms (event.timeStamp to listener)',
+      );
+    });
+
     it('appends what the harness read around the trigger to the readings line', () => {
       const log = jest
         .spyOn(console, 'log')
@@ -860,6 +956,37 @@ describe('in-page-step-timer', () => {
         expect(
           configs.map((config) => config.typedBeforeTrigger),
         ).toStrictEqual([false, true, false, false]);
+      });
+
+      it('records the click lag only for a step that asks, and only with the switch set', async () => {
+        const { driver, configs } = configCapturingDriver();
+
+        await startInPageStep(driver, 'asks', {
+          endSelector: '#destination',
+          recordClickLag: true,
+        });
+        process.env[CLICK_LAG_AFTER_TRIGGER] = '1';
+        await startInPageStep(driver, 'asks', {
+          endSelector: '#destination',
+          recordClickLag: true,
+        });
+        await startInPageStep(driver, 'doesNotAsk', {
+          endSelector: '#destination',
+        });
+        process.env[CLICK_LAG_AFTER_TRIGGER] = '0';
+        await startInPageStep(driver, 'asks', {
+          endSelector: '#destination',
+          recordClickLag: true,
+        });
+
+        // Off, the probe's configuration carries no click-lag field at all.
+        expect(configs.map((config) => 'clickLag' in config)).toStrictEqual([
+          false,
+          true,
+          false,
+          false,
+        ]);
+        expect(configs[1].clickLag).toBe(true);
       });
 
       it('throws, and installs nothing, when the hold names no step', async () => {
@@ -1124,6 +1251,27 @@ describe('in-page-step-timer', () => {
       expect(log).toHaveBeenCalledWith(
         '[benchmark] step readings: input delay 0.0 ms (event.timeStamp to listener); the read before the trigger failed: no such window',
       );
+    });
+
+    it('fails the iteration when the read before the trigger throws a FailIterationError, without running the trigger', async () => {
+      const { driver, order } = fakeDriver();
+      const trigger = jest.fn(async () => undefined);
+      const settle = jest.fn(async () => undefined);
+      class CappedWait extends FailIterationError {}
+
+      await expect(
+        measureStepInPage(driver, 'step', {
+          endSelector: '#destination',
+          readBeforeTrigger: async () => {
+            throw new CappedWait('trigger-quiet page capped at 5000.0 ms');
+          },
+          trigger,
+          settle,
+        }),
+      ).rejects.toThrow('trigger-quiet page capped at 5000.0 ms');
+      expect(trigger).not.toHaveBeenCalled();
+      expect(settle).not.toHaveBeenCalled();
+      expect(order).toStrictEqual(['executeScript:installInPageStepProbe']);
     });
 
     it('propagates an error from the timed wait, as the step always has', async () => {

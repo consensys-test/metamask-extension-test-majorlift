@@ -137,10 +137,19 @@ class LoginPage {
    * This method unlocks the wallet and lands user on the homepage.
    *
    * @param password - The password used to unlock the wallet. Defaults to WALLET_PASSWORD.
+   * @param options - Optional.
+   * @param options.beforeSubmit - Runs after the password is typed and before
+   * Unlock is clicked; a benchmark's wait before its trigger.
    */
-  async loginToHomepage(password: string = WALLET_PASSWORD): Promise<void> {
+  async loginToHomepage(
+    password: string = WALLET_PASSWORD,
+    { beforeSubmit }: { beforeSubmit?: () => Promise<void> } = {},
+  ): Promise<void> {
     console.log(`On login page, Login to homepage `);
     await this.driver.fill(this.passwordInput, password);
+    if (beforeSubmit) {
+      await beforeSubmit();
+    }
     await this.driver.clickElement(this.unlockButton);
   }
 

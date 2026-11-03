@@ -41,8 +41,10 @@ import type { TimerResult } from './types';
  * log line after the value reports the first two. With
  * `BENCHMARK_TYPED_KEY_BEFORE_TRIGGER=1`, a step that asks for it also records
  * when the last character typed before its trigger arrived, and the line
- * reports that too, as it does anything the harness read just before the
- * trigger. None of them changes the value.
+ * reports that too. With `BENCHMARK_CLICK_LAG_AFTER_TRIGGER=1`, a step that
+ * asks for it also records the first click from its trigger on and how long
+ * that click waited for its listener. The line reports anything the harness
+ * read just before the trigger as well. None of them changes the value.
  *
  * Known answer: with `BENCHMARK_KNOWN_ANSWER_INPAGE_MS` above 0 and the step
  * named in `BENCHMARK_KNOWN_ANSWER_INPAGE_STEP`, the probe holds the page's
@@ -84,6 +86,21 @@ export const KNOWN_ANSWER_INPAGE_STEP = 'BENCHMARK_KNOWN_ANSWER_INPAGE_STEP';
  * Unset, no probe records it.
  */
 export const TYPED_KEY_BEFORE_TRIGGER = 'BENCHMARK_TYPED_KEY_BEFORE_TRIGGER';
+
+/**
+ * Record, for a step that asks for it, the first click after its trigger and
+ * how long that click waited for its listener: see
+ * {@link InPageStepOptions.recordClickLag}. Unset, no probe records it.
+ */
+export const CLICK_LAG_AFTER_TRIGGER = 'BENCHMARK_CLICK_LAG_AFTER_TRIGGER';
+
+/**
+ * Thrown by a step's `readBeforeTrigger` to fail the iteration, where any
+ * other error it throws is reported on the readings line and the step goes
+ * on: a wait that could not finish would leave the trigger to run in the
+ * state the wait exists to rule out.
+ */
+export class FailIterationError extends Error {}
 
 /**
  * Read the known-answer hold for one step.
@@ -139,6 +156,8 @@ export type InPageProbeConfig = {
   resetLongTasks: boolean;
   /** Record the last character typed before the trigger. */
   typedBeforeTrigger: boolean;
+  /** Record the first click after the trigger. Absent means false. */
+  clickLag?: boolean;
 };
 
 /**
@@ -182,6 +201,14 @@ export type InPageProbeReading = {
   /** The app's long-task metrics were reset at the trigger. */
   longTasksReset: boolean;
   /**
+   * The `event.timeStamp` of the first click from the trigger on, on the
+   * same clock as `start`. Present only when the probe was asked to record
+   * it, and null when no click came.
+   */
+  clickTimeStamp?: number | null;
+  /** `performance.now()` in the listener for that click. */
+  clickAt?: number | null;
+  /**
    * `Date.now() - performance.now()` when read: add it to `start` or `end`
    * for a wall-clock time comparable with the mock server's request times.
    */
@@ -208,6 +235,9 @@ type InPageProbe = {
   typedBeforeTriggerAt: number | null;
   heldMs: number;
   longTasksReset: boolean;
+  clickLag: boolean;
+  clickTimeStamp: number | null;
+  clickAt: number | null;
   matches: () => boolean;
   stop: () => void;
 };
@@ -315,6 +345,9 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
     typedBeforeTriggerAt: null,
     heldMs: 0,
     longTasksReset: false,
+    clickLag: config.clickLag === true,
+    clickTimeStamp: null,
+    clickAt: null,
     matches,
     stop: () => undefined,
   };
@@ -357,6 +390,10 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
       probe.start = performance.now();
       probe.startEvent = event.type;
       probe.startTimeStamp = event.timeStamp;
+      if (config.clickLag && event.type === 'click') {
+        probe.clickAt = probe.start;
+        probe.clickTimeStamp = event.timeStamp;
+      }
       if (config.typedOnly) {
         probe.typedKeys = 1;
         probe.lastTypedAt = probe.start;
@@ -385,6 +422,10 @@ export function installInPageStepProbe([config]: [InPageProbeConfig]):
         probe.stop();
       }, config.boundMs);
       return;
+    }
+    if (config.clickLag && event.type === 'click' && probe.clickAt === null) {
+      probe.clickAt = performance.now();
+      probe.clickTimeStamp = event.timeStamp;
     }
     if (config.typedOnly && probe.end === null && startsRegion(event)) {
       probe.typedKeys += 1;
@@ -461,15 +502,19 @@ export function readInPageStepProbe([stepId]: [
     typedBeforeTriggerAt: probe.typedBeforeTriggerAt,
     heldMs: probe.heldMs,
     longTasksReset: probe.longTasksReset,
+    ...(probe.clickLag
+      ? { clickTimeStamp: probe.clickTimeStamp, clickAt: probe.clickAt }
+      : {}),
     epochOffset: Date.now() - performance.now(),
   };
 }
 
 /**
- * Describe the readings recorded beside a value: the input delay, the typing
- * inside a typed step, the last character typed before the trigger, the
- * known-answer hold, whether the long-task window opened at the trigger, and
- * what the harness read just before the trigger.
+ * Describe the readings recorded beside a value: the input delay, the first
+ * click's lag when recorded, the typing inside a typed step, the last
+ * character typed before the trigger, the known-answer hold, whether the
+ * long-task window opened at the trigger, and what the harness read just
+ * before the trigger.
  *
  * @param reading - A reading with a start.
  * @param harnessReadings - Parts the harness recorded around the trigger,
@@ -502,6 +547,23 @@ function describeReadings(
     }
   } else {
     parts.push('no event.timeStamp');
+  }
+  if (reading.clickAt !== undefined) {
+    if (
+      reading.clickAt === null ||
+      reading.clickTimeStamp === null ||
+      reading.clickTimeStamp === undefined
+    ) {
+      parts.push('no click from the trigger on');
+    } else {
+      parts.push(
+        `click lag ${(reading.clickAt - reading.clickTimeStamp).toFixed(
+          1,
+        )} ms (event.timeStamp to listener), the click's event.timeStamp at +${(
+          reading.clickTimeStamp - triggerAt.time
+        ).toFixed(1)} ms from the trigger's ${triggerAt.name}`,
+      );
+    }
   }
   if (reading.typedKeys > 0 && reading.lastTypedAt !== null) {
     parts.push(
@@ -643,6 +705,15 @@ export type InPageStepOptions = {
    * trigger's. Outside the value, which still starts at the trigger.
    */
   recordTypingBeforeTrigger?: boolean;
+  /**
+   * With `BENCHMARK_CLICK_LAG_AFTER_TRIGGER=1`, record the first click from
+   * the trigger on: its `event.timeStamp` and when its listener ran. For a
+   * step triggered by a pointerdown, as login's Unlock press is, a page task
+   * that runs between the pointerdown and the click shows as that click's lag,
+   * where the input delay cannot see it. The readings line gives the lag and
+   * the click's time from the trigger's. Outside the value.
+   */
+  recordClickLag?: boolean;
 };
 
 /**
@@ -671,6 +742,12 @@ export async function startInPageStep(
     typedBeforeTrigger:
       (options.recordTypingBeforeTrigger ?? false) &&
       process.env[TYPED_KEY_BEFORE_TRIGGER] === '1',
+    // Left out unless on, so the probe a run without it installs is
+    // unchanged.
+    ...((options.recordClickLag ?? false) &&
+    process.env[CLICK_LAG_AFTER_TRIGGER] === '1'
+      ? { clickLag: true }
+      : {}),
   };
   if (config.holdMs > 0) {
     console.log(
@@ -753,7 +830,8 @@ export async function finishInPageStep(
  * @param options.readBeforeTrigger - A read the harness takes once,
  * immediately before the trigger and so outside the timed interval. What it
  * returns goes on the step's readings line. A read that throws is reported
- * there instead, and the step goes on.
+ * there instead, and the step goes on, unless it throws a
+ * {@link FailIterationError}, which is thrown on and fails the iteration.
  * @returns The step's in-page timer, or an empty array.
  */
 export async function measureStepInPage(
@@ -778,6 +856,9 @@ export async function measureStepInPage(
     try {
       harnessReadings = await readBeforeTrigger();
     } catch (error) {
+      if (error instanceof FailIterationError) {
+        throw error;
+      }
       harnessReadings = [
         `the read before the trigger failed: ${(error as Error).message}`,
       ];

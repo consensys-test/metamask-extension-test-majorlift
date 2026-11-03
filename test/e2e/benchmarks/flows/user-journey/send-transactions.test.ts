@@ -10,6 +10,9 @@ import type { BenchmarkRunResult } from '../../utils/types';
 const mockEvents: string[] = [];
 const mockMockServer = { name: 'the iteration mock server' };
 const mockRequestLogCalls: unknown[][] = [];
+const mockQuietCalls: unknown[][] = [];
+const mockTrafficTracked = { tracked: 'traffic' };
+let mockQuietFailure: Error | undefined;
 
 /**
  * A page-object class whose instances record every method called on them.
@@ -69,7 +72,9 @@ jest.mock('../../../../../app/scripts/fixtures/with-networks', () => ({
   ALL_POPULAR_NETWORKS: {},
 }));
 jest.mock('../../../page-objects/flows/login.flow', () => ({
-  login: jest.fn(async () => undefined),
+  login: jest.fn(async () => {
+    mockEvents.push('login');
+  }),
 }));
 jest.mock('../../../page-objects/pages/accounts/list-page', () =>
   mockDefaultModule(mockPageObject('AccountListPage')),
@@ -127,13 +132,21 @@ jest.mock('../../utils/in-page-step-timer', () => ({
         trigger,
         settle,
         onReading,
+        readBeforeTrigger,
       }: {
         trigger: () => Promise<void>;
         settle: () => Promise<void>;
         onReading?: (stepReading: unknown) => void;
+        readBeforeTrigger?: () => Promise<readonly string[]>;
       },
     ) => {
       mockEvents.push(`probe:${id}`);
+      if (readBeforeTrigger) {
+        mockEvents.push(`readBeforeTrigger:${id}`);
+        mockEvents.push(
+          ...(await readBeforeTrigger()).map((part) => `reading:${part}`),
+        );
+      }
       await trigger();
       await settle();
       onReading?.({ stepId: id, reading: null });
@@ -144,6 +157,25 @@ jest.mock('../../utils/in-page-step-timer', () => ({
 }));
 jest.mock('../../utils/optional-dialog', () => ({
   waitDismissingOptionalDialog: jest.fn(async () => false),
+}));
+// The switch name is the module's own; each wait records that it ran.
+jest.mock('../../utils/trigger-quiet', () => ({
+  REVIEW_MOCK_QUIET_BEFORE_STEP: 'BENCHMARK_REVIEW_MOCK_QUIET_BEFORE_STEP',
+  trackMockTraffic: jest.fn(async (mockServer: unknown) => {
+    mockEvents.push('trackMockTraffic');
+    mockQuietCalls.push(['track', mockServer]);
+    return mockTrafficTracked;
+  }),
+  waitForTriggerQuiet: jest.fn(
+    async (_driver: unknown, id: string, parts: Record<string, unknown>) => {
+      mockEvents.push(`quiet:${id}`);
+      mockQuietCalls.push([id, parts]);
+      if (mockQuietFailure) {
+        throw mockQuietFailure;
+      }
+      return Object.keys(parts).map((part) => `${part} reading`);
+    },
+  ),
 }));
 jest.mock('../../utils/mock-config', () => ({
   getTestSpecificMock: jest.fn(),
@@ -178,6 +210,11 @@ describe('runSendTransactionsBenchmark', () => {
   beforeEach(() => {
     mockEvents.length = 0;
     mockRequestLogCalls.length = 0;
+    mockQuietCalls.length = 0;
+    mockQuietFailure = undefined;
+  });
+  afterEach(() => {
+    delete process.env.BENCHMARK_REVIEW_MOCK_QUIET_BEFORE_STEP;
   });
 
   async function run(): Promise<BenchmarkRunResult> {
@@ -204,5 +241,63 @@ describe('runSendTransactionsBenchmark', () => {
       at('webVitals'),
     );
     expect(at('webVitals')).toBeLessThan(at('requestLog'));
+  });
+
+  describe('the wait before the review step', () => {
+    it('adds no listener and no wait when the switch is unset or 0', async () => {
+      await run();
+      process.env.BENCHMARK_REVIEW_MOCK_QUIET_BEFORE_STEP = '0';
+      await run();
+
+      expect(mockEvents).not.toContain('trackMockTraffic');
+      expect(
+        mockEvents.filter((event) => event.startsWith('readBeforeTrigger:')),
+      ).toStrictEqual([]);
+      expect(mockQuietCalls).toStrictEqual([]);
+    });
+
+    it('with the switch set, tracks the traffic from before login and waits after the amount, before the probe', async () => {
+      process.env.BENCHMARK_REVIEW_MOCK_QUIET_BEFORE_STEP = '1';
+
+      await run();
+
+      expect(at('trackMockTraffic')).toBeLessThan(at('login'));
+      expect(at('SendPage.fillAmount')).toBeLessThan(
+        at('quiet:reviewTransactionToConfirmationPage'),
+      );
+      expect(at('quiet:reviewTransactionToConfirmationPage')).toBeLessThan(
+        at('probe:reviewTransactionToConfirmationPage'),
+      );
+      // The mock part alone, Q 500 ms, capped at 10 s, on the tracked traffic.
+      expect(mockQuietCalls).toStrictEqual([
+        ['track', mockMockServer],
+        [
+          'reviewTransactionToConfirmationPage',
+          {
+            mock: { traffic: mockTrafficTracked, quietMs: 500, capMs: 10_000 },
+          },
+        ],
+      ]);
+      // Its reading goes to the review step's readings line, and only there.
+      expect(
+        mockEvents.filter((event) => event.startsWith('readBeforeTrigger:')),
+      ).toStrictEqual([
+        'readBeforeTrigger:reviewTransactionToConfirmationPage',
+      ]);
+      expect(mockEvents).toContain('reading:mock reading');
+    });
+
+    it('fails the iteration, without the review step, when the wait fails', async () => {
+      process.env.BENCHMARK_REVIEW_MOCK_QUIET_BEFORE_STEP = '1';
+      mockQuietFailure = new Error('trigger-quiet mock capped at 10000 ms');
+
+      const result = await runSendTransactionsBenchmark();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('trigger-quiet mock capped at 10000 ms');
+      expect(mockEvents).not.toContain(
+        'probe:reviewTransactionToConfirmationPage',
+      );
+    });
   });
 });

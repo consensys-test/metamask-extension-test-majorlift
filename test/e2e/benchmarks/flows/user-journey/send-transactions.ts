@@ -28,6 +28,11 @@ import {
 } from '../../utils/in-page-step-timer';
 import { waitDismissingOptionalDialog } from '../../utils/optional-dialog';
 import {
+  REVIEW_MOCK_QUIET_BEFORE_STEP,
+  trackMockTraffic,
+  waitForTriggerQuiet,
+} from '../../utils/trigger-quiet';
+import {
   getTestSpecificMock,
   shouldUseMockedRequests,
 } from '../../utils/mock-config';
@@ -87,6 +92,14 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
         driver: Driver;
         mockServer: Mockttp;
       }) => {
+        // With `BENCHMARK_REVIEW_MOCK_QUIET_BEFORE_STEP=1`, count the mock
+        // server's traffic from here, so the wait before the review step sees
+        // the requests still awaiting an answer. Unset, no listener is added.
+        const reviewTraffic =
+          process.env[REVIEW_MOCK_QUIET_BEFORE_STEP] === '1'
+            ? await trackMockTraffic(mockServer)
+            : null;
+
         // Login flow
         await login(driver, { validateBalance: false });
         const homePage = new HomePage(driver);
@@ -160,8 +173,21 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
         // includes the harness's reaction, and the in-page timer reports
         // nothing for that iteration because the acknowledgement is a second
         // input.
+        //
+        // With `BENCHMARK_REVIEW_MOCK_QUIET_BEFORE_STEP=1`, after the amount is
+        // typed and before the probe, the step waits until the mock server
+        // has received no request for 500 ms and has none awaiting an answer,
+        // so a background poll's requests stay out of the interval; past
+        // 10 s, the iteration fails. Its reading goes on the readings line.
         await sendPage.fillRecipient({ recipientAddress: RECIPIENT_ADDRESS });
         await sendPage.fillAmount('0.00001');
+        const reviewReadings = reviewTraffic
+          ? await waitForTriggerQuiet(
+              driver,
+              'reviewTransactionToConfirmationPage',
+              { mock: { traffic: reviewTraffic, quietMs: 500, capMs: 10_000 } },
+            )
+          : null;
         let acknowledged = false;
         inPageTimers.push(
           ...(await measureStepInPage(
@@ -171,6 +197,9 @@ export async function runSendTransactionsBenchmark(): Promise<BenchmarkRunResult
               endSelector: IN_PAGE_DESTINATIONS.snapConfirmation,
               startWithin: SEND_CONTINUE_BUTTON,
               onReading: keepReading,
+              ...(reviewReadings
+                ? { readBeforeTrigger: async () => reviewReadings }
+                : {}),
               trigger: async () => {
                 await sendPage.waitForContinueButtonStablyEnabled();
                 await driver.clickElement(SEND_CONTINUE_BUTTON);

@@ -37,6 +37,11 @@ import {
 } from '../../utils/mock-config';
 import { waitForPageIdleBeforeStep } from '../../utils/sidepanel-onboarding';
 import {
+  SWAP_QUIET_BEFORE_TRIGGER,
+  trackMockTraffic,
+  waitForTriggerQuiet,
+} from '../../utils/trigger-quiet';
+import {
   BENCHMARK_PERSONA,
   BENCHMARK_TYPE,
   type WebVitalsMetrics,
@@ -109,6 +114,15 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         mockedEndpoint: MockedEndpoint[];
         mockServer: Mockttp;
       }) => {
+        // With `BENCHMARK_SWAP_QUIET_BEFORE_TRIGGER=1`, count the mock
+        // server's traffic from here, so the wait before the swap-page click
+        // sees the requests still awaiting an answer. Unset, no listener is
+        // added.
+        const swapTraffic =
+          process.env[SWAP_QUIET_BEFORE_TRIGGER] === '1'
+            ? await trackMockTraffic(mockServer)
+            : null;
+
         // Login flow
         await login(driver, { validateBalance: false });
         const homePage = new HomePage(driver);
@@ -131,13 +145,31 @@ export async function runSwapBenchmark(): Promise<BenchmarkRunResult> {
         // tasks the click causes are inside it. Without a probe, the step
         // resets after the click, as before. With
         // `BENCHMARK_PAGE_IDLE_BEFORE_STEP=1` the step starts once the home
-        // page has gone idle, outside both timers.
+        // page has gone idle, outside both timers. With
+        // `BENCHMARK_SWAP_QUIET_BEFORE_TRIGGER=1`, after the probe is installed
+        // and right before the click, the step waits until the mock server
+        // has received no request for 750 ms and has none awaiting an answer,
+        // then for two idle periods of the page; a wait that reaches its cap
+        // fails the iteration. Its readings go on the readings line.
         await waitForPageIdleBeforeStep(driver);
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'openSwapPageFromHome', {
             endSelector: IN_PAGE_DESTINATIONS.swapPage,
             resetLongTasksAtStart: true,
             onReading: keepReading,
+            ...(swapTraffic
+              ? {
+                  readBeforeTrigger: () =>
+                    waitForTriggerQuiet(driver, 'openSwapPageFromHome', {
+                      mock: {
+                        traffic: swapTraffic,
+                        quietMs: 750,
+                        capMs: 15_000,
+                      },
+                      page: { idlePeriods: 2, heartbeat: null, capMs: 5_000 },
+                    }),
+                }
+              : {}),
             trigger: () => homePage.startSwapFlow(),
             settle: async ({ installed }) => {
               steps.push(
