@@ -3,6 +3,7 @@
  * Measures time to import an existing wallet from the home page
  */
 
+import type { Mockttp } from 'mockttp';
 import { generateWalletState } from '../../../../../app/scripts/fixtures/generate-wallet-state';
 import { ALL_POPULAR_NETWORKS } from '../../../../../app/scripts/fixtures/with-networks';
 import { withFixtures } from '../../../helpers';
@@ -26,8 +27,10 @@ import {
 import {
   IN_PAGE_DESTINATIONS,
   finishInPageStep,
+  logRequestsWithinInPageSteps,
   measureStepInPage,
   startInPageStep,
+  type InPageStepReading,
 } from '../../utils/in-page-step-timer';
 import {
   getTestSpecificMock,
@@ -37,6 +40,13 @@ import {
   waitForAccountSyncIdleBeforeStep,
   waitForPageIdleBeforeStep,
 } from '../../utils/sidepanel-onboarding';
+import {
+  LOGIN_BACKGROUND_IDLE_BEFORE_TRIGGER,
+  LOGIN_PAGE_IDLE_BEFORE_TRIGGER,
+  LOGIN_POINTER_BEFORE_TRIGGER,
+  movePointerOnto,
+  waitForTriggerQuiet,
+} from '../../utils/trigger-quiet';
 import {
   BENCHMARK_PERSONA,
   BENCHMARK_TYPE,
@@ -52,6 +62,9 @@ import type {
 
 const SECOND_SRP = process.env.TEST_SRP_2;
 
+/** The Unlock button, which the login step's trigger presses. */
+const UNLOCK_BUTTON = '[data-testid="unlock-submit"]';
+
 export const testTitle = 'benchmark-import-srp-home-power-user';
 export const persona = BENCHMARK_PERSONA.POWER_USER;
 
@@ -59,6 +72,9 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
   const steps: LongTaskStepResult[] = [];
   const traceTimers: TimerResult[] = [];
   const inPageTimers: TimerResult[] = [];
+  const inPageReadings: InPageStepReading[] = [];
+  const keepReading = (stepReading: InPageStepReading) =>
+    inPageReadings.push(stepReading);
   let webVitals: WebVitalsMetrics | undefined;
   try {
     // Validate required environment variable
@@ -91,9 +107,11 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
       async ({
         driver,
         mockedEndpoint,
+        mockServer,
       }: {
         driver: Driver;
         mockedEndpoint: MockedEndpoint[];
+        mockServer: Mockttp;
       }) => {
         // Measure: Login flow (includes triggering action). The trigger stays
         // inside the step timer, so the probe is installed before it. The step
@@ -103,22 +121,75 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         // page has gone idle, rather than straight after its check. With
         // `BENCHMARK_TYPED_KEY_BEFORE_TRIGGER=1` the probe also records when
         // the last password character arrived, and the readings line gives it
-        // from the Unlock pointerdown.
+        // from the Unlock pointerdown. With
+        // `BENCHMARK_CLICK_LAG_AFTER_TRIGGER=1` it records how long the click
+        // after that pointerdown waited for its listener.
+        //
+        // Between the typing and the Unlock click, three waits, each behind
+        // its own switch, run in this order, outside the in-page interval and
+        // inside the step timer: `BENCHMARK_LOGIN_POINTER_BEFORE_TRIGGER=1`
+        // moves the pointer onto Unlock and holds it there 300 ms;
+        // `BENCHMARK_LOGIN_BACKGROUND_IDLE_BEFORE_TRIGGER=1` waits until the
+        // background answers promptly; `BENCHMARK_LOGIN_PAGE_IDLE_BEFORE_TRIGGER=1`
+        // waits until the page's timers run on time and it has gone idle. A
+        // wait that reaches its cap fails the iteration.
         await driver.navigate();
         const loginPage = new LoginPage(driver);
         await loginPage.checkPageIsLoaded();
         await waitForPageIdleBeforeStep(driver);
+        const loginReadings: string[] = [];
+        const pointerBeforeUnlock =
+          process.env[LOGIN_POINTER_BEFORE_TRIGGER] === '1';
+        const backgroundBeforeUnlock =
+          process.env[LOGIN_BACKGROUND_IDLE_BEFORE_TRIGGER] === '1';
+        const pageBeforeUnlock =
+          process.env[LOGIN_PAGE_IDLE_BEFORE_TRIGGER] === '1';
+        const beforeUnlock = async (): Promise<void> => {
+          if (pointerBeforeUnlock) {
+            loginReadings.push(
+              await movePointerOnto(driver, UNLOCK_BUTTON, 300),
+            );
+          }
+          if (backgroundBeforeUnlock || pageBeforeUnlock) {
+            loginReadings.push(
+              ...(await waitForTriggerQuiet(driver, 'loginToHomeScreen', {
+                ...(backgroundBeforeUnlock
+                  ? {
+                      background: { windowMs: 250, answerMs: 5, capMs: 5_000 },
+                    }
+                  : {}),
+                ...(pageBeforeUnlock
+                  ? {
+                      page: {
+                        idlePeriods: 2,
+                        heartbeat: { windowMs: 250, stallMs: 8 },
+                        capMs: 5_000,
+                      },
+                    }
+                  : {}),
+              })),
+            );
+          }
+        };
         const loginProbe = await startInPageStep(driver, 'loginToHomeScreen', {
           endSelector: IN_PAGE_DESTINATIONS.home,
-          startWithin: '[data-testid="unlock-submit"]',
+          startWithin: UNLOCK_BUTTON,
           recordTypingBeforeTrigger: true,
+          recordClickLag: true,
         });
         steps.push(
           await measureStepWithLongTasks(
             driver,
             'loginToHomeScreen',
             async () => {
-              await loginPage.loginToHomepage();
+              await loginPage.loginToHomepage(
+                undefined,
+                pointerBeforeUnlock ||
+                  backgroundBeforeUnlock ||
+                  pageBeforeUnlock
+                  ? { beforeSubmit: beforeUnlock }
+                  : {},
+              );
               const homePage = new HomePage(driver);
               await homePage.checkPageIsLoaded();
             },
@@ -126,7 +197,12 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         );
         if (loginProbe) {
           inPageTimers.push(
-            ...(await finishInPageStep(driver, 'loginToHomeScreen')),
+            ...(await finishInPageStep(
+              driver,
+              'loginToHomeScreen',
+              keepReading,
+              loginReadings,
+            )),
           );
         }
 
@@ -142,6 +218,7 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         inPageTimers.push(
           ...(await measureStepInPage(driver, 'openAccountMenuAfterLogin', {
             endSelector: IN_PAGE_DESTINATIONS.accountList,
+            onReading: keepReading,
             trigger: () =>
               driver.clickElement('[data-testid="account-menu-icon"]'),
             settle: async () => {
@@ -170,6 +247,7 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
           ...(await measureStepInPage(driver, 'homeAfterImportWithNewWallet', {
             endSelector: IN_PAGE_DESTINATIONS.homeWithTokenList,
             startWithin: '[data-testid="import-srp-confirm"]',
+            onReading: keepReading,
             trigger: () => accountListPage.startImportSecretPhrase(SECOND_SRP),
             settle: async () => {
               steps.push(
@@ -226,6 +304,10 @@ export async function runImportSrpHomeBenchmark(): Promise<BenchmarkRunResult> {
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
+
+        // After everything measured: which requests each in-page interval
+        // overlapped, to compare slow iterations with fast ones.
+        await logRequestsWithinInPageSteps(mockServer, inPageReadings);
       },
     );
 

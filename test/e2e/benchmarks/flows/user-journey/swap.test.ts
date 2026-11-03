@@ -8,6 +8,9 @@
 import type { BenchmarkRunResult } from '../../utils/types';
 
 const mockEvents: string[] = [];
+const mockQuietCalls: unknown[][] = [];
+const mockTrafficTracked = { tracked: 'traffic' };
+let mockQuietFailure: Error | undefined;
 
 /**
  * A page-object class whose instances record every method called on them.
@@ -116,12 +119,20 @@ jest.mock('../../utils/in-page-step-timer', () => ({
       {
         trigger,
         settle,
+        readBeforeTrigger,
       }: {
         trigger: () => Promise<void>;
         settle: (probe: { installed: boolean }) => Promise<void>;
+        readBeforeTrigger?: () => Promise<readonly string[]>;
       },
     ) => {
       mockEvents.push(`probe:${id}`);
+      if (readBeforeTrigger) {
+        mockEvents.push(`readBeforeTrigger:${id}`);
+        mockEvents.push(
+          ...(await readBeforeTrigger()).map((part) => `reading:${part}`),
+        );
+      }
       await trigger();
       await settle({ installed: true });
       mockEvents.push(`read:${id}`);
@@ -137,6 +148,24 @@ jest.mock('../../utils/sidepanel-onboarding', () => ({
   waitForPageIdleBeforeStep: jest.fn(async () => {
     mockEvents.push('pageIdle');
   }),
+}));
+// The switch name is the module's own; each wait records that it ran.
+jest.mock('../../utils/trigger-quiet', () => ({
+  SWAP_QUIET_BEFORE_TRIGGER: 'BENCHMARK_SWAP_QUIET_BEFORE_TRIGGER',
+  trackMockTraffic: jest.fn(async () => {
+    mockEvents.push('trackMockTraffic');
+    return mockTrafficTracked;
+  }),
+  waitForTriggerQuiet: jest.fn(
+    async (_driver: unknown, id: string, parts: Record<string, unknown>) => {
+      mockEvents.push(`quiet:${id}`);
+      mockQuietCalls.push([id, parts]);
+      if (mockQuietFailure) {
+        throw mockQuietFailure;
+      }
+      return Object.keys(parts).map((part) => `${part} reading`);
+    },
+  ),
 }));
 jest.mock('../../utils/sentry-transactions', () => ({
   waitForSentryTransactions: jest.fn(async () => []),
@@ -186,6 +215,11 @@ function at(event: string): number {
 describe('runSwapBenchmark', () => {
   beforeEach(() => {
     mockEvents.length = 0;
+    mockQuietCalls.length = 0;
+    mockQuietFailure = undefined;
+  });
+  afterEach(() => {
+    delete process.env.BENCHMARK_SWAP_QUIET_BEFORE_TRIGGER;
   });
 
   async function run(): Promise<BenchmarkRunResult> {
@@ -204,5 +238,68 @@ describe('runSwapBenchmark', () => {
     );
     expect(at('pageIdle')).toBeLessThan(at('probe:openSwapPageFromHome'));
     expect(at('pageIdle')).toBeLessThan(at('timer:openSwapPageFromHome'));
+  });
+
+  describe('the wait before the swap-page click', () => {
+    it('adds no listener and no wait when the switch is unset or 0', async () => {
+      await run();
+      process.env.BENCHMARK_SWAP_QUIET_BEFORE_TRIGGER = '0';
+      await run();
+
+      expect(mockEvents).not.toContain('trackMockTraffic');
+      expect(
+        mockEvents.filter((event) => event.startsWith('readBeforeTrigger:')),
+      ).toStrictEqual([]);
+      expect(mockQuietCalls).toStrictEqual([]);
+    });
+
+    it('with the switch set, tracks the traffic from before login and waits after the probe, right before the click', async () => {
+      process.env.BENCHMARK_SWAP_QUIET_BEFORE_TRIGGER = '1';
+
+      await run();
+
+      expect(at('trackMockTraffic')).toBeLessThan(at('login'));
+      expect(at('probe:openSwapPageFromHome')).toBeLessThan(
+        at('readBeforeTrigger:openSwapPageFromHome'),
+      );
+      expect(at('readBeforeTrigger:openSwapPageFromHome')).toBeLessThan(
+        at('quiet:openSwapPageFromHome'),
+      );
+      expect(at('quiet:openSwapPageFromHome')).toBeLessThan(
+        at('HomePage.startSwapFlow'),
+      );
+      // Only the swap-page step waits.
+      expect(
+        mockEvents.filter((event) => event.startsWith('readBeforeTrigger:')),
+      ).toStrictEqual(['readBeforeTrigger:openSwapPageFromHome']);
+      // The mock part, Q 750 ms, then the page part, two idle periods.
+      expect(mockQuietCalls).toStrictEqual([
+        [
+          'openSwapPageFromHome',
+          {
+            mock: { traffic: mockTrafficTracked, quietMs: 750, capMs: 15_000 },
+            page: { idlePeriods: 2, heartbeat: null, capMs: 5_000 },
+          },
+        ],
+      ]);
+      // Its readings go to the step's readings line.
+      expect(mockEvents).toStrictEqual(
+        expect.arrayContaining([
+          'reading:mock reading',
+          'reading:page reading',
+        ]),
+      );
+    });
+
+    it('fails the iteration, without the click, when the wait fails', async () => {
+      process.env.BENCHMARK_SWAP_QUIET_BEFORE_TRIGGER = '1';
+      mockQuietFailure = new Error('trigger-quiet mock capped at 15000 ms');
+
+      const result = await runSwapBenchmark();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('trigger-quiet mock capped at 15000 ms');
+      expect(mockEvents).not.toContain('HomePage.startSwapFlow');
+    });
   });
 });
