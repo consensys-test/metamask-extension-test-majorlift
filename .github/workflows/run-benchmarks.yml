@@ -15,7 +15,8 @@ permissions:
 
 jobs:
   benchmarks:
-    if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
+    # Stage 4 window 4 (s4f4): the dapp job only.
+    if: ${{ false }}
     name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
@@ -26,11 +27,10 @@ jobs:
         # and must stay in sync with benchmark-command (startupPowerUserHome uses extra flags).
         #
         # Startup + interaction + user journeys: chrome/firefox × webpack × preset (test build: build-test-webpack / build-test-mv2-webpack).
-        browser: [chrome, firefox]
+        # Stage 4 window (s4f): chrome only, and no startup preset (rule.md sections 1 and 4).
+        browser: [chrome]
         buildType: [webpack]
         pageType:
-          - startupStandardHome
-          - startupPowerUserHome
           - interactionUserActions
           - userJourneyOnboardingImport
           - userJourneyOnboardingNew
