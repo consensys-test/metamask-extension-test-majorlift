@@ -26,6 +26,7 @@ import {
   KNOWN_ANSWER_STARTUP_DELAY,
   KNOWN_ANSWER_STARTUP_SYNC_BLOCK,
   SAMPLE_EXCLUSION,
+  STARTUP_POST_HERO_LONG_TASKS,
   STARTUP_SETTLE_MAX_MS,
   STARTUP_SETTLE_POLL_MS,
   STARTUP_SETTLE_QUIET,
@@ -128,17 +129,65 @@ export type StartupLeverMarkSample = StartupLeverMarks & {
   excluded?: SampleExclusion;
 };
 
+/** One long task that started at or after the hero mark. */
+export type PostHeroLongTask = {
+  /** The task's `startTime` minus the hero mark's, in ms; 0 or more. */
+  start: number;
+  /** The task's duration, in ms. */
+  duration: number;
+  /**
+   * Whether the task starts at or before `uiStartup`'s end, the comparison the
+   * long-task series make (`boundLongTasksToStartup`). Null when `uiStartup`'s
+   * end is unknown.
+   */
+  beforeUiStartupEnd: boolean | null;
+};
+
+/**
+ * The long tasks that started at or after the hero mark on one page load, as
+ * the app's record holds them. `tasks` is null when the load cannot say, and
+ * `unavailable` names why; an empty list means the observer ran and no task
+ * started after the hero mark.
+ */
+export type PostHeroLongTasks =
+  | {
+      tasks: PostHeroLongTask[];
+      /**
+       * Long tasks the app counted and did not store. It stores the first
+       * `MAX_TASKS_STORED` (50) in `ui/helpers/utils/performance-observers.ts`,
+       * so the ones it dropped started after every stored task; above 0, the
+       * list is a lower bound.
+       */
+      notStored: number;
+    }
+  | {
+      tasks: null;
+      unavailable:
+        | 'no-long-task-hook'
+        | 'observer-not-attached'
+        | 'no-hero-mark';
+    };
+
+/** One page load's post-hero long tasks, numbered as `values` is. */
+export type PostHeroLongTasksSample = PostHeroLongTasks & {
+  iteration: number;
+  excluded?: SampleExclusion;
+};
+
 /** One browser load's result from a startup flow. */
 export type StartupMeasurePageResult = MeasurePageResult & {
   browserLoad?: Omit<BrowserLoadRecord, 'browserLoad'>;
   /** One per page load, in order; only when a startup lever is set. */
   leverMarks?: StartupLeverMarks[];
+  /** One per page load, in order; only when the post-hero switch is on. */
+  postHeroLongTasks?: PostHeroLongTasks[];
 };
 
 /** Startup benchmark results, with what each browser load recorded. */
 export type PageLoadBenchmarkResults = BenchmarkResults & {
   browserLoadRecords?: BrowserLoadRecord[];
   leverMarks?: StartupLeverMarkSample[];
+  postHeroLongTasks?: PostHeroLongTasksSample[];
 };
 
 /** Per-page-load metrics from a startup flow, with the series it adds. */
@@ -702,20 +751,32 @@ export async function runPageLoadBenchmark(
   let allWebVitalsRuns: WebVitalsRun[] = [];
   const browserLoadRecords: BrowserLoadRecord[] = [];
   const allLeverMarks: (StartupLeverMarks & { iteration: number })[] = [];
+  const allPostHeroLongTasks: (PostHeroLongTasks & { iteration: number })[] =
+    [];
   let testTitle = '';
   let resultPersona: Persona = BENCHMARK_PERSONA.STANDARD;
 
   for (let i = 0; i < browserLoads; i += 1) {
     console.log('Starting browser load', i + 1, 'of', browserLoads);
-    const { metrics, title, persona, webVitalsRuns, browserLoad, leverMarks } =
-      await retryBrowserLoad(() => measurePageFn(pageName, pageLoads), {
-        index: i,
-        total: browserLoads,
-        retries,
-      });
+    const {
+      metrics,
+      title,
+      persona,
+      webVitalsRuns,
+      browserLoad,
+      leverMarks,
+      postHeroLongTasks,
+    } = await retryBrowserLoad(() => measurePageFn(pageName, pageLoads), {
+      index: i,
+      total: browserLoads,
+      retries,
+    });
     runResults = runResults.concat(metrics);
     leverMarks?.forEach((marks, j) =>
       allLeverMarks.push({ iteration: i * pageLoads + j, ...marks }),
+    );
+    postHeroLongTasks?.forEach((tasks, j) =>
+      allPostHeroLongTasks.push({ iteration: i * pageLoads + j, ...tasks }),
     );
     if (webVitalsRuns) {
       const indexed = webVitalsRuns.map((wv: WebVitalsMetrics, j: number) => ({
@@ -767,6 +828,16 @@ export async function runPageLoadBenchmark(
       const excluded = exclusionForPageLoad(marks.iteration);
       return { ...marks, ...(excluded && { excluded }) };
     });
+
+  // The post-hero long tasks are not a series either: they sit beside `values`
+  // the same way, so a reader can count the loads with a task after the hero.
+  const measuredPostHeroLongTasks: PostHeroLongTasksSample[] =
+    allPostHeroLongTasks
+      .filter((sample) => sample.iteration >= warmupSize)
+      .map((sample) => {
+        const excluded = exclusionForPageLoad(sample.iteration);
+        return { ...sample, ...(excluded && { excluded }) };
+      });
 
   if (measuredResults.some((result) => result.navigation.length > 1)) {
     throw new Error(`Multiple navigations not supported`);
@@ -852,6 +923,9 @@ export async function runPageLoadBenchmark(
     outliers: { ...trimmedCounts },
     values,
     ...(measuredLeverMarks.length > 0 && { leverMarks: measuredLeverMarks }),
+    ...(measuredPostHeroLongTasks.length > 0 && {
+      postHeroLongTasks: measuredPostHeroLongTasks,
+    }),
     host: captureHostProvenance(),
     ...(webVitals && { webVitals }),
     ...(browserLoadRecords.length > 0 && { browserLoadRecords }),
@@ -928,6 +1002,16 @@ export function readStartupSyncBlockMs(): number {
  */
 export function readStartupSettleQuietMs(): number {
   return getKnownAnswerDelayMs(STARTUP_SETTLE_QUIET);
+}
+
+/**
+ * Whether the startup flows record the long tasks after the hero mark, from
+ * {@link STARTUP_POST_HERO_LONG_TASKS}.
+ *
+ * @returns True only when the variable is `1`.
+ */
+export function isStartupPostHeroLongTasksOn(): boolean {
+  return process.env[STARTUP_POST_HERO_LONG_TASKS] === '1';
 }
 
 /**
@@ -1199,6 +1283,45 @@ export async function readStartupPageSignals(
   return (await driver.executeScript(
     readStartupPageSignalsInPage,
   )) as StartupPageSignals;
+}
+
+/**
+ * The long tasks that started at or after the hero mark, from what
+ * `readStartupPageSignals` already read: the app's record carries each stored
+ * task's `startTime` and `duration` (`LongTaskMetrics.tasks`), so nothing more
+ * is read from the page.
+ *
+ * @param signals - From `readStartupPageSignals`.
+ * @param uiStartupEnd - When `uiStartup` ended, in the page's
+ * `performance.now()` frame, as {@link boundLongTasksToStartup} takes it.
+ * @returns The tasks in the app's order, each with its start relative to the
+ * hero mark; or null tasks and why, when the observer or the mark is missing.
+ */
+export function selectPostHeroLongTasks(
+  signals: StartupPageSignals,
+  uiStartupEnd: number | undefined,
+): PostHeroLongTasks {
+  const { heroPainted, longTasks } = signals;
+  if (!longTasks) {
+    return { tasks: null, unavailable: 'no-long-task-hook' };
+  }
+  if (!longTasks.observed) {
+    return { tasks: null, unavailable: 'observer-not-attached' };
+  }
+  if (heroPainted === null) {
+    return { tasks: null, unavailable: 'no-hero-mark' };
+  }
+  const endKnown = uiStartupEnd !== undefined && Number.isFinite(uiStartupEnd);
+  return {
+    tasks: longTasks.tasks
+      .filter((task) => task.startTime >= heroPainted)
+      .map((task) => ({
+        start: task.startTime - heroPainted,
+        duration: task.duration,
+        beforeUiStartupEnd: endKnown ? task.startTime <= uiStartupEnd : null,
+      })),
+    notStored: Math.max(0, longTasks.count - longTasks.tasks.length),
+  };
 }
 
 /**

@@ -103,6 +103,16 @@ export const KNOWN_ANSWER_STARTUP_SYNC_BLOCK =
   'BENCHMARK_KNOWN_ANSWER_STARTUP_SYNC_BLOCK_MS';
 
 /**
+ * Recording switch for the startup flows, `1` to turn it on: each page load
+ * also records the long tasks that start at or after the hero mark, as
+ * `postHeroLongTasks` beside `values`. It reads what the flow already read
+ * from the page, so it adds no page script and changes no series. Unset,
+ * empty or any other value, the artifact is unchanged.
+ */
+export const STARTUP_POST_HERO_LONG_TASKS =
+  'BENCHMARK_STARTUP_POST_HERO_LONG_TASKS';
+
+/**
  * Settle step for the startup flows: after unlock and before the first
  * measured page load, wait until the mock server's request count has not
  * changed for this many milliseconds. Unset, empty or 0, there is no wait.

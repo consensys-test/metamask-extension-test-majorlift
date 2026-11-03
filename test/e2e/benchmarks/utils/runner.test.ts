@@ -15,12 +15,14 @@ import {
   documentStartDelaySource,
   installDocumentStartDelay,
   installStartUiSyncBlock,
+  isStartupPostHeroLongTasksOn,
   readStartupLeverMarks,
   readStartupPageSignals,
   readStartupSyncBlockMs,
   retryBrowserLoad,
   runBenchmarkWithIterations,
   runPageLoadBenchmark,
+  selectPostHeroLongTasks,
   startUiSyncBlockSource,
   waitForNetworkQuiet,
 } from './runner';
@@ -28,6 +30,7 @@ import type {
   LongTaskRecord,
   PreparedWebVitalsRun,
   StartupMeasurePageResult,
+  StartupPageSignals,
 } from './runner';
 import type {
   BenchmarkRunResult,
@@ -1540,6 +1543,277 @@ describe('startup lever at START_UI_SYNC', () => {
 
       expect(without).not.toHaveProperty('leverMarks');
       const { leverMarks: _leverMarks, ...rest } = withMarks;
+      expect(rest).toStrictEqual(without);
+    });
+  });
+});
+
+describe('startup post-hero long tasks', () => {
+  const SWITCH = 'BENCHMARK_STARTUP_POST_HERO_LONG_TASKS';
+  const savedSwitch = process.env[SWITCH];
+
+  afterEach(() => {
+    if (savedSwitch === undefined) {
+      delete process.env[SWITCH];
+    } else {
+      process.env[SWITCH] = savedSwitch;
+    }
+  });
+
+  describe('isStartupPostHeroLongTasksOn', () => {
+    it('is off when the switch is unset, empty or 0', () => {
+      delete process.env[SWITCH];
+      expect(isStartupPostHeroLongTasksOn()).toBe(false);
+      process.env[SWITCH] = '';
+      expect(isStartupPostHeroLongTasksOn()).toBe(false);
+      process.env[SWITCH] = '0';
+      expect(isStartupPostHeroLongTasksOn()).toBe(false);
+    });
+
+    it('is off for any other value than 1', () => {
+      for (const value of ['true', '2', ' 1', '01']) {
+        process.env[SWITCH] = value;
+        expect(isStartupPostHeroLongTasksOn()).toBe(false);
+      }
+    });
+
+    it('is on when the switch is 1', () => {
+      process.env[SWITCH] = '1';
+      expect(isStartupPostHeroLongTasksOn()).toBe(true);
+    });
+  });
+
+  describe('selectPostHeroLongTasks', () => {
+    const HERO = 800;
+
+    /**
+     * What `readStartupPageSignals` returns for a page whose observer ran.
+     *
+     * @param tasks - The tasks the app stored.
+     * @param overrides - Fields to replace.
+     */
+    function signalsWith(
+      tasks: LongTaskRecord['tasks'],
+      overrides: Partial<StartupPageSignals> = {},
+    ): StartupPageSignals {
+      return {
+        heroPainted: HERO,
+        longTasks: { observed: true, count: tasks.length, tasks },
+        ...overrides,
+      };
+    }
+
+    it('leaves out a task that starts before the hero mark and keeps one at or after it', () => {
+      const result = selectPostHeroLongTasks(
+        signalsWith([
+          { startTime: 120, duration: 300 },
+          { startTime: HERO - 0.1, duration: 90 },
+          { startTime: HERO, duration: 51 },
+          { startTime: HERO + 38, duration: 87 },
+        ]),
+        2000,
+      );
+
+      expect(result).toStrictEqual({
+        tasks: [
+          { start: 0, duration: 51, beforeUiStartupEnd: true },
+          { start: 38, duration: 87, beforeUiStartupEnd: true },
+        ],
+        notStored: 0,
+      });
+    });
+
+    it('flags whether each task starts at or before the end of uiStartup', () => {
+      const result = selectPostHeroLongTasks(
+        signalsWith([
+          { startTime: 810, duration: 60 },
+          { startTime: 900, duration: 70 },
+          { startTime: 900.5, duration: 80 },
+          { startTime: 1500, duration: 120 },
+        ]),
+        900,
+      );
+
+      expect(
+        result.tasks?.map((task) => task.beforeUiStartupEnd),
+      ).toStrictEqual([true, true, false, false]);
+    });
+
+    it('flags neither side when the end of uiStartup is unknown', () => {
+      const tasks = [{ startTime: 810, duration: 60 }];
+      for (const unknownEnd of [undefined, Number.NaN]) {
+        expect(
+          selectPostHeroLongTasks(signalsWith(tasks), unknownEnd).tasks,
+        ).toStrictEqual([
+          { start: 10, duration: 60, beforeUiStartupEnd: null },
+        ]);
+      }
+    });
+
+    it("draws the line at uiStartup's end where the long-task series do", () => {
+      const record: LongTaskRecord = {
+        observed: true,
+        count: 6,
+        tasks: [
+          { startTime: 100, duration: 80 },
+          { startTime: 700, duration: 60 },
+          { startTime: 810, duration: 55 },
+          { startTime: 900, duration: 70 },
+          { startTime: 901, duration: 65 },
+          { startTime: 1500, duration: 120 },
+        ],
+      };
+      const end = 900;
+
+      const bound = boundLongTasksToStartup(record, end);
+      const { tasks } = selectPostHeroLongTasks(
+        { heroPainted: HERO, longTasks: record },
+        end,
+      );
+
+      const beforeHeroInWindow = record.tasks.filter(
+        (task) => task.startTime < HERO && task.startTime <= end,
+      ).length;
+      const afterHeroInWindow =
+        tasks?.filter((task) => task.beforeUiStartupEnd).length ?? 0;
+      expect(bound?.longTaskCount).toBe(4);
+      expect(beforeHeroInWindow + afterHeroInWindow).toBe(bound?.longTaskCount);
+    });
+
+    it('returns an empty list when the observer ran and no task started after the hero mark', () => {
+      expect(
+        selectPostHeroLongTasks(
+          signalsWith([{ startTime: 300, duration: 120 }]),
+          1000,
+        ),
+      ).toStrictEqual({ tasks: [], notStored: 0 });
+      expect(selectPostHeroLongTasks(signalsWith([]), 1000)).toStrictEqual({
+        tasks: [],
+        notStored: 0,
+      });
+    });
+
+    it('says how many long tasks the app counted and did not store', () => {
+      const stored = Array.from({ length: 50 }, (_, i) => ({
+        startTime: HERO + i,
+        duration: 60,
+      }));
+      const signals = signalsWith(stored);
+      signals.longTasks = { observed: true, count: 60, tasks: stored };
+
+      const result = selectPostHeroLongTasks(signals, 5000);
+
+      expect(result.tasks).toHaveLength(50);
+      expect(result).toHaveProperty('notStored', 10);
+    });
+
+    it('returns null tasks, and why, when the load cannot say', () => {
+      expect(
+        selectPostHeroLongTasks({ heroPainted: HERO, longTasks: null }, 1000),
+      ).toStrictEqual({ tasks: null, unavailable: 'no-long-task-hook' });
+      expect(
+        selectPostHeroLongTasks(
+          {
+            heroPainted: HERO,
+            longTasks: { observed: false, count: 0, tasks: [] },
+          },
+          1000,
+        ),
+      ).toStrictEqual({ tasks: null, unavailable: 'observer-not-attached' });
+      expect(
+        selectPostHeroLongTasks(
+          signalsWith([{ startTime: 810, duration: 60 }], {
+            heroPainted: null,
+          }),
+          1000,
+        ),
+      ).toStrictEqual({ tasks: null, unavailable: 'no-hero-mark' });
+    });
+  });
+
+  describe("runPageLoadBenchmark's post-hero long tasks", () => {
+    const UI_STARTUP = [
+      [999, 999, 999],
+      [500, 100, 102],
+      [500, 104, 106],
+    ];
+
+    it("keeps each measured page load's list beside `values`, numbered and flagged as `values` is", async () => {
+      const results = await runPageLoadBenchmark(
+        browserLoadsOf(UI_STARTUP, (browserLoad) => ({
+          leverMarks: [0, 1, 2].map(() => ({ start: 20, end: 320 })),
+          postHeroLongTasks: [0, 1, 2].map((pageLoad) =>
+            browserLoad === 2 && pageLoad === 1
+              ? { tasks: null, unavailable: 'no-hero-mark' as const }
+              : {
+                  tasks: [
+                    {
+                      start: 12 + pageLoad,
+                      duration: 50 + browserLoad,
+                      beforeUiStartupEnd: pageLoad === 0,
+                    },
+                  ],
+                  notStored: 0,
+                },
+          ),
+        })),
+        { browserLoads: 3, pageLoads: 3 },
+      );
+
+      expect(results.postHeroLongTasks).toStrictEqual([
+        {
+          iteration: 3,
+          tasks: [{ start: 12, duration: 51, beforeUiStartupEnd: true }],
+          notStored: 0,
+          excluded: 'first-page-load',
+        },
+        {
+          iteration: 4,
+          tasks: [{ start: 13, duration: 51, beforeUiStartupEnd: false }],
+          notStored: 0,
+        },
+        {
+          iteration: 5,
+          tasks: [{ start: 14, duration: 51, beforeUiStartupEnd: false }],
+          notStored: 0,
+        },
+        {
+          iteration: 6,
+          tasks: [{ start: 12, duration: 52, beforeUiStartupEnd: true }],
+          notStored: 0,
+          excluded: 'first-page-load',
+        },
+        { iteration: 7, tasks: null, unavailable: 'no-hero-mark' },
+        {
+          iteration: 8,
+          tasks: [{ start: 14, duration: 52, beforeUiStartupEnd: false }],
+          notStored: 0,
+        },
+      ]);
+      const keys = Object.keys(results);
+      expect(keys.indexOf('postHeroLongTasks')).toBe(
+        keys.indexOf('leverMarks') + 1,
+      );
+      expect(keys.indexOf('leverMarks')).toBe(keys.indexOf('values') + 1);
+    });
+
+    it('changes no series, and adds no key when the flow records none', async () => {
+      const withTasks = await runPageLoadBenchmark(
+        browserLoadsOf(UI_STARTUP, () => ({
+          postHeroLongTasks: [0, 1, 2].map(() => ({
+            tasks: [{ start: 12, duration: 60, beforeUiStartupEnd: true }],
+            notStored: 0,
+          })),
+        })),
+        { browserLoads: 3, pageLoads: 3 },
+      );
+      const without = await runPageLoadBenchmark(browserLoadsOf(UI_STARTUP), {
+        browserLoads: 3,
+        pageLoads: 3,
+      });
+
+      expect(without).not.toHaveProperty('postHeroLongTasks');
+      const { postHeroLongTasks: _postHeroLongTasks, ...rest } = withTasks;
       expect(rest).toStrictEqual(without);
     });
   });
