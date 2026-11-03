@@ -92,6 +92,17 @@ export const KNOWN_ANSWER_STARTUP_DELAY =
   'BENCHMARK_KNOWN_ANSWER_STARTUP_DELAY_MS';
 
 /**
+ * Known-answer lever for the startup flows' ui intervals (`uiStartup`,
+ * `heroPainted`): a busy-wait of this many milliseconds run in the page when
+ * its port first delivers `START_UI_SYNC`, before the app's listeners see it.
+ * `loadScripts` has ended by then (`installStartUiSyncBlock`).
+ * Unset, empty or 0, nothing is registered. Setting it together with
+ * {@link KNOWN_ANSWER_STARTUP_DELAY} throws.
+ */
+export const KNOWN_ANSWER_STARTUP_SYNC_BLOCK =
+  'BENCHMARK_KNOWN_ANSWER_STARTUP_SYNC_BLOCK_MS';
+
+/**
  * Settle step for the startup flows: after unlock and before the first
  * measured page load, wait until the mock server's request count has not
  * changed for this many milliseconds. Unset, empty or 0, there is no wait.

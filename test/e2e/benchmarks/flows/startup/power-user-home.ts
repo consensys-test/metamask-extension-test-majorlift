@@ -26,14 +26,18 @@ import {
   collectGarbageBetweenIterations,
   applyStartupPageSignals,
   installDocumentStartDelay,
+  installStartUiSyncBlock,
   readStartupDelayMs,
+  readStartupLeverMarks,
   readStartupPageSignals,
   readStartupSettleQuietMs,
+  readStartupSyncBlockMs,
   waitForNetworkQuiet,
 } from '../../utils';
 import type {
   BrowserErrorRecord,
   SettleRecord,
+  StartupLeverMarks,
   StartupMeasurePageResult,
 } from '../../utils/runner';
 import type { Metrics, PageLoadBenchmarkOptions } from '../../utils/types';
@@ -48,6 +52,9 @@ async function measurePagePowerUser(
   const persona = BENCHMARK_PERSONA.POWER_USER;
   const settleQuietMs = readStartupSettleQuietMs();
   const startupDelayMs = readStartupDelayMs();
+  const startupSyncBlockMs = readStartupSyncBlockMs();
+  const startupLeverSet = startupDelayMs > 0 || startupSyncBlockMs > 0;
+  const leverMarks: StartupLeverMarks[] = [];
   let settle: SettleRecord | undefined;
   let browserErrors: BrowserErrorRecord | undefined;
   await withFixtures(
@@ -88,6 +95,7 @@ async function measurePagePowerUser(
         console.log('Startup settle step:', settle);
       }
       await installDocumentStartDelay(driver, startupDelayMs);
+      await installStartUiSyncBlock(driver, startupSyncBlockMs);
 
       for (let i = 0; i < pageLoads; i++) {
         clearNetworkReport();
@@ -126,6 +134,12 @@ async function measurePagePowerUser(
           console.error(`Error collecting web vitals for ${pageName}:`, error);
         }
 
+        // The lever's own marks, read after everything the series come from,
+        // and only when a startup lever is set.
+        if (startupLeverSet) {
+          leverMarks.push(await readStartupLeverMarks(driver));
+        }
+
         if (i < pageLoads - 1) {
           await collectGarbageBetweenIterations(driver);
         }
@@ -139,6 +153,7 @@ async function measurePagePowerUser(
     title,
     persona,
     webVitalsRuns,
+    ...(startupLeverSet && { leverMarks }),
     browserLoad: {
       ...(browserErrors && { browserErrors }),
       ...(settle && { settle }),
