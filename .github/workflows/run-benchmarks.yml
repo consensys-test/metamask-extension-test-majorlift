@@ -7,6 +7,14 @@ on:
         required: true
         type: string
         description: The run ID to get builds from
+      base-builds-from-run:
+        required: false
+        type: string
+        default: ''
+        description: >-
+          The run ID to get the base commit's builds from. Set, each chrome job
+          runs the base and head builds paired in one job (BENCHMARK_PAIRED,
+          test/e2e/benchmarks/utils/paired.ts), once leading with each build
 
 permissions:
   contents: read
@@ -16,7 +24,7 @@ permissions:
 jobs:
   benchmarks:
     if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
-    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}
+    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.pairedOrder != '' && format('-{0}', matrix.pairedOrder) || '' }}
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
     strategy:
@@ -37,6 +45,26 @@ jobs:
           - userJourneyAssets
           - userJourneyTransactions
           - userJourneyAccountManagement
+        # Paired jobs, when `base-builds-from-run` is set: each job runs the
+        # base and head builds in one of the two orders ADR 0072's paired
+        # comparator alternates, so every head gets one job of each. Unset, the
+        # one empty value leaves the matrix as it was.
+        pairedOrder: ${{ fromJSON(inputs.base-builds-from-run != '' && '["base-head-head-base","head-base-base-head"]' || '[""]') }}
+        # The runner pairs Chrome only (Firefox reuses a cached .xpi across
+        # builds) and flows it iterates (startup runs its own iterations).
+        exclude:
+          - browser: firefox
+            pairedOrder: base-head-head-base
+          - browser: firefox
+            pairedOrder: head-base-base-head
+          - pageType: startupStandardHome
+            pairedOrder: base-head-head-base
+          - pageType: startupStandardHome
+            pairedOrder: head-base-base-head
+          - pageType: startupPowerUserHome
+            pairedOrder: base-head-head-base
+          - pageType: startupPowerUserHome
+            pairedOrder: head-base-base-head
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -46,6 +74,16 @@ jobs:
       # unset: GitHub-hosted runners do not expose the Azure region in the
       # environment, and guessing it is worse than leaving the field undefined.
       BENCHMARK_RUNNER_LABEL: ubuntu-latest
+      # The job's results file. A paired job's name carries its order, so the
+      # two jobs of one page type upload distinct artifacts.
+      BENCHMARK_JSON: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.pairedOrder != '' && format('-{0}', matrix.pairedOrder) || '' }}.json
+      # Paired jobs only. The head build goes to head-build/ and the base build
+      # to base-build/, and `dist` is left absent: the runner points it at each
+      # build in turn. Unpaired, BENCHMARK_PAIRED is empty, which is off.
+      BENCHMARK_PAIRED: ${{ matrix.pairedOrder != '' && '1' || '' }}
+      BENCHMARK_PAIRED_ORDER: ${{ matrix.pairedOrder }}
+      BENCHMARK_PAIRED_BASE_DIST: base-build/dist
+      BENCHMARK_PAIRED_HEAD_DIST: head-build/dist
       # Zero arm of the composition check. The mocked quote delay is a
       # `setTimeout` inside the mockttp server, which runs in THIS job's Node
       # process -- not in the extension bundle -- so it belongs here and not on
@@ -100,6 +138,16 @@ jobs:
           name: build-test${{ matrix.browser == 'firefox' && '-mv2' || '' }}-${{ matrix.buildType }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ inputs.builds-from-run }}
+          path: ${{ matrix.pairedOrder != '' && 'head-build' || github.workspace }}
+
+      - name: Download the base commit's build artifact (paired jobs only)
+        if: ${{ matrix.pairedOrder != '' }}
+        uses: actions/download-artifact@v7
+        with:
+          name: build-test-${{ matrix.buildType }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.base-builds-from-run }}
+          path: base-build
 
       - name: Pin geckodriver 0.36.0 (Firefox only)
         if: ${{ matrix.browser == 'firefox' }}
@@ -111,7 +159,7 @@ jobs:
         timeout-minutes: 25
         id: run-benchmark
         run: >-
-          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {2} --out test-artifacts/benchmarks/benchmark-{0}-{1}-{2}.json --retries 2', matrix.browser, matrix.buildType, matrix.pageType) }}
+          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {0} --out test-artifacts/benchmarks/{1} --retries 2', matrix.pageType, env.BENCHMARK_JSON) }}
         shell: bash
 
       - name: Send benchmark results to Sentry (main/release only)
@@ -123,7 +171,7 @@ jobs:
         run: |
           export GITHUB_REF_NAME="${GH_HEAD_REF:-$GH_REF_NAME}"
           yarn tsx test/e2e/benchmarks/send-to-sentry.ts \
-            --results "test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json" \
+            --results "test-artifacts/benchmarks/${{ env.BENCHMARK_JSON }}" \
             --browser "${{ matrix.browser }}" \
             --buildType "${{ matrix.buildType }}"
         shell: bash
@@ -142,15 +190,15 @@ jobs:
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_IAM_ROLE }}
-          s3-bucket: ${{ vars.AWS_S3_BUCKET }}/${{ github.event.repository.name }}/${{ github.run_id }}/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
-          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
+          s3-bucket: ${{ vars.AWS_S3_BUCKET }}/${{ github.event.repository.name }}/${{ github.run_id }}/benchmarks/${{ env.BENCHMARK_JSON }}
+          path: test-artifacts/benchmarks/${{ env.BENCHMARK_JSON }}
 
       - name: Upload benchmark result as GitHub artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
-          name: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
-          path: test-artifacts/benchmarks/benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}.json
+          name: ${{ env.BENCHMARK_JSON }}
+          path: test-artifacts/benchmarks/${{ env.BENCHMARK_JSON }}
           retention-days: 7
           if-no-files-found: ignore
 
