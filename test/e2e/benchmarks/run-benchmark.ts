@@ -5,6 +5,7 @@
  */
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
+import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { hideBin } from 'yargs/helpers';
@@ -35,6 +36,13 @@ import {
 } from './utils/constants';
 import { THRESHOLD_REGISTRY } from './utils/thresholds';
 import { inPageCpuProbeReader } from './utils/in-page-cpu-probe';
+import {
+  PAIRED,
+  isPairedRun,
+  mergePairedRuns,
+  readPairedConfig,
+  runPairedRuns,
+} from './utils/paired';
 import {
   validateResultThresholds,
   logThresholdResult,
@@ -174,6 +182,10 @@ async function runBenchmarkFile(
   preset?: string,
   outputFilename?: string,
 ): Promise<unknown> {
+  if (isPairedRun()) {
+    return runPairedBenchmarkFile(filePath, options, preset, outputFilename);
+  }
+
   const absolutePath = pathToFileURL(path.resolve(filePath)).href;
   const fileName = path.basename(filePath, path.extname(filePath));
 
@@ -244,6 +256,132 @@ async function runBenchmarkFile(
   logThresholdResult(violations);
 
   return result;
+}
+
+/**
+ * Run a flow on a base and a head build in one job, under `BENCHMARK_PAIRED=1`
+ * (`utils/paired.ts`). Each run, the two warm-up runs and the four measured
+ * runs, is this runner again, unpaired, in a child process, with `dist`
+ * pointed at the run's build and the flow's own iteration count; the runs'
+ * results are merged into one entry.
+ *
+ * @param filePath - The flow's file.
+ * @param options - The invocation's options.
+ * @param options.iterations - The invocation's `--iterations`.
+ * @param options.retries - The invocation's `--retries`.
+ * @param preset - The preset, passed on to each run.
+ * @param outputFilename - The output filename, for the platform and build
+ * type it carries.
+ */
+async function runPairedBenchmarkFile(
+  filePath: string,
+  options: { iterations: number; retries: number },
+  preset?: string,
+  outputFilename?: string,
+): Promise<unknown> {
+  const fileName = path.basename(filePath, path.extname(filePath));
+  if (isPlaywrightBenchmarkFile(filePath) || !supportsIterations(filePath)) {
+    throw new Error(
+      `${PAIRED}=1 pairs flows the runner iterates; ${fileName} runs its own iterations (startup) or writes its own output (Playwright)`,
+    );
+  }
+  const config = readPairedConfig();
+
+  const benchmark = await import(pathToFileURL(path.resolve(filePath)).href);
+  const registryKey = buildRegistryKey(fileName, filePath, preset);
+  const thresholdConfig = THRESHOLD_REGISTRY[registryKey];
+  if (!thresholdConfig) {
+    throw new Error(
+      `No threshold config for "${fileName}" (registry key "${registryKey}"). Add an entry to THRESHOLD_REGISTRY in thresholds.ts.`,
+    );
+  }
+  const iterations = resolveFlowIterations(fileName, benchmark, options);
+  const { platform, buildType } = extractPlatformBuildType(outputFilename);
+  const runsDirectory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'benchmark-paired-'),
+  );
+
+  const job = await runPairedRuns({
+    config,
+    distLink: path.resolve('dist'),
+    runOne: async (_build, position, phase) => {
+      // Named as the job's output is, so the run records the same platform
+      // and build type.
+      const run = `paired-${phase === 'warmup' ? 'warmup' : 'run'}-${position}`;
+      const runOut = path.join(
+        runsDirectory,
+        platform && buildType
+          ? `benchmark-${platform}-${buildType}-${run}.json`
+          : `${run}.json`,
+      );
+      await runRunnerInChildProcess([
+        filePath,
+        '--iterations',
+        String(iterations),
+        '--retries',
+        String(options.retries),
+        '--out',
+        runOut,
+        ...(preset ? ['--preset', preset] : []),
+      ]);
+      const runResults = JSON.parse(await fs.readFile(runOut, 'utf8'));
+      const entry = runResults[registryKey];
+      if (!entry) {
+        throw new Error(`the run's output has no "${registryKey}" entry`);
+      }
+      return entry;
+    },
+  });
+
+  const result = mergePairedRuns({
+    order: config.order,
+    iterationsPerRun: iterations,
+    warmup: job.warmup,
+    runs: job.runs,
+    identity: {
+      testTitle: benchmark.testTitle || fileName,
+      persona: benchmark.persona,
+      platform,
+      buildType,
+    },
+  });
+  console.log(
+    `Completed paired job ${config.order}: ${job.runs.filter((outcome) => outcome.result && !outcome.result.error).length}/${job.runs.length} measured runs gave values, after ${job.warmup.length} warm-up runs; each run's output is in ${runsDirectory}`,
+  );
+  logThresholdResult(
+    validateResultThresholds(result, thresholdConfig).violations,
+  );
+
+  return result;
+}
+
+/**
+ * Run this runner again in a child process, unpaired, with the same Node
+ * flags (the `tsx` loader among them) and environment, `BENCHMARK_PAIRED`
+ * left out. Its output goes to this process's.
+ *
+ * @param args - The runner's arguments.
+ */
+async function runRunnerInChildProcess(args: string[]): Promise<void> {
+  const env = { ...process.env };
+  delete env[PAIRED];
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [...process.execArgv, process.argv[1], ...args],
+      { stdio: 'inherit', cwd: process.cwd(), env },
+    );
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`the run's process exited with code ${code}`));
+      }
+    });
+
+    child.on('error', reject);
+  });
 }
 
 /**
