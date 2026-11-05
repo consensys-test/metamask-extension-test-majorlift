@@ -164,15 +164,15 @@ export async function runOnboardingNewWalletBenchmark(): Promise<BenchmarkRunRes
             },
           ),
         );
-        // `cls` from this flow is in GATED_METRIC_VALUES, so collection must run:
-        // without it the metric has no value and cannot fail its threshold. It was
-        // disabled as a workaround for #42792 (onboarding benchmarks degraded with
-        // Assets Unified State on), which is closed.
+        // Fail-closed demo: collection is removed again here, so this flow's gated
+        // `cls` has no value and the quality gate must fail on its absence.
+        /*
         try {
           webVitals = await collectWebVitals(driver);
         } catch (error) {
           console.error('Error collecting web vitals:', error);
         }
+        */
       },
     );
 
