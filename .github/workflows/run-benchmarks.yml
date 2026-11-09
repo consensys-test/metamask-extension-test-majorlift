@@ -15,7 +15,8 @@ permissions:
 
 jobs:
   benchmarks:
-    if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
+    # Stage 4 window 4 (s4f4): the dapp job only.
+    if: ${{ false }}
     name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
@@ -26,11 +27,10 @@ jobs:
         # and must stay in sync with benchmark-command (startupPowerUserHome uses extra flags).
         #
         # Startup + interaction + user journeys: chrome/firefox × webpack × preset (test build: build-test-webpack / build-test-mv2-webpack).
-        browser: [chrome, firefox]
+        # Stage 4 window (s4f): chrome only, and no startup preset (rule.md sections 1 and 4).
+        browser: [chrome]
         buildType: [webpack]
         pageType:
-          - startupStandardHome
-          - startupPowerUserHome
           - interactionUserActions
           - userJourneyOnboardingImport
           - userJourneyOnboardingNew
@@ -161,7 +161,29 @@ jobs:
 
   benchmarks-page-load:
     if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
-    name: chrome-webpack-pageLoadBenchmark
+    name: chrome-webpack-pageLoadBenchmark${{ matrix.suffix }}
+    # Stage 4 window 4 (s4f4): one dapp job per entry, each `include` entry keyed on its own `entry` value.
+    strategy:
+      fail-fast: false
+      matrix:
+        entry:
+          - work-pageLoadTime
+          - work-domContentLoaded
+          - work-kprime
+          - w0
+        include:
+          - entry: work-pageLoadTime
+            suffix: '-work-pageLoadTime'
+            BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_WORK_MS: '158'
+          - entry: work-domContentLoaded
+            suffix: '-work-domContentLoaded'
+            BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_WORK_MS: '152'
+          - entry: work-kprime
+            suffix: '-work-kprime'
+            BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_WORK_MS: '204'
+          - entry: w0
+            suffix: '-w0'
+            BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_WORK_MS: '0'
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
     runs-on: ubuntu-latest
@@ -182,7 +204,10 @@ jobs:
       SENTRY_DSN_PERFORMANCE: ${{ vars.SENTRY_DSN_PERFORMANCE }}
       BENCHMARK_BROWSER_LOADS: '10'
       BENCHMARK_PAGE_LOADS: '10'
-      DAPP_BENCHMARK_JSON: benchmark-chrome-webpack-pageLoadBenchmark.json
+      # Stage 4 window 4 (s4f4): the switches and levers every job of this arm sets, from its
+      # `include` entry; a name only some jobs set is their command's prefix instead.
+      BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_WORK_MS: ${{ matrix.BENCHMARK_KNOWN_ANSWER_DAPP_SCRIPT_WORK_MS }}
+      DAPP_BENCHMARK_JSON: benchmark-chrome-webpack-pageLoadBenchmark${{ matrix.suffix }}.json
       MAIN_OR_RELEASE: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
     steps:
       - name: Checkout and setup environment
@@ -209,6 +234,16 @@ jobs:
         timeout-minutes: 25
         id: run-page-load
         run: yarn test:e2e:benchmark --preset=pageLoadBenchmark
+
+      # Stage 4 window 4 (s4f4): the page-load spec writes one fixed file name (utils/constants.ts:43-46); a job with
+      # a suffix renames it to its own, so the dapp jobs of one run upload under different names.
+      - name: Name this leg's result (s4f4)
+        if: ${{ always() && matrix.suffix != '' }}
+        run: |
+          if [ -f test-artifacts/benchmarks/benchmark-chrome-webpack-pageLoadBenchmark.json ]; then
+            mv test-artifacts/benchmarks/benchmark-chrome-webpack-pageLoadBenchmark.json "test-artifacts/benchmarks/$DAPP_BENCHMARK_JSON"
+          fi
+        shell: bash
 
       - name: Send benchmark results to Sentry (main/release only)
         if: >-
