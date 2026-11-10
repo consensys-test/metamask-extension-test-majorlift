@@ -265,49 +265,6 @@ type CdpInnerDriver = {
   ) => Promise<unknown>;
 };
 
-const invokeWindowGc = () => {
-  const windowWithGc = window as Window & { gc?: () => void };
-  if (typeof windowWithGc.gc === 'function') {
-    windowWithGc.gc();
-    return true;
-  }
-  return false;
-};
-
-/**
- * Force a GC cycle outside the measurement window so heap debt is less likely
- * to spill into the next page-load iteration.
- *
- * Prefers `window.gc()` when Chrome is launched with `--expose-gc`, and falls
- * back to ChromeDriver CDP heap collection when available.
- *
- * @param driver - MetaMask Selenium driver wrapper for the current benchmark page
- */
-export async function collectGarbageBetweenIterations(
-  driver: Driver,
-): Promise<void> {
-  try {
-    const didRunWindowGc = await driver.executeScript(invokeWindowGc);
-
-    if (didRunWindowGc) {
-      return;
-    }
-  } catch {
-    // Fall back to CDP heap collection below.
-  }
-
-  const innerDriver = driver.driver as CdpInnerDriver | undefined;
-  if (!innerDriver?.sendDevToolsCommand) {
-    return;
-  }
-
-  try {
-    await innerDriver.sendDevToolsCommand('HeapProfiler.collectGarbage');
-  } catch {
-    // Best-effort normalization only.
-  }
-}
-
 /**
  * Take one in-page CPU probe reading and log it. A reader that throws gives
  * a reading with an `error`, so the iterations go on.

@@ -23,7 +23,6 @@ import {
 import {
   runPageLoadBenchmark,
   collectWebVitals,
-  collectGarbageBetweenIterations,
   applyStartupPageSignals,
   installDocumentStartDelay,
   installStartUiSyncBlock,
@@ -152,9 +151,6 @@ async function measurePagePowerUser(
           leverMarks.push(await readStartupLeverMarks(driver));
         }
 
-        if (i < pageLoads - 1) {
-          await collectGarbageBetweenIterations(driver);
-        }
       }
 
       browserErrors = getBrowserErrors();
