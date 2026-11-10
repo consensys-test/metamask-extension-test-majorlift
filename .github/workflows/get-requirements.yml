@@ -65,7 +65,9 @@ jobs:
   detect-changes:
     name: Filter files changed and decide which jobs to run
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    # Startup window 137 (s137): the 2-minute limit cancelled 3.77% of startup window 3's runs in
+    # dorny/paths-filter; raised before wave 1 (floor-legs-design/design.md L158).
+    timeout-minutes: 10
     outputs:
       builds-from-run: ${{ steps.find-reusable-builds.outputs.builds-from-run || env.RUN_ID }}
       builds-from-sha: ${{ steps.find-reusable-builds.outputs.builds-from-sha || env.HEAD_COMMIT_HASH }}
