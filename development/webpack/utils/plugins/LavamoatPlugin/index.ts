@@ -104,6 +104,7 @@ const getScuttleGlobalThisExceptions = (args: Args) => [
         'browser',
         'chrome',
         'indexedDB',
+        'Window',
         // the benchmark's in-page step timer, which `executeScript` runs in
         // the page (test/e2e/benchmarks/utils/in-page-step-timer.ts)
         'MutationObserver',
