@@ -280,6 +280,11 @@ jobs:
       - build-test-mv2-webpack
     with:
       builds-from-run: ${{ needs.get-requirements.outputs.builds-from-run }}
+      # The run ID of a run that built the base commit's build-test-webpack.
+      # Set, each chrome benchmark job of an iterated flow runs the base and
+      # head builds paired in one job (run-benchmarks.yml, `pairedFlow`); empty,
+      # every benchmark job is unpaired, as before.
+      base-builds-from-run: ''
     secrets: inherit
 
   run-tests:
