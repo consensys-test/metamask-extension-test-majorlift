@@ -24,7 +24,7 @@ permissions:
 jobs:
   benchmarks:
     if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
-    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pairedOrder != '' && format('{0}-{1}', matrix.pairedFlow.name, matrix.pairedOrder) || matrix.pageType }}
+    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pairedOrder != '' && format('{0}-{1}{2}', matrix.pairedFlow.name, matrix.pairedOrder, matrix.suffix) || matrix.pageType }}
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
     strategy:
@@ -47,7 +47,14 @@ jobs:
         # runner derives from the file name whatever the preset, and its file:
         # every flow of the presets above that the runner iterates (not startup,
         # not the dapp page load).
-        pairedFlow: ${{ fromJSON(inputs.base-builds-from-run != '' && '[{"name":"loadNewAccount","file":"test/e2e/benchmarks/flows/interaction/load-new-account.ts"},{"name":"confirmTx","file":"test/e2e/benchmarks/flows/interaction/confirm-tx.ts"},{"name":"bridgeUserActions","file":"test/e2e/benchmarks/flows/interaction/bridge-user-actions.ts"},{"name":"onboardingImportWallet","file":"test/e2e/benchmarks/flows/user-journey/onboarding-import-wallet.ts"},{"name":"onboardingNewWallet","file":"test/e2e/benchmarks/flows/user-journey/onboarding-new-wallet.ts"},{"name":"assetDetails","file":"test/e2e/benchmarks/flows/user-journey/asset-details.ts"},{"name":"solanaAssetDetails","file":"test/e2e/benchmarks/flows/user-journey/solana-asset-details.ts"},{"name":"sendTransactions","file":"test/e2e/benchmarks/flows/user-journey/send-transactions.ts"},{"name":"swap","file":"test/e2e/benchmarks/flows/user-journey/swap.ts"},{"name":"importSrpHome","file":"test/e2e/benchmarks/flows/user-journey/import-srp-home.ts"}]' || '[""]') }}
+        # Paired window (pw), arm pn: one `entry` per job of this arm in place of the flow table.
+        # Each `include` entry below is keyed on its own `entry` value, so it joins that entry's two jobs
+        # (one per order) only, adding the flow file, the artifact suffix and the command prefix.
+        entry:
+          - loadNewAccount
+          - bridgeUserActions
+          - assetDetails
+          - solanaAssetDetails
         # Paired jobs, when `base-builds-from-run` is set: each job runs the
         # base and head builds in one of the two orders ADR 0072's paired
         # comparator alternates, so every head gets one job of each. Unset, the
@@ -61,6 +68,23 @@ jobs:
             pairedOrder: base-head-head-base
           - browser: firefox
             pairedOrder: head-base-base-head
+        include:
+          - entry: loadNewAccount
+            pairedFlow: {"name": "loadNewAccount", "file": "test/e2e/benchmarks/flows/interaction/load-new-account.ts"}
+            suffix: ''
+            prefix: 'BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK=1 '
+          - entry: bridgeUserActions
+            pairedFlow: {"name": "bridgeUserActions", "file": "test/e2e/benchmarks/flows/interaction/bridge-user-actions.ts"}
+            suffix: ''
+            prefix: 'BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK=1 '
+          - entry: assetDetails
+            pairedFlow: {"name": "assetDetails", "file": "test/e2e/benchmarks/flows/user-journey/asset-details.ts"}
+            suffix: ''
+            prefix: ''
+          - entry: solanaAssetDetails
+            pairedFlow: {"name": "solanaAssetDetails", "file": "test/e2e/benchmarks/flows/user-journey/solana-asset-details.ts"}
+            suffix: ''
+            prefix: ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -72,7 +96,7 @@ jobs:
       BENCHMARK_RUNNER_LABEL: ubuntu-latest
       # The job's results file. A paired job's name carries its order, so the
       # two jobs of one page type upload distinct artifacts.
-      BENCHMARK_JSON: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pairedOrder != '' && format('{0}-{1}', matrix.pairedFlow.name, matrix.pairedOrder) || matrix.pageType }}.json
+      BENCHMARK_JSON: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pairedOrder != '' && format('{0}-{1}{2}', matrix.pairedFlow.name, matrix.pairedOrder, matrix.suffix) || matrix.pageType }}.json
       # Paired jobs only. The head build goes to head-build/ and the base build
       # to base-build/, and `dist` is left absent: the runner points it at each
       # build in turn. Unpaired, BENCHMARK_PAIRED is empty, which is off.
@@ -158,7 +182,7 @@ jobs:
         timeout-minutes: 25
         id: run-benchmark
         run: >-
-          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || matrix.pairedOrder != '' && format('yarn test:e2e:benchmark {0} --iterations {1} --out test-artifacts/benchmarks/{2} --retries 2', matrix.pairedFlow.file, env.BENCHMARK_PAIRED_ITERATIONS, env.BENCHMARK_JSON) || format('yarn test:e2e:benchmark --preset {0} --out test-artifacts/benchmarks/{1} --retries 2', matrix.pageType, env.BENCHMARK_JSON) }}
+          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || matrix.pairedOrder != '' && format('{3}yarn test:e2e:benchmark {0} --iterations {1} --out test-artifacts/benchmarks/{2} --retries 2', matrix.pairedFlow.file, env.BENCHMARK_PAIRED_ITERATIONS, env.BENCHMARK_JSON, matrix.prefix) || format('yarn test:e2e:benchmark --preset {0} --out test-artifacts/benchmarks/{1} --retries 2', matrix.pageType, env.BENCHMARK_JSON) }}
         shell: bash
 
       - name: Send benchmark results to Sentry (main/release only)
@@ -207,7 +231,8 @@ jobs:
         shell: bash
 
   benchmarks-page-load:
-    if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
+    # Paired window (pw): no dapp job.
+    if: ${{ false }}
     name: chrome-webpack-pageLoadBenchmark
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
