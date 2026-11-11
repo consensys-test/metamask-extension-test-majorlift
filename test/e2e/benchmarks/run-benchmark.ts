@@ -295,7 +295,7 @@ async function runPairedBenchmarkFile(
       `No threshold config for "${fileName}" (registry key "${registryKey}"). Add an entry to THRESHOLD_REGISTRY in thresholds.ts.`,
     );
   }
-  const iterations = resolveFlowIterations(fileName, benchmark, options);
+  const { iterations } = options;
   const { platform, buildType } = extractPlatformBuildType(outputFilename);
   const runsDirectory = await fs.mkdtemp(
     path.join(os.tmpdir(), 'benchmark-paired-'),
