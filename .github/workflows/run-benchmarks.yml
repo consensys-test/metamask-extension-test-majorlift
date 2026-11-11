@@ -45,17 +45,18 @@ jobs:
         # preset of two or three flows in one job would pass the 25-minute step
         # at 5 iterations a run. Each entry is a flow's result key, which the
         # runner derives from the file name whatever the preset, and its file:
-        # every flow of the presets above that the runner iterates (not startup,
-        # not the dapp page load).
-        pairedFlow: ${{ fromJSON(inputs.base-builds-from-run != '' && '[{"name":"loadNewAccount","file":"test/e2e/benchmarks/flows/interaction/load-new-account.ts"},{"name":"confirmTx","file":"test/e2e/benchmarks/flows/interaction/confirm-tx.ts"},{"name":"bridgeUserActions","file":"test/e2e/benchmarks/flows/interaction/bridge-user-actions.ts"},{"name":"onboardingImportWallet","file":"test/e2e/benchmarks/flows/user-journey/onboarding-import-wallet.ts"},{"name":"onboardingNewWallet","file":"test/e2e/benchmarks/flows/user-journey/onboarding-new-wallet.ts"},{"name":"assetDetails","file":"test/e2e/benchmarks/flows/user-journey/asset-details.ts"},{"name":"solanaAssetDetails","file":"test/e2e/benchmarks/flows/user-journey/solana-asset-details.ts"},{"name":"sendTransactions","file":"test/e2e/benchmarks/flows/user-journey/send-transactions.ts"},{"name":"swap","file":"test/e2e/benchmarks/flows/user-journey/swap.ts"},{"name":"importSrpHome","file":"test/e2e/benchmarks/flows/user-journey/import-srp-home.ts"}]' || '[""]') }}
+        # every flow of the presets above that the runner iterates, and the
+        # standard-home startup flow, whose paired run is one startup run of
+        # BENCHMARK_PAIRED_BROWSER_LOADS browser loads (not the power-user
+        # startup flow, not the dapp page load).
+        pairedFlow: ${{ fromJSON(inputs.base-builds-from-run != '' && '[{"name":"loadNewAccount","file":"test/e2e/benchmarks/flows/interaction/load-new-account.ts"},{"name":"confirmTx","file":"test/e2e/benchmarks/flows/interaction/confirm-tx.ts"},{"name":"bridgeUserActions","file":"test/e2e/benchmarks/flows/interaction/bridge-user-actions.ts"},{"name":"onboardingImportWallet","file":"test/e2e/benchmarks/flows/user-journey/onboarding-import-wallet.ts"},{"name":"onboardingNewWallet","file":"test/e2e/benchmarks/flows/user-journey/onboarding-new-wallet.ts"},{"name":"assetDetails","file":"test/e2e/benchmarks/flows/user-journey/asset-details.ts"},{"name":"solanaAssetDetails","file":"test/e2e/benchmarks/flows/user-journey/solana-asset-details.ts"},{"name":"sendTransactions","file":"test/e2e/benchmarks/flows/user-journey/send-transactions.ts"},{"name":"swap","file":"test/e2e/benchmarks/flows/user-journey/swap.ts"},{"name":"importSrpHome","file":"test/e2e/benchmarks/flows/user-journey/import-srp-home.ts"},{"name":"startupStandardHome","file":"test/e2e/benchmarks/flows/startup/standard-home.ts"}]' || '[""]') }}
         # Paired jobs, when `base-builds-from-run` is set: each job runs the
         # base and head builds in one of the two orders ADR 0072's paired
         # comparator alternates, so every head gets one job of each. Unset, the
         # one empty value leaves the matrix as it was.
         pairedOrder: ${{ fromJSON(inputs.base-builds-from-run != '' && '["base-head-head-base","head-base-base-head"]' || '[""]') }}
         # The runner pairs Chrome only (Firefox reuses a cached .xpi across
-        # builds). Startup presets are not among the paired flows above, since
-        # startup runs its own iterations.
+        # builds). startupPowerUserHome is not among the paired flows above.
         exclude:
           - browser: firefox
             pairedOrder: base-head-head-base
@@ -83,6 +84,12 @@ jobs:
       # Paired jobs only: each run's iterations, the runner's `--iterations`
       # (a flow that sets its own count keeps it). 5 is the runner's default.
       BENCHMARK_PAIRED_ITERATIONS: '5'
+      # Paired startup jobs only: each run's browser loads, of 10 page loads.
+      # At 4 every recorded standard-home job's six runs fit the 25-minute step.
+      BENCHMARK_PAIRED_BROWSER_LOADS: '4'
+      # Startup jobs: '1' discards each startup run's first browser load, as
+      # the runner always has; '0' keeps it. It reaches base and head alike.
+      BENCHMARK_STARTUP_DISCARD_FIRST_BROWSER_LOAD: '1'
       # Zero arm of the composition check. The mocked quote delay is a
       # `setTimeout` inside the mockttp server, which runs in THIS job's Node
       # process -- not in the extension bundle -- so it belongs here and not on
@@ -158,7 +165,7 @@ jobs:
         timeout-minutes: 25
         id: run-benchmark
         run: >-
-          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || matrix.pairedOrder != '' && format('yarn test:e2e:benchmark {0} --iterations {1} --out test-artifacts/benchmarks/{2} --retries 2', matrix.pairedFlow.file, env.BENCHMARK_PAIRED_ITERATIONS, env.BENCHMARK_JSON) || format('yarn test:e2e:benchmark --preset {0} --out test-artifacts/benchmarks/{1} --retries 2', matrix.pageType, env.BENCHMARK_JSON) }}
+          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || matrix.pairedOrder != '' && startsWith(matrix.pairedFlow.name, 'startup') && format('yarn test:e2e:benchmark {0} --browserLoads {1} --pageLoads 10 --out test-artifacts/benchmarks/{2} --retries 2', matrix.pairedFlow.file, env.BENCHMARK_PAIRED_BROWSER_LOADS, env.BENCHMARK_JSON) || matrix.pairedOrder != '' && format('yarn test:e2e:benchmark {0} --iterations {1} --out test-artifacts/benchmarks/{2} --retries 2', matrix.pairedFlow.file, env.BENCHMARK_PAIRED_ITERATIONS, env.BENCHMARK_JSON) || format('yarn test:e2e:benchmark --preset {0} --out test-artifacts/benchmarks/{1} --retries 2', matrix.pageType, env.BENCHMARK_JSON) }}
         shell: bash
 
       - name: Send benchmark results to Sentry (main/release only)
