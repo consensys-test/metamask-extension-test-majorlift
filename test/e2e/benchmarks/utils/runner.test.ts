@@ -524,26 +524,22 @@ describe('runPageLoadBenchmark', () => {
           browserLoads: 3,
           pageLoads: 3,
         })
-      ).values?.uiStartup?.map((sample) => [
-        sample.iteration,
-        sample.value,
-        sample.excluded,
-      ]);
+      ).values?.uiStartup;
     const DISCARDED = [
-      [3, 500, 'first-page-load'],
-      [4, 100, undefined],
-      [5, 102, undefined],
-      [6, 500, 'first-page-load'],
-      [7, 104, undefined],
-      [8, 106, undefined],
+      { iteration: 3, value: 500, excluded: 'first-page-load' },
+      { iteration: 4, value: 100 },
+      { iteration: 5, value: 102 },
+      { iteration: 6, value: 500, excluded: 'first-page-load' },
+      { iteration: 7, value: 104 },
+      { iteration: 8, value: 106 },
     ];
 
     it('keeps the first browser load at 0, its first page load flagged like any other', async () => {
       process.env[DISCARD] = '0';
       expect(await read()).toStrictEqual([
-        [0, 999, 'first-page-load'],
-        [1, 999, undefined],
-        [2, 999, undefined],
+        { iteration: 0, value: 999, excluded: 'first-page-load' },
+        { iteration: 1, value: 999 },
+        { iteration: 2, value: 999 },
         ...DISCARDED,
       ]);
     });
