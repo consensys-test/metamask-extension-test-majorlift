@@ -65,7 +65,8 @@ jobs:
   detect-changes:
     name: Filter files changed and decide which jobs to run
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    # Paired window (pw): raised before wave 1, as windowF-rule's arms (s4ffl_common.FILTER_JOB; its O1).
+    timeout-minutes: 10
     outputs:
       builds-from-run: ${{ steps.find-reusable-builds.outputs.builds-from-run || env.RUN_ID }}
       builds-from-sha: ${{ steps.find-reusable-builds.outputs.builds-from-sha || env.HEAD_COMMIT_HASH }}
