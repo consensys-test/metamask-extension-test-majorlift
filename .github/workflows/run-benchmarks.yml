@@ -24,7 +24,7 @@ permissions:
 jobs:
   benchmarks:
     if: ${{ github.event_name != 'merge_group' }} # Skip this job for the Merge Queue
-    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.pairedOrder != '' && format('-{0}', matrix.pairedOrder) || '' }}
+    name: ${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pairedOrder != '' && format('{0}-{1}', matrix.pairedFlow.name, matrix.pairedOrder) || matrix.pageType }}
     # We decide whether to block the PR in the `quality-gate` step
     continue-on-error: true
     strategy:
@@ -36,34 +36,30 @@ jobs:
         # Startup + interaction + user journeys: chrome/firefox × webpack × preset (test build: build-test-webpack / build-test-mv2-webpack).
         browser: [chrome, firefox]
         buildType: [webpack]
-        pageType:
-          - startupStandardHome
-          - startupPowerUserHome
-          - interactionUserActions
-          - userJourneyOnboardingImport
-          - userJourneyOnboardingNew
-          - userJourneyAssets
-          - userJourneyTransactions
-          - userJourneyAccountManagement
+        # Unset `base-builds-from-run`: one job per preset, as before, and
+        # `pairedFlow` and `pairedOrder` are each the one empty value.
+        pageType: ${{ fromJSON(inputs.base-builds-from-run == '' && '["startupStandardHome","startupPowerUserHome","interactionUserActions","userJourneyOnboardingImport","userJourneyOnboardingNew","userJourneyAssets","userJourneyTransactions","userJourneyAccountManagement"]' || '[""]') }}
+        # Set: one job per flow file instead, run through the runner's `file`
+        # argument, and `pageType` is the one empty value. A paired job runs its
+        # flow six times (a warm-up run and two measured runs of each build), so a
+        # preset of two or three flows in one job would pass the 25-minute step
+        # at 5 iterations a run. Each entry is a flow's result key, which the
+        # runner derives from the file name whatever the preset, and its file:
+        # every flow of the presets above that the runner iterates (not startup,
+        # not the dapp page load).
+        pairedFlow: ${{ fromJSON(inputs.base-builds-from-run != '' && '[{"name":"loadNewAccount","file":"test/e2e/benchmarks/flows/interaction/load-new-account.ts"},{"name":"confirmTx","file":"test/e2e/benchmarks/flows/interaction/confirm-tx.ts"},{"name":"bridgeUserActions","file":"test/e2e/benchmarks/flows/interaction/bridge-user-actions.ts"},{"name":"onboardingImportWallet","file":"test/e2e/benchmarks/flows/user-journey/onboarding-import-wallet.ts"},{"name":"onboardingNewWallet","file":"test/e2e/benchmarks/flows/user-journey/onboarding-new-wallet.ts"},{"name":"assetDetails","file":"test/e2e/benchmarks/flows/user-journey/asset-details.ts"},{"name":"solanaAssetDetails","file":"test/e2e/benchmarks/flows/user-journey/solana-asset-details.ts"},{"name":"sendTransactions","file":"test/e2e/benchmarks/flows/user-journey/send-transactions.ts"},{"name":"swap","file":"test/e2e/benchmarks/flows/user-journey/swap.ts"},{"name":"importSrpHome","file":"test/e2e/benchmarks/flows/user-journey/import-srp-home.ts"}]' || '[""]') }}
         # Paired jobs, when `base-builds-from-run` is set: each job runs the
         # base and head builds in one of the two orders ADR 0072's paired
         # comparator alternates, so every head gets one job of each. Unset, the
         # one empty value leaves the matrix as it was.
         pairedOrder: ${{ fromJSON(inputs.base-builds-from-run != '' && '["base-head-head-base","head-base-base-head"]' || '[""]') }}
         # The runner pairs Chrome only (Firefox reuses a cached .xpi across
-        # builds) and flows it iterates (startup runs its own iterations).
+        # builds). Startup presets are not among the paired flows above, since
+        # startup runs its own iterations.
         exclude:
           - browser: firefox
             pairedOrder: base-head-head-base
           - browser: firefox
-            pairedOrder: head-base-base-head
-          - pageType: startupStandardHome
-            pairedOrder: base-head-head-base
-          - pageType: startupStandardHome
-            pairedOrder: head-base-base-head
-          - pageType: startupPowerUserHome
-            pairedOrder: base-head-head-base
-          - pageType: startupPowerUserHome
             pairedOrder: head-base-base-head
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -76,7 +72,7 @@ jobs:
       BENCHMARK_RUNNER_LABEL: ubuntu-latest
       # The job's results file. A paired job's name carries its order, so the
       # two jobs of one page type upload distinct artifacts.
-      BENCHMARK_JSON: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pageType }}${{ matrix.pairedOrder != '' && format('-{0}', matrix.pairedOrder) || '' }}.json
+      BENCHMARK_JSON: benchmark-${{ matrix.browser }}-${{ matrix.buildType }}-${{ matrix.pairedOrder != '' && format('{0}-{1}', matrix.pairedFlow.name, matrix.pairedOrder) || matrix.pageType }}.json
       # Paired jobs only. The head build goes to head-build/ and the base build
       # to base-build/, and `dist` is left absent: the runner points it at each
       # build in turn. Unpaired, BENCHMARK_PAIRED is empty, which is off.
@@ -84,6 +80,9 @@ jobs:
       BENCHMARK_PAIRED_ORDER: ${{ matrix.pairedOrder }}
       BENCHMARK_PAIRED_BASE_DIST: base-build/dist
       BENCHMARK_PAIRED_HEAD_DIST: head-build/dist
+      # Paired jobs only: each run's iterations, the runner's `--iterations`
+      # (a flow that sets its own count keeps it). 5 is the runner's default.
+      BENCHMARK_PAIRED_ITERATIONS: '5'
       # Zero arm of the composition check. The mocked quote delay is a
       # `setTimeout` inside the mockttp server, which runs in THIS job's Node
       # process -- not in the extension bundle -- so it belongs here and not on
@@ -159,7 +158,7 @@ jobs:
         timeout-minutes: 25
         id: run-benchmark
         run: >-
-          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || format('yarn test:e2e:benchmark --preset {0} --out test-artifacts/benchmarks/{1} --retries 2', matrix.pageType, env.BENCHMARK_JSON) }}
+          ${{ matrix.pageType == 'startupPowerUserHome' && format('yarn test:e2e:benchmark --preset startupPowerUserHome --browserLoads 15 --pageLoads 7 --out test-artifacts/benchmarks/benchmark-{0}-{1}-startupPowerUserHome.json --retries 2', matrix.browser, matrix.buildType) || matrix.pairedOrder != '' && format('yarn test:e2e:benchmark {0} --iterations {1} --out test-artifacts/benchmarks/{2} --retries 2', matrix.pairedFlow.file, env.BENCHMARK_PAIRED_ITERATIONS, env.BENCHMARK_JSON) || format('yarn test:e2e:benchmark --preset {0} --out test-artifacts/benchmarks/{1} --retries 2', matrix.pageType, env.BENCHMARK_JSON) }}
         shell: bash
 
       - name: Send benchmark results to Sentry (main/release only)
