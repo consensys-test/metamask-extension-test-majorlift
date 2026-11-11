@@ -4,12 +4,15 @@ import os from 'os';
 import path from 'path';
 import type { BenchmarkResults } from '../../../../shared/constants/benchmarks';
 import {
+  HEAD_ONLY_PREFIX,
   PAIRED,
   PAIRED_BASE_DIST,
   PAIRED_HEAD_DIST,
   PAIRED_ORDER,
   isPairedRun,
+  knownAnswerLevers,
   mergePairedRuns,
+  pairedRunEnvironment,
   pairedSequence,
   pairedWarmupSequence,
   pointDistAt,
@@ -333,16 +336,111 @@ describe('runPairedRuns', () => {
         }
         return runResult({});
       },
+      env: {},
     });
 
     expect(job.runs[1]).toStrictEqual({
       build: 'head',
       position: 1,
+      levers: {},
       error: 'the run crashed',
     });
     expect(job.runs.filter((outcome) => outcome.result)).toHaveLength(3);
     expect(job.warmup.filter((outcome) => outcome.result)).toHaveLength(2);
     expect(await fs.readlink(link)).toBe(config.dist.head);
+  });
+
+  describe('known-answer levers reach the head build only', () => {
+    // The job's environment as a K leg's paired job would set it: the in-page
+    // hold on one step, the quote delay CI sets to '0' on every job, a switch
+    // (R6) and a mock setting, both of which must reach both builds alike.
+    const JOB_ENV = {
+      [PAIRED]: '1',
+      BENCHMARK_KNOWN_ANSWER_INPAGE_MS: '66',
+      BENCHMARK_KNOWN_ANSWER_INPAGE_STEP: 'bridge_load_page',
+      BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '0',
+      BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK: '1',
+      BENCHMARK_ZERO_MOCK_DELAYS: '0',
+      SELENIUM_BROWSER: 'chrome',
+    };
+    const LEVERS = {
+      BENCHMARK_KNOWN_ANSWER_INPAGE_MS: '66',
+      BENCHMARK_KNOWN_ANSWER_INPAGE_STEP: 'bridge_load_page',
+      BENCHMARK_KNOWN_ANSWER_QUOTE_DELAY_MS: '0',
+    };
+    const SHARED = {
+      BENCHMARK_BRIDGE_POPULAR_TOKENS_MOCK: '1',
+      BENCHMARK_ZERO_MOCK_DELAYS: '0',
+      SELENIUM_BROWSER: 'chrome',
+    };
+
+    it('starts a base run without any known-answer variable and a head run with all of them, neither paired', () => {
+      expect(pairedRunEnvironment('base', JOB_ENV)).toStrictEqual(SHARED);
+      expect(pairedRunEnvironment('head', JOB_ENV)).toStrictEqual({
+        ...SHARED,
+        ...LEVERS,
+      });
+      expect(
+        Object.keys(LEVERS).every((name) => name.startsWith(HEAD_ONLY_PREFIX)),
+      ).toBe(true);
+    });
+
+    it('lists the known-answer variables an environment holds', () => {
+      expect(knownAnswerLevers(JOB_ENV)).toStrictEqual(LEVERS);
+      expect(knownAnswerLevers(SHARED)).toStrictEqual({});
+    });
+
+    it('hands each run, warm-up runs too, its own environment, and records the known-answer variables each got', async () => {
+      const given: [string, string, NodeJS.ProcessEnv][] = [];
+      const job = await runPairedRuns({
+        config,
+        distLink: link,
+        runOne: async (build, position, phase, runEnv) => {
+          given.push([`${phase} ${position}`, build, runEnv]);
+          return runResult({});
+        },
+        env: JOB_ENV,
+      });
+
+      expect(given.map(([run, build]) => `${run}:${build}`)).toStrictEqual([
+        'warmup 0:base',
+        'warmup 1:head',
+        'measured 0:base',
+        'measured 1:head',
+        'measured 2:head',
+        'measured 3:base',
+      ]);
+      for (const [run, build, runEnv] of given) {
+        expect([run, runEnv]).toStrictEqual([
+          run,
+          build === 'base' ? SHARED : { ...SHARED, ...LEVERS },
+        ]);
+      }
+      expect(
+        [...job.warmup, ...job.runs].map(({ build, levers }) => [
+          build,
+          levers,
+        ]),
+      ).toStrictEqual([
+        ['base', {}],
+        ['head', LEVERS],
+        ['base', {}],
+        ['head', LEVERS],
+        ['head', LEVERS],
+        ['base', {}],
+      ]);
+    });
+
+    it('leaves the job’s own environment as it was', async () => {
+      const env = { ...JOB_ENV };
+      await runPairedRuns({
+        config,
+        distLink: link,
+        runOne: async () => runResult({}),
+        env,
+      });
+      expect(env).toStrictEqual(JOB_ENV);
+    });
   });
 });
 
@@ -450,6 +548,30 @@ describe('mergePairedRuns', () => {
     expect(
       (merge(outcomes).values?.confirm_tx as PairedMetricSample[])[0].excluded,
     ).toBe('first-page-load');
+  });
+
+  it('carries each run’s known-answer variables into pairing, warm-up runs too', () => {
+    const levers = { BENCHMARK_KNOWN_ANSWER_INPAGE_MS: '66' };
+    const outcomes = job();
+    for (const outcome of [...outcomes.warmup, ...outcomes.runs]) {
+      outcome.levers = outcome.build === 'head' ? levers : {};
+    }
+    const { pairing } = merge(outcomes);
+
+    expect(
+      pairing.warmup.map(({ build, levers: got }) => [build, got]),
+    ).toStrictEqual([
+      ['base', {}],
+      ['head', levers],
+    ]);
+    expect(
+      pairing.runs.map(({ build, levers: got }) => [build, got]),
+    ).toStrictEqual([
+      ['base', {}],
+      ['head', levers],
+      ['head', levers],
+      ['base', {}],
+    ]);
   });
 
   it('records the warm-up runs under pairing.warmup, not in runs, and keeps none of their values', () => {

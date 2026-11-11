@@ -302,7 +302,7 @@ async function runPairedBenchmarkFile(
   const job = await runPairedRuns({
     config,
     distLink: path.resolve('dist'),
-    runOne: async (_build, position, phase) => {
+    runOne: async (_build, position, phase, runEnv) => {
       // Named as the job's output is, so the run records the same platform
       // and build type.
       const run = `paired-${phase === 'warmup' ? 'warmup' : 'run'}-${position}`;
@@ -312,16 +312,19 @@ async function runPairedBenchmarkFile(
           ? `benchmark-${platform}-${buildType}-${run}.json`
           : `${run}.json`,
       );
-      await runRunnerInChildProcess([
-        filePath,
-        '--iterations',
-        String(iterations),
-        '--retries',
-        String(options.retries),
-        '--out',
-        runOut,
-        ...(preset ? ['--preset', preset] : []),
-      ]);
+      await runRunnerInChildProcess(
+        [
+          filePath,
+          '--iterations',
+          String(iterations),
+          '--retries',
+          String(options.retries),
+          '--out',
+          runOut,
+          ...(preset ? ['--preset', preset] : []),
+        ],
+        runEnv,
+      );
       const runResults = JSON.parse(await fs.readFile(runOut, 'utf8'));
       const entry = runResults[registryKey];
       if (!entry) {
@@ -354,15 +357,18 @@ async function runPairedBenchmarkFile(
 }
 
 /**
- * Run this runner again in a child process, unpaired, with the same Node
- * flags (the `tsx` loader among them) and environment, `BENCHMARK_PAIRED`
- * left out. Its output goes to this process's.
+ * Run this runner again in a child process with the same Node flags (the
+ * `tsx` loader among them). Its output goes to this process's.
  *
  * @param args - The runner's arguments.
+ * @param env - The run's environment, from `pairedRunEnvironment`: the job's
+ * without `BENCHMARK_PAIRED`, and on a base run without the known-answer
+ * levers.
  */
-async function runRunnerInChildProcess(args: string[]): Promise<void> {
-  const env = { ...process.env };
-  delete env[PAIRED];
+async function runRunnerInChildProcess(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
