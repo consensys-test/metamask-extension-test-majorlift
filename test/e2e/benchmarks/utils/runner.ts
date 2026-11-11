@@ -26,6 +26,7 @@ import {
   KNOWN_ANSWER_STARTUP_DELAY,
   KNOWN_ANSWER_STARTUP_SYNC_BLOCK,
   SAMPLE_EXCLUSION,
+  STARTUP_DISCARD_FIRST_BROWSER_LOAD,
   STARTUP_POST_HERO_LONG_TASKS,
   STARTUP_SETTLE_MAX_MS,
   STARTUP_SETTLE_POLL_MS,
@@ -658,10 +659,11 @@ export function convertSummaryToResults(
  * `calculateTimerStatistics` (iteration-based benchmarks) applies both IQR and
  * z-score because each run is an independent browser session.
  *
- * Sample preparation: the first `WARMUP_RUNS` browser loads are discarded, and
- * in every later browser load the first `EXCLUDED_LEADING_PAGE_LOADS` page
- * loads are kept in `values` (and `webVitals.runs`) flagged `first-page-load`
- * and left out of the statistics.
+ * Sample preparation: the first `WARMUP_RUNS` browser loads are discarded
+ * (none when {@link STARTUP_DISCARD_FIRST_BROWSER_LOAD} is `0`), and in every
+ * later browser load the first `EXCLUDED_LEADING_PAGE_LOADS` page loads are
+ * kept in `values` (and `webVitals.runs`) flagged `first-page-load` and left
+ * out of the statistics.
  *
  * @param measurePageFn - Function that drives one browser session and returns metrics
  * @param options - Benchmark configuration
@@ -692,9 +694,10 @@ export async function runPageLoadBenchmark(
     buildType,
   } = options;
 
-  if (browserLoads <= WARMUP_RUNS) {
+  const warmupBrowserLoads = readStartupWarmupBrowserLoads();
+  if (browserLoads <= warmupBrowserLoads) {
     throw new Error(
-      `browserLoads (${browserLoads}) must be greater than WARMUP_RUNS (${WARMUP_RUNS})`,
+      `browserLoads (${browserLoads}) must be greater than the ${warmupBrowserLoads} discarded as warm-up`,
     );
   }
   if (pageLoads <= EXCLUDED_LEADING_PAGE_LOADS) {
@@ -749,9 +752,9 @@ export async function runPageLoadBenchmark(
     resultPersona = persona;
   }
 
-  // Discard the first WARMUP_RUNS browser-load sessions before computing stats.
-  // Each session contributes exactly pageLoads metric objects to runResults.
-  const warmupSize = WARMUP_RUNS * pageLoads;
+  // Discard the warm-up browser-load sessions before computing stats. Each
+  // session contributes exactly pageLoads metric objects to runResults.
+  const warmupSize = warmupBrowserLoads * pageLoads;
   const measuredResults = runResults.slice(warmupSize);
   // The page load's position within its browser load sets its flag. Iteration
   // numbers run on across browser loads, so the position is the remainder.
@@ -950,6 +953,27 @@ export function readStartupSyncBlockMs(): number {
     );
   }
   return blockMs;
+}
+
+/**
+ * How many leading browser loads a startup run discards as warm-up, from
+ * {@link STARTUP_DISCARD_FIRST_BROWSER_LOAD}.
+ *
+ * @returns when the variable is unset, empty or `1`; 0
+ * when it is `0`.
+ * @throws When it holds any other value.
+ */
+export function readStartupWarmupBrowserLoads(): number {
+  const raw = process.env[STARTUP_DISCARD_FIRST_BROWSER_LOAD];
+  if (raw === undefined || raw === '' || raw === '1') {
+    return WARMUP_RUNS;
+  }
+  if (raw === '0') {
+    return 0;
+  }
+  throw new Error(
+    `${STARTUP_DISCARD_FIRST_BROWSER_LOAD} must be 1 (discard the first browser load) or 0 (keep it), got "${raw}"`,
+  );
 }
 
 /**

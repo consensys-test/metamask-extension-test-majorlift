@@ -12,6 +12,8 @@ import {
   isPairedRun,
   knownAnswerLevers,
   mergePairedRuns,
+  pairedIterationsPerRun,
+  pairedRunArguments,
   pairedRunEnvironment,
   pairedSequence,
   pairedWarmupSequence,
@@ -390,6 +392,26 @@ describe('runPairedRuns', () => {
       expect(knownAnswerLevers(SHARED)).toStrictEqual({});
     });
 
+    it('keeps both startup levers off base runs, and gives both builds the post-hero switch and the discard setting', () => {
+      // A startup leg sets one lever; both are set here only to show each is
+      // withheld from base runs.
+      const startupLevers = {
+        BENCHMARK_KNOWN_ANSWER_STARTUP_DELAY_MS: '188',
+        BENCHMARK_KNOWN_ANSWER_STARTUP_SYNC_BLOCK_MS: '238',
+      };
+      const bothBuilds = {
+        BENCHMARK_STARTUP_POST_HERO_LONG_TASKS: '1',
+        BENCHMARK_STARTUP_DISCARD_FIRST_BROWSER_LOAD: '1',
+      };
+      const job = { [PAIRED]: '1', ...startupLevers, ...bothBuilds };
+
+      expect(pairedRunEnvironment('base', job)).toStrictEqual(bothBuilds);
+      expect(pairedRunEnvironment('head', job)).toStrictEqual({
+        ...bothBuilds,
+        ...startupLevers,
+      });
+    });
+
     it('hands each run, warm-up runs too, its own environment, and records the known-answer variables each got', async () => {
       const given: [string, string, NodeJS.ProcessEnv][] = [];
       const job = await runPairedRuns({
@@ -441,6 +463,56 @@ describe('runPairedRuns', () => {
       });
       expect(env).toStrictEqual(JOB_ENV);
     });
+  });
+});
+
+describe('pairedRunArguments', () => {
+  it('runs an iterated flow for its iterations', () => {
+    const plan = { kind: 'iterations', iterations: 5 } as const;
+    expect(
+      pairedRunArguments({
+        filePath: 'test/e2e/benchmarks/flows/interaction/load-new-account.ts',
+        plan,
+        retries: 2,
+        out: 'run.json',
+      }),
+    ).toStrictEqual([
+      'test/e2e/benchmarks/flows/interaction/load-new-account.ts',
+      '--iterations',
+      '5',
+      '--retries',
+      '2',
+      '--out',
+      'run.json',
+    ]);
+    expect(pairedIterationsPerRun(plan)).toBe(5);
+  });
+
+  it('runs a startup flow as one startup run of its browser loads of page loads, with no --iterations', () => {
+    const plan = { kind: 'startup', browserLoads: 4, pageLoads: 10 } as const;
+    const args = pairedRunArguments({
+      filePath: 'test/e2e/benchmarks/flows/startup/standard-home.ts',
+      plan,
+      retries: 2,
+      out: 'run.json',
+      preset: 'startupStandardHome',
+    });
+
+    expect(args).toStrictEqual([
+      'test/e2e/benchmarks/flows/startup/standard-home.ts',
+      '--browserLoads',
+      '4',
+      '--pageLoads',
+      '10',
+      '--retries',
+      '2',
+      '--out',
+      'run.json',
+      '--preset',
+      'startupStandardHome',
+    ]);
+    expect(args).not.toContain('--iterations');
+    expect(pairedIterationsPerRun(plan)).toBe(40);
   });
 });
 
@@ -548,6 +620,145 @@ describe('mergePairedRuns', () => {
     expect(
       (merge(outcomes).values?.confirm_tx as PairedMetricSample[])[0].excluded,
     ).toBe('first-page-load');
+  });
+
+  it('merges startup runs: page loads numbered across the job, first-page-load flags kept, per-load lists tagged by build, browser-load records left on their run', () => {
+    // Each run is two browser loads of three page loads. The first browser
+    // load is discarded, so a run's values are page loads 3 to 5, the first
+    // flagged `first-page-load`; a run spans 6 iteration numbers. Base page
+    // loads read 300 and up, head 400 and up, warm-up runs 9000.
+    const flagged = (iteration: number) =>
+      iteration === 3 ? { excluded: 'first-page-load' } : {};
+    const startupRun = (
+      build: 'base' | 'head',
+      position: number,
+      level: number,
+    ): PairedRunOutcome => ({
+      build,
+      position,
+      levers:
+        build === 'head'
+          ? { BENCHMARK_KNOWN_ANSWER_STARTUP_DELAY_MS: '188' }
+          : {},
+      result: runResult(
+        {
+          loadScripts: [3, 4, 5].map((iteration) => ({
+            iteration,
+            value: level + iteration,
+            ...flagged(iteration),
+          })),
+        },
+        {
+          browserLoadRecords: [
+            { browserLoad: 0 },
+            { browserLoad: 1, settle: { quietMs: 0, waitedMs: position } },
+          ],
+          postHeroLongTasks: [3, 4, 5].map((iteration) => ({
+            iteration,
+            tasks: [],
+            notStored: 0,
+            ...flagged(iteration),
+          })),
+          // The startup runner writes lever marks only where a lever is set.
+          ...(build === 'head' && {
+            leverMarks: [3, 4, 5].map((iteration) => ({
+              iteration,
+              start: 1,
+              end: 189,
+              ...flagged(iteration),
+            })),
+          }),
+        },
+      ),
+    });
+    const order = 'base-head-head-base';
+    const merged = mergePairedRuns({
+      order,
+      iterationsPerRun: 6,
+      warmup: [startupRun('base', 0, 9000), startupRun('head', 1, 9000)],
+      runs: pairedSequence(order).map((build, position) =>
+        startupRun(build, position, build === 'base' ? 300 : 400),
+      ),
+      identity: IDENTITY,
+    });
+    const read = (entries: unknown) =>
+      (entries as Record<string, unknown>[]).map((entry) => [
+        entry.iteration,
+        entry.build,
+        entry.position,
+        entry.excluded,
+      ]);
+
+    expect(
+      (merged.values?.loadScripts as PairedMetricSample[]).map((sample) => [
+        sample.iteration,
+        sample.value,
+        sample.position,
+        sample.excluded,
+      ]),
+    ).toStrictEqual([
+      [9, 403, 1, 'first-page-load'],
+      [10, 404, 1, undefined],
+      [11, 405, 1, undefined],
+      [15, 403, 2, 'first-page-load'],
+      [16, 404, 2, undefined],
+      [17, 405, 2, undefined],
+    ]);
+    expect(
+      (merged.baseValues?.loadScripts as PairedMetricSample[]).map((sample) => [
+        sample.iteration,
+        sample.value,
+        sample.excluded,
+      ]),
+    ).toStrictEqual([
+      [3, 303, 'first-page-load'],
+      [4, 304, undefined],
+      [5, 305, undefined],
+      [21, 303, 'first-page-load'],
+      [22, 304, undefined],
+      [23, 305, undefined],
+    ]);
+    expect(read(merged.leverMarks)).toStrictEqual([
+      [9, 'head', 1, 'first-page-load'],
+      [10, 'head', 1, undefined],
+      [11, 'head', 1, undefined],
+      [15, 'head', 2, 'first-page-load'],
+      [16, 'head', 2, undefined],
+      [17, 'head', 2, undefined],
+    ]);
+    expect(
+      read(merged.postHeroLongTasks).map(([iteration, build]) => [
+        iteration,
+        build,
+      ]),
+    ).toStrictEqual([
+      [3, 'base'],
+      [4, 'base'],
+      [5, 'base'],
+      [9, 'head'],
+      [10, 'head'],
+      [11, 'head'],
+      [15, 'head'],
+      [16, 'head'],
+      [17, 'head'],
+      [21, 'base'],
+      [22, 'base'],
+      [23, 'base'],
+    ]);
+    expect(
+      merged.pairing.runs.map((run) => [
+        run.build,
+        (run.browserLoadRecords as { settle?: { waitedMs: number } }[])[1]
+          .settle?.waitedMs,
+        run.levers,
+      ]),
+    ).toStrictEqual([
+      ['base', 0, {}],
+      ['head', 1, { BENCHMARK_KNOWN_ANSWER_STARTUP_DELAY_MS: '188' }],
+      ['head', 2, { BENCHMARK_KNOWN_ANSWER_STARTUP_DELAY_MS: '188' }],
+      ['base', 3, {}],
+    ]);
+    expect(JSON.stringify(merged)).not.toContain('9003');
   });
 
   it('carries each run’s known-answer variables into pairing, warm-up runs too', () => {

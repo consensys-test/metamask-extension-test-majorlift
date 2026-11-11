@@ -25,14 +25,16 @@ import type { PreparedMetricSample } from './statistics';
  * head where the job asks for it (ADR 0072, sample preparation and stage 4,
  * "Dependence"). Half the jobs lead with each build, so both a linear drift
  * and a first-position effect cancel. A run is the flow's iterations on one
- * build; the paired statistic takes one value per measured run, the mean of
- * its iterations.
+ * build, or for a startup flow one startup run of its browser loads, each of
+ * its page loads; the paired statistic takes one value per measured run, the
+ * mean of its iterations or page loads.
  *
  * The browser loads the extension from `<cwd>/dist/<browser>`
  * (`webdriver/chrome.js`), so before each run `dist` is pointed at that
  * run's build by a symlink, and afterwards put back as it was. A `dist` that
  * is a real directory is refused rather than moved. Every iteration already
- * starts its own browser, so no browser session spans both builds. Each run
+ * (and every browser load of a startup run) starts its own browser, so no
+ * browser session spans both builds. Each run
  * is also its own process (`run-benchmark.ts`), because the e2e helpers read
  * a build's `manifest.json` once per process and write it back into
  * whichever build `dist` points at (`set-manifest-flags.ts`, `readManifest`):
@@ -147,6 +149,72 @@ export type PairedJobOutcomes = {
   warmup: PairedRunOutcome[];
   runs: PairedRunOutcome[];
 };
+
+/**
+ * What one run of a paired job runs: the flow's iterations, or for a startup
+ * flow one startup run of `browserLoads` browser loads of `pageLoads` page
+ * loads each, which the flow iterates itself.
+ */
+export type PairedRunPlan =
+  | { kind: 'iterations'; iterations: number }
+  | { kind: 'startup'; browserLoads: number; pageLoads: number };
+
+/**
+ * @param plan - What one run runs.
+ * @returns How many iteration numbers one run spans: its iterations, or its
+ * browser loads times its page loads, discarded browser loads included, as
+ * the startup runner numbers them.
+ */
+export function pairedIterationsPerRun(plan: PairedRunPlan): number {
+  return plan.kind === 'startup'
+    ? plan.browserLoads * plan.pageLoads
+    : plan.iterations;
+}
+
+/**
+ * The runner's arguments for one run of a paired job, run unpaired in its own
+ * process.
+ *
+ * @param options - The run.
+ * @param options.filePath - The flow's file.
+ * @param options.plan - What the run runs.
+ * @param options.retries - The invocation's `--retries`.
+ * @param options.out - Where the run writes its results.
+ * @param options.preset - The preset, passed on when the job has one.
+ * @returns The arguments after the runner's script path.
+ */
+export function pairedRunArguments({
+  filePath,
+  plan,
+  retries,
+  out,
+  preset,
+}: {
+  filePath: string;
+  plan: PairedRunPlan;
+  retries: number;
+  out: string;
+  preset?: string;
+}): string[] {
+  const shape =
+    plan.kind === 'startup'
+      ? [
+          '--browserLoads',
+          String(plan.browserLoads),
+          '--pageLoads',
+          String(plan.pageLoads),
+        ]
+      : ['--iterations', String(plan.iterations)];
+  return [
+    filePath,
+    ...shape,
+    '--retries',
+    String(retries),
+    '--out',
+    out,
+    ...(preset ? ['--preset', preset] : []),
+  ];
+}
 
 /**
  * @param env - The environment to read.
@@ -527,10 +595,16 @@ function runError(outcome: PairedRunOutcome): string | undefined {
  * before pairing reads the head as before; `baseValues` holds the base
  * build's, in the same shape. Each entry carries its `build` and its run's
  * `position`.
- * - Every other per-iteration record (`stepTerms`, `requestSequence`), and
- * `lever.measured`, hold both builds, each entry with `build` and `position`.
+ * - Every other per-iteration record (`stepTerms`, `requestSequence`), every
+ * top-level list of per-iteration entries (a startup run's `leverMarks` and
+ * `postHeroLongTasks`), and `lever.measured`, hold both builds, each entry
+ * with `build` and `position`; a flag other than the runner's warm-up flag,
+ * a startup load's `first-page-load` among them, is kept.
  * - Iterations are numbered within the job's measured runs: run `position`'s
- * iteration `i` is `position * iterationsPerRun + i`.
+ * iteration `i` is `position * iterationsPerRun + i` (for a startup run, `i`
+ * counts from its first browser load, the discarded one included).
+ * - A key of a run that is none of these, a startup run's
+ * `browserLoadRecords` among them, stays on that run's `pairing.runs` entry.
  * - `webVitals` is the head build's: its runs, each with `build`, and their
  * aggregate. Each base run's `webVitals` stays on its `pairing.runs` entry.
  * - The statistics (`mean`, `p75` and the rest) are the head build's.
@@ -543,9 +617,9 @@ function runError(outcome: PairedRunOutcome): string | undefined {
  *
  * @param options - The job.
  * @param options.order - The job's order.
- * @param options.iterationsPerRun - Iterations in each run, so a run's
- * numbering starts after the previous run's last iteration whether or not
- * that iteration succeeded.
+ * @param options.iterationsPerRun - Iteration numbers each run spans
+ * ({@link pairedIterationsPerRun}), so a run's numbering starts after the
+ * previous run's last iteration whether or not that iteration succeeded.
  * @param options.warmup - Each warm-up run's outcome.
  * @param options.runs - Each measured run's outcome.
  * @param options.identity - The flow's title and persona, and the platform and
@@ -601,6 +675,7 @@ export function mergePairedRuns({
   const headWebVitalsRuns: PreparedWebVitalsRun[] = [];
   let lever: Record<string, unknown> | undefined;
   const leverMeasured: IterationRecord[] = [];
+  const lists: Record<string, IterationRecord[]> = {};
   const runEntries: PairingRun[] = [];
 
   for (const outcome of measured) {
@@ -646,6 +721,11 @@ export function mergePairedRuns({
         const { measured: entries, ...rest } = value;
         lever ??= rest;
         leverMeasured.push(...tagIterations(entries, outcome, offset));
+      } else if (isIterationEntries(value) && value.length > 0) {
+        lists[key] = [
+          ...(lists[key] ?? []),
+          ...tagIterations(value, outcome, offset),
+        ];
       } else if (isPerIterationRecord(value)) {
         const target =
           key === 'values' && outcome.build === 'base' ? 'baseValues' : key;
@@ -698,6 +778,7 @@ export function mergePairedRuns({
   return {
     ...statistics,
     ...merged,
+    ...lists,
     ...(lever && { lever: { ...lever, measured: leverMeasured } }),
     pairing: { order, warmup: warmupEntries, runs: runEntries },
     ...(failures.length > 0 && {

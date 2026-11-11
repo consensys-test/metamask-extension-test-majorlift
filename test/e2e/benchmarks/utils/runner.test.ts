@@ -502,6 +502,71 @@ describe('runPageLoadBenchmark', () => {
     expect(results.max.uiStartup).toBe(106);
   });
 
+  describe('the first browser load discard (BENCHMARK_STARTUP_DISCARD_FIRST_BROWSER_LOAD)', () => {
+    const DISCARD = 'BENCHMARK_STARTUP_DISCARD_FIRST_BROWSER_LOAD';
+    let saved: string | undefined;
+
+    beforeEach(() => {
+      saved = process.env[DISCARD];
+    });
+
+    afterEach(() => {
+      if (saved === undefined) {
+        delete process.env[DISCARD];
+      } else {
+        process.env[DISCARD] = saved;
+      }
+    });
+
+    const read = async () =>
+      (
+        await runPageLoadBenchmark(browserLoadsOf(UI_STARTUP), {
+          browserLoads: 3,
+          pageLoads: 3,
+        })
+      ).values?.uiStartup?.map((sample) => [
+        sample.iteration,
+        sample.value,
+        sample.excluded,
+      ]);
+    const DISCARDED = [
+      [3, 500, 'first-page-load'],
+      [4, 100, undefined],
+      [5, 102, undefined],
+      [6, 500, 'first-page-load'],
+      [7, 104, undefined],
+      [8, 106, undefined],
+    ];
+
+    it('keeps the first browser load at 0, its first page load flagged like any other', async () => {
+      process.env[DISCARD] = '0';
+      expect(await read()).toStrictEqual([
+        [0, 999, 'first-page-load'],
+        [1, 999, undefined],
+        [2, 999, undefined],
+        ...DISCARDED,
+      ]);
+    });
+
+    it('discards it at 1, as when unset or empty', async () => {
+      for (const value of ['1', '', undefined]) {
+        if (value === undefined) {
+          delete process.env[DISCARD];
+        } else {
+          process.env[DISCARD] = value;
+        }
+        expect(await read()).toStrictEqual(DISCARDED);
+      }
+    });
+
+    it('refuses any other value', async () => {
+      process.env[DISCARD] = 'yes';
+      await expect(read()).rejects.toThrow(
+        'BENCHMARK_STARTUP_DISCARD_FIRST_BROWSER_LOAD must be 1',
+      );
+    });
+  });
+
   it('does not emit a metric the browser never reported', async () => {
     const results = await runPageLoadBenchmark(browserLoadsOf(UI_STARTUP), {
       browserLoads: 3,

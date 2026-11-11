@@ -62,6 +62,17 @@ export const POWER_USER_NUM_BROWSER_LOADS = 15;
 export const WARMUP_RUNS = 1;
 
 /**
+ * Startup sample preparation, `0` to keep a startup run's first browser load.
+ * Unset, empty or `1`, a startup run discards its first {@link WARMUP_RUNS}
+ * browser loads, as it always has; any other value throws. A paired job
+ * (`utils/paired.ts`) runs warm-up runs of its own, so whether each of its
+ * startup runs also drops its first browser load is a setting. It is not a
+ * known-answer lever, so it reaches base and head runs alike.
+ */
+export const STARTUP_DISCARD_FIRST_BROWSER_LOAD =
+  'BENCHMARK_STARTUP_DISCARD_FIRST_BROWSER_LOAD';
+
+/**
  * Number of leading page loads in each measured browser load that the startup
  * flows flag as excluded. The first page loads after unlock coincide with extra
  * network traffic and sit apart from the rest in nearly every run.
