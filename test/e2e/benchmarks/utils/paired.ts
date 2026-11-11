@@ -59,6 +59,17 @@ export const PAIRED_BASE_DIST = 'BENCHMARK_PAIRED_BASE_DIST';
 /** The head build's `dist` directory, the one holding `chrome/`. */
 export const PAIRED_HEAD_DIST = 'BENCHMARK_PAIRED_HEAD_DIST';
 
+/**
+ * The known-answer levers' prefix (`mocks/known-answer.ts`,
+ * `utils/in-page-step-timer.ts`, `utils/constants.ts`). In a paired job every
+ * variable under it reaches the head build's runs only: each base run's
+ * process starts without them. A lever is a delay added to the build under
+ * test, so head minus base within a job reads it; set on both builds it would
+ * read nothing. Every other variable, the switches and mock settings among
+ * them, reaches both builds alike.
+ */
+export const HEAD_ONLY_PREFIX = 'BENCHMARK_KNOWN_ANSWER_';
+
 export const PAIRED_ORDERS = [
   'base-head-head-base',
   'head-base-base-head',
@@ -80,13 +91,16 @@ export type PairedConfig = {
 /**
  * One run of a paired job. `host` is the machine and in-page CPU probe
  * readings the run's own process recorded, and `error` why the run gave no
- * values, or why every iteration failed. On a measured run, a key of the
- * run's results that the merge does not know, and that is not a per-iteration
+ * values, or why every iteration failed. `levers` is every known-answer
+ * variable ({@link HEAD_ONLY_PREFIX}) the run's process was started with, and
+ * its value: empty on a base run. On a measured run, a key of the run's
+ * results that the merge does not know, and that is not a per-iteration
  * record, is kept here under its own name, as is a base run's `webVitals`.
  */
 export type PairingRun = {
   build: PairedBuild;
   position: number;
+  levers?: Record<string, string>;
   host?: HostProvenance;
   error?: string;
   [key: string]: unknown;
@@ -116,10 +130,14 @@ export type PairedBenchmarkResults = BenchmarkResults & {
   [key: string]: unknown;
 };
 
-/** What one run gave: its results, or why it gave none. */
+/**
+ * What one run gave: its results, or why it gave none, and the known-answer
+ * variables its process was started with.
+ */
 export type PairedRunOutcome = {
   build: PairedBuild;
   position: number;
+  levers?: Record<string, string>;
   result?: BenchmarkResults & Record<string, unknown>;
   error?: string;
 };
@@ -207,6 +225,48 @@ export function pairedWarmupSequence(order: PairedOrder): PairedBuild[] {
   return pairedSequence(order).slice(0, 2);
 }
 
+/**
+ * @param env - An environment.
+ * @returns Every known-answer variable ({@link HEAD_ONLY_PREFIX}) set in it,
+ * and its value.
+ */
+export function knownAnswerLevers(
+  env: NodeJS.ProcessEnv,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(env)
+      .filter(
+        (entry): entry is [string, string] =>
+          entry[0].startsWith(HEAD_ONLY_PREFIX) && entry[1] !== undefined,
+      )
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
+}
+
+/**
+ * The environment one run's process starts with: the job's, without
+ * {@link PAIRED}, so the run is unpaired, and on a base run without any
+ * known-answer variable ({@link HEAD_ONLY_PREFIX}), so a lever reaches the
+ * head build alone.
+ *
+ * @param build - The run's build.
+ * @param env - The job's environment.
+ * @returns The run's environment, a copy.
+ */
+export function pairedRunEnvironment(
+  build: PairedBuild,
+  env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const runEnv = { ...env };
+  delete runEnv[PAIRED];
+  if (build === 'base') {
+    for (const name of Object.keys(knownAnswerLevers(runEnv))) {
+      delete runEnv[name];
+    }
+  }
+  return runEnv;
+}
+
 /** What `dist` was before a paired job pointed it at a build. */
 export type DistState =
   | { kind: 'absent' }
@@ -277,8 +337,12 @@ export async function restoreDistState(
  * @param options - The job.
  * @param options.config - The order and each build's `dist` directory.
  * @param options.distLink - The `dist` path the browser loads from.
- * @param options.runOne - Runs one run on the build `dist` points at. A run
- * that throws is recorded with its error and the job goes on.
+ * @param options.runOne - Runs one run on the build `dist` points at, its
+ * process started with the environment it is given. A run that throws is
+ * recorded with its error and the job goes on.
+ * @param options.env - The job's environment; each run gets
+ * {@link pairedRunEnvironment} of it, so known-answer levers reach head runs
+ * only, and records the known-answer variables it got under `levers`.
  * @returns Each run's outcome, warm-up and measured apart, in the order they
  * ran.
  */
@@ -286,6 +350,7 @@ export async function runPairedRuns({
   config,
   distLink,
   runOne,
+  env = process.env,
 }: {
   config: PairedConfig;
   distLink: string;
@@ -293,7 +358,9 @@ export async function runPairedRuns({
     build: PairedBuild,
     position: number,
     phase: PairedPhase,
+    runEnv: NodeJS.ProcessEnv,
   ) => Promise<BenchmarkResults & Record<string, unknown>>;
+  env?: NodeJS.ProcessEnv;
 }): Promise<PairedJobOutcomes> {
   const before = await readDistState(distLink);
   const job: PairedJobOutcomes = { warmup: [], runs: [] };
@@ -309,20 +376,23 @@ export async function runPairedRuns({
             ? `paired warm-up run ${position}, discarded`
             : `paired run ${position} of ${config.order}`;
         await pointDistAt(distLink, config.dist[build]);
+        const runEnv = pairedRunEnvironment(build, env);
+        const levers = knownAnswerLevers(runEnv);
         console.log(
-          `[benchmark] ${label}: the ${build} build, ${config.dist[build]}`,
+          `[benchmark] ${label}: the ${build} build, ${config.dist[build]}; known-answer variables: ${JSON.stringify(levers)}`,
         );
         try {
           outcomes.push({
             build,
             position,
-            result: await runOne(build, position, phase),
+            levers,
+            result: await runOne(build, position, phase, runEnv),
           });
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
           console.error(`[benchmark] ${label} failed: ${message}`);
-          outcomes.push({ build, position, error: message });
+          outcomes.push({ build, position, levers, error: message });
         }
       }
     }
@@ -465,8 +535,9 @@ function runError(outcome: PairedRunOutcome): string | undefined {
  * aggregate. Each base run's `webVitals` stays on its `pairing.runs` entry.
  * - The statistics (`mean`, `p75` and the rest) are the head build's.
  * - `pairing` gives the order, the warm-up runs under `warmup` and the
- * measured runs under `runs`, each with its own `host` readings and its
- * `error` where it has one. Nothing else of a warm-up run is kept.
+ * measured runs under `runs`, each with the known-answer variables its
+ * process got (`levers`), its own `host` readings and its `error` where it
+ * has one. Nothing else of a warm-up run is kept.
  * - `error` is set when any run, warm-up or measured, gave no values or every
  * iteration of it failed, naming the runs.
  *
@@ -505,6 +576,7 @@ export function mergePairedRuns({
     const entry: PairingRun = {
       build: outcome.build,
       position: outcome.position,
+      ...(outcome.levers && { levers: outcome.levers }),
     };
     if (outcome.result?.host) {
       entry.host = outcome.result.host;
@@ -535,6 +607,7 @@ export function mergePairedRuns({
     const run: PairingRun = {
       build: outcome.build,
       position: outcome.position,
+      ...(outcome.levers && { levers: outcome.levers }),
     };
     const offset = outcome.position * iterationsPerRun;
     const error = runError(outcome);
