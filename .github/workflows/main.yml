@@ -267,7 +267,8 @@ jobs:
     secrets: inherit
 
   run-benchmarks:
-    if: ${{ !cancelled() && needs.get-requirements.outputs.needs-benchmarks == 'true' && !contains(needs.*.result, 'failure') }}
+    # Paired window (pw), the base build's run: builds only.
+    if: ${{ false }}
     permissions:
       contents: read
       id-token: write
@@ -390,7 +391,8 @@ jobs:
     needs:
       - get-requirements
       - prep-deps
-    if: ${{ needs.get-requirements.outputs.needs-e2e == 'true' }}
+    # Paired window (pw): end-to-end tests do not run on these trigger branches.
+    if: ${{ false }}
     uses: ./.github/workflows/prep-e2e.yml
 
   ai-pr-risk-analysis:
@@ -438,7 +440,8 @@ jobs:
       - build-test-flask-webpack
     uses: ./.github/workflows/e2e-chrome.yml
     # Without this `if`, when builds-from-run is activated, the build jobs are considered skipped, and the downstream E2E tests won't run
-    if: ${{ !cancelled() && needs.get-requirements.outputs.needs-e2e == 'true' && !contains(needs.*.result, 'failure') }}
+    # Paired window (pw): end-to-end tests do not run on these trigger branches.
+    if: ${{ false }}
     with:
       builds-from-run: ${{ needs.get-requirements.outputs.builds-from-run }}
       use-matrix: ${{ needs.prep-e2e.outputs.use-matrix }}
@@ -453,7 +456,8 @@ jobs:
       - build-test-flask-mv2-webpack
     uses: ./.github/workflows/e2e-firefox.yml
     # Without this `if`, when builds-from-run is activated, the build jobs are considered skipped, and the downstream E2E tests won't run
-    if: ${{ !cancelled() && needs.get-requirements.outputs.needs-e2e == 'true' && !contains(needs.*.result, 'failure') }}
+    # Paired window (pw): end-to-end tests do not run on these trigger branches.
+    if: ${{ false }}
     with:
       builds-from-run: ${{ needs.get-requirements.outputs.builds-from-run }}
       use-matrix: ${{ needs.prep-e2e.outputs.use-matrix }}
