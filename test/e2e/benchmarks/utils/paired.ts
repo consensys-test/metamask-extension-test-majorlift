@@ -23,15 +23,16 @@ import {
  * the measured runs in the order base, head, head, base, or head, base, base,
  * head where the job asks for it. Half the jobs lead with each build, so both
  * a linear drift and a first-position effect cancel. A run is the flow's
- * iterations on one build; the paired statistic takes one value per measured
- * run, the mean of its iterations.
+ * iterations on one build, or for a startup flow one startup run of its
+ * browser loads, each of its page loads; the paired statistic takes one value
+ * per measured run, the mean of its iterations or page loads.
  *
  * The browser loads the extension from `<cwd>/dist/<browser>`
  * (`webdriver/chrome.js`), so before each run `dist` is pointed at that
  * run's build by a symlink, and afterwards put back as it was. A `dist` that
- * is a real directory is refused rather than moved. Every iteration already
- * starts its own browser, so no browser session spans both builds. Each run
- * is also its own process (`run-benchmark.ts`), because the e2e helpers read
+ * is a real directory is refused rather than moved. Every iteration (and
+ * every browser load of a startup run) already starts its own browser, so no
+ * browser session spans both builds. Each run is also its own process (`run-benchmark.ts`), because the e2e helpers read
  * a build's `manifest.json` once per process and write it back into
  * whichever build `dist` points at (`set-manifest-flags.ts`, `readManifest`):
  * in one process the second build would get the first build's manifest.
@@ -127,12 +128,33 @@ export type PairedJobOutcomes = {
 };
 
 /**
+ * What one run of a paired job runs: the flow's iterations, or for a startup
+ * flow one startup run of `browserLoads` browser loads of `pageLoads` page
+ * loads each, which the flow iterates itself.
+ */
+export type PairedRunPlan =
+  | { kind: 'iterations'; iterations: number }
+  | { kind: 'startup'; browserLoads: number; pageLoads: number };
+
+/**
+ * @param plan - What one run runs.
+ * @returns How many iteration numbers one run spans: its iterations, or its
+ * browser loads times its page loads, the discarded first browser load
+ * included, as the startup runner numbers them (`runPageLoadBenchmark`).
+ */
+export function pairedIterationsPerRun(plan: PairedRunPlan): number {
+  return plan.kind === 'startup'
+    ? plan.browserLoads * plan.pageLoads
+    : plan.iterations;
+}
+
+/**
  * The runner's arguments for one run of a paired job, run unpaired in its own
  * process.
  *
  * @param options - The run.
  * @param options.filePath - The flow's file.
- * @param options.iterations - The run's iterations.
+ * @param options.plan - What the run runs.
  * @param options.retries - The invocation's `--retries`.
  * @param options.out - Where the run writes its results.
  * @param options.preset - The preset, passed on when the job has one.
@@ -140,21 +162,29 @@ export type PairedJobOutcomes = {
  */
 export function pairedRunArguments({
   filePath,
-  iterations,
+  plan,
   retries,
   out,
   preset,
 }: {
   filePath: string;
-  iterations: number;
+  plan: PairedRunPlan;
   retries: number;
   out: string;
   preset?: string;
 }): string[] {
+  const shape =
+    plan.kind === 'startup'
+      ? [
+          '--browserLoads',
+          String(plan.browserLoads),
+          '--pageLoads',
+          String(plan.pageLoads),
+        ]
+      : ['--iterations', String(plan.iterations)];
   return [
     filePath,
-    '--iterations',
-    String(iterations),
+    ...shape,
     '--retries',
     String(retries),
     '--out',
@@ -509,7 +539,8 @@ function runError(outcome: PairedRunOutcome): string | undefined {
  * - Every other per-iteration record (`{ [key]: Array<{ iteration, ... }> }`)
  * holds both builds, each entry with `build` and `position`.
  * - Iterations are numbered within the job's measured runs: run `position`'s
- * iteration `i` is `position * iterationsPerRun + i`.
+ * iteration `i` is `position * iterationsPerRun + i` (for a startup run, `i`
+ * counts from its first browser load, the discarded one included).
  * - A key of a run that is none of these stays on that run's `pairing.runs`
  * entry.
  * - `webVitals` is the head build's: its runs, each with `build`, and their
@@ -522,9 +553,9 @@ function runError(outcome: PairedRunOutcome): string | undefined {
  *
  * @param options - The job.
  * @param options.order - The job's order.
- * @param options.iterationsPerRun - Iteration numbers each run spans, so a
- * run's numbering starts after the previous run's last iteration whether or
- * not that iteration succeeded.
+ * @param options.iterationsPerRun - Iteration numbers each run spans
+ * ({@link pairedIterationsPerRun}), so a run's numbering starts after the
+ * previous run's last iteration whether or not that iteration succeeded.
  * @param options.warmup - Each warm-up run's outcome.
  * @param options.runs - Each measured run's outcome.
  * @param options.identity - The flow's title and persona, and the platform and

@@ -9,6 +9,7 @@ import {
   PAIRED_HEAD_DIST,
   PAIRED_ORDER,
   mergePairedRuns,
+  pairedIterationsPerRun,
   pairedRunArguments,
   pairedRunEnvironment,
   pairedSequence,
@@ -369,11 +370,12 @@ describe('runPairedRuns', () => {
 });
 
 describe('pairedRunArguments', () => {
-  it('runs the flow for its iterations, with the retries and where to write', () => {
+  it('runs an iterated flow for its iterations, with the retries and where to write', () => {
+    const plan = { kind: 'iterations', iterations: 5 } as const;
     expect(
       pairedRunArguments({
         filePath: 'test/e2e/benchmarks/flows/interaction/load-new-account.ts',
-        iterations: 5,
+        plan,
         retries: 2,
         out: 'run.json',
       }),
@@ -386,13 +388,38 @@ describe('pairedRunArguments', () => {
       '--out',
       'run.json',
     ]);
+    expect(pairedIterationsPerRun(plan)).toBe(5);
+  });
+
+  it('runs a startup flow as one startup run of its browser loads of page loads, with no --iterations', () => {
+    const plan = { kind: 'startup', browserLoads: 4, pageLoads: 10 } as const;
+    expect(
+      pairedRunArguments({
+        filePath: 'test/e2e/benchmarks/flows/startup/standard-home.ts',
+        plan,
+        retries: 2,
+        out: 'run.json',
+      }),
+    ).toStrictEqual([
+      'test/e2e/benchmarks/flows/startup/standard-home.ts',
+      '--browserLoads',
+      '4',
+      '--pageLoads',
+      '10',
+      '--retries',
+      '2',
+      '--out',
+      'run.json',
+    ]);
+    // The discarded first browser load is numbered too.
+    expect(pairedIterationsPerRun(plan)).toBe(40);
   });
 
   it('passes the preset on when the job has one', () => {
     expect(
       pairedRunArguments({
         filePath: 'flow.ts',
-        iterations: 3,
+        plan: { kind: 'iterations', iterations: 3 },
         retries: 0,
         out: 'run.json',
         preset: 'interactionUserActions',
@@ -696,5 +723,66 @@ describe('mergePairedRuns', () => {
     expect(merged.error).toMatch(
       /^paired job incomplete: warm-up run 0 \(head\): no build;/u,
     );
+  });
+
+  it('merges startup runs: page loads numbered across the job from each run’s first browser load, the discarded one included', () => {
+    // A startup run of 2 browser loads of 2 page loads numbers 4 page loads
+    // per run; the runner drops the first browser load's, so its `values`
+    // start at iteration 2.
+    const startupRun = (base: number) => ({
+      uiStartup: [
+        { iteration: 2, value: base },
+        { iteration: 3, value: base + 1 },
+      ],
+    });
+    const outcomes = {
+      warmup: (['base', 'head'] as const).map((build, position) => ({
+        build,
+        position,
+        result: runResult(startupRun(WARMUP_VALUE + position)),
+      })),
+      runs: pairedSequence('base-head-head-base').map((build, position) => ({
+        build,
+        position,
+        result: runResult(startupRun(build === 'base' ? 100 : 200)),
+      })),
+    };
+    const merged = mergePairedRuns({
+      order: 'base-head-head-base',
+      iterationsPerRun: pairedIterationsPerRun({
+        kind: 'startup',
+        browserLoads: 2,
+        pageLoads: 2,
+      }),
+      ...outcomes,
+      identity: IDENTITY,
+    });
+
+    expect(
+      (merged.values?.uiStartup as PairedMetricSample[]).map(
+        ({ iteration, value, build, position }) => [
+          iteration,
+          value,
+          build,
+          position,
+        ],
+      ),
+    ).toStrictEqual([
+      [6, 200, 'head', 1],
+      [7, 201, 'head', 1],
+      [10, 200, 'head', 2],
+      [11, 201, 'head', 2],
+    ]);
+    expect(
+      (merged.baseValues?.uiStartup as PairedMetricSample[]).map(
+        ({ iteration, value }) => [iteration, value],
+      ),
+    ).toStrictEqual([
+      [2, 100],
+      [3, 101],
+      [14, 100],
+      [15, 101],
+    ]);
+    expect(merged.error).toBeUndefined();
   });
 });

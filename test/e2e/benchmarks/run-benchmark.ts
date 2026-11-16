@@ -42,10 +42,12 @@ import {
 import {
   PAIRED,
   mergePairedRuns,
+  pairedIterationsPerRun,
   pairedRunArguments,
   readPairedConfig,
   runPairedRuns,
 } from './utils/paired';
+import type { PairedRunPlan } from './utils/paired';
 
 /**
  * Startup benchmarks handle their own iteration internally (browserLoads x pageLoads).
@@ -260,31 +262,39 @@ async function runBenchmarkFile(
  * Run a flow on a base and a head build in one job, under `BENCHMARK_PAIRED=1`
  * (`utils/paired.ts`). Each run, the two warm-up runs and the four measured
  * runs, is this runner again, unpaired, in a child process, with `dist`
- * pointed at the run's build; the runs' results are merged into one entry.
- * Each run runs `--iterations` iterations of the flow.
+ * pointed at the run's build; the runs' results are merged into one entry. A
+ * run of an iterated flow runs `--iterations`; a run of a startup flow is one
+ * startup run of `--browserLoads` browser loads of `--pageLoads` page loads,
+ * which the flow iterates itself.
  *
  * @param filePath - The flow's file.
  * @param options - The invocation's options.
  * @param options.iterations - The invocation's `--iterations`, each run's.
  * @param options.retries - The invocation's `--retries`.
+ * @param options.browserLoads - The invocation's `--browserLoads`, each
+ * startup run's.
+ * @param options.pageLoads - The invocation's `--pageLoads`, each startup
+ * run's.
  * @param preset - The preset, passed on to each run.
  * @param outputFilename - The output filename, for the platform and build
  * type it carries.
  */
 async function runPairedBenchmarkFile(
   filePath: string,
-  options: { iterations: number; retries: number },
+  options: {
+    iterations: number;
+    retries: number;
+    browserLoads: number;
+    pageLoads: number;
+  },
   preset?: string,
   outputFilename?: string,
 ): Promise<unknown> {
   const fileName = path.basename(filePath, path.extname(filePath));
-  if (isPlaywrightBenchmarkFile(filePath) || !supportsIterations(filePath)) {
+  if (isPlaywrightBenchmarkFile(filePath)) {
     throw new Error(
-      `${PAIRED}=1 pairs the flows this runner iterates; ${fileName} is a startup flow or a Playwright spec, which iterate or write their output themselves`,
+      `${PAIRED}=1 pairs flows this runner runs; ${fileName} is a Playwright spec, which writes its own output`,
     );
-  }
-  if (options.iterations <= 0) {
-    throw new Error(`${PAIRED}=1 needs --iterations above 0`);
   }
   const config = readPairedConfig();
 
@@ -296,6 +306,13 @@ async function runPairedBenchmarkFile(
       `No threshold config for "${fileName}" (registry key "${registryKey}"). Add an entry to THRESHOLD_REGISTRY in thresholds.ts.`,
     );
   }
+  const plan: PairedRunPlan = supportsIterations(filePath)
+    ? { kind: 'iterations', iterations: options.iterations }
+    : {
+        kind: 'startup',
+        browserLoads: options.browserLoads,
+        pageLoads: options.pageLoads,
+      };
   const { platform, buildType } = extractPlatformBuildType(outputFilename);
   const runsDirectory = await fs.mkdtemp(
     path.join(os.tmpdir(), 'benchmark-paired-'),
@@ -317,7 +334,7 @@ async function runPairedBenchmarkFile(
       await runRunnerInChildProcess(
         pairedRunArguments({
           filePath,
-          iterations: options.iterations,
+          plan,
           retries: options.retries,
           out: runOut,
           preset,
@@ -335,7 +352,7 @@ async function runPairedBenchmarkFile(
 
   const result = mergePairedRuns({
     order: config.order,
-    iterationsPerRun: options.iterations,
+    iterationsPerRun: pairedIterationsPerRun(plan),
     warmup: job.warmup,
     runs: job.runs,
     identity: {
