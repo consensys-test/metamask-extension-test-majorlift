@@ -1,3 +1,5 @@
+// No-op control for the benchmark admission gate, stage 4 criterion 3.
+// Comment-only: it rebuilds the bundle and changes no executed statement.
 import React, { useMemo, useState } from 'react';
 import { useSelector, shallowEqual } from 'react-redux';
 import { BigNumber } from 'bignumber.js';
